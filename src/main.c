@@ -33,7 +33,7 @@ static void (*const transitionfunc[2]) (void) = {
 };
 
 //this is the state started by the STARTING state
-const static enum states FIRSTSTATE = CLOSING;
+const static enum states FIRSTSTATE = GAME;
 
 static int isrunning = 1;
 static int istransitioning = 0;
@@ -93,7 +93,7 @@ transition()
 static void
 fail(const char *msg)
 {
-	printf("FAILED: %s", msg);
+	printf("FAILED: %s\n", msg);
 	state_changeto(CLOSING);
 }
 
@@ -138,14 +138,13 @@ static void initalize()
 		//SDL2 didn't create a window
 		fail("SDL_CreateWindow");
 
-	if(glewInit() != GLEW_OK)
-		//glew couldnt sort out the opengl functions
-		fail("glewInit()");
-
 	glcontext = SDL_GL_CreateContext(win);
 	if(!glcontext)
 		//SDL2 didint create the required link with opengl
 		fail("SDL_GL_CreateContext()");
+
+	if(glewInit())
+		fail("glewInit()");
 
 	glClearColor(1,0,0,1);
 	glClear(GL_COLOR_BUFFER_BIT);
