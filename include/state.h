@@ -5,4 +5,6 @@ enum states {MENU, GAME, STARTING, CLOSING, MAX_STATES};
 
 void state_changeto(enum states newstate);
 
+void swapWindow();
+
 #endif

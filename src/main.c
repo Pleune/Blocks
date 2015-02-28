@@ -144,11 +144,10 @@ static void initalize()
 		fail("SDL_GL_CreateContext()");
 
 	if(glewInit())
+		//glew couldn't do to wrangling
 		fail("glewInit()");
 
 	glClearColor(1,0,0,1);
-	glClear(GL_COLOR_BUFFER_BIT);
-	SDL_GL_SwapWindow(win);
 }
 
 //this is the only CLOSING state function****
@@ -162,4 +161,11 @@ exitgame()
 	cleanup();
 	printf("STATUS: exiting the program.\n");
 	isrunning = 0;
+}
+
+//functions used outside this file
+void
+swapWindow()
+{
+	SDL_GL_SwapWindow(win);
 }
