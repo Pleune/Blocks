@@ -1,5 +1,8 @@
 #include <stdio.h>
 
+#include <SDL2/SDL.h>
+#include <GL/glew.h>
+
 #include "state.h"
 #include "state_menu.h"
 #include "state_game.h"
@@ -39,9 +42,9 @@ static int istransitioning = 0;
 static enum states currentstate = STARTING;
 static enum states nextstate;
 
-//norm
-int std_w;
-int std_h;
+//the main window
+SDL_Window *win;
+SDL_GLContext glcontext;
 
 int
 main(int argc, char *argv[])
@@ -86,6 +89,14 @@ transition()
 	istransitioning = 0;
 }
 
+//something bad happened, exit
+static void
+fail(const char *msg)
+{
+	printf("FAILED: %s", msg);
+	state_changeto(CLOSING);
+}
+
 //the STARTING state functions****
 
 //state: STARTING
@@ -97,6 +108,10 @@ static void
 cleanup()
 {
 	printf("STATUS: cleaning up for either an exit or a reboot\n");
+
+	SDL_GL_DeleteContext(glcontext);
+	SDL_DestroyWindow(win);
+	SDL_Quit();
 }
 
 //state: STARTING
@@ -113,6 +128,28 @@ static void start()
 static void initalize()
 {
 	printf("STATUS: initalizing the program\n");
+
+	if(SDL_Init(SDL_INIT_EVERYTHING))
+		//SDL2 init failed
+		fail("SDL_Init(SDL_INIT_EVERYTHING)");
+
+	win = SDL_CreateWindow("Blocks", 100, 100, 640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+	if(!win)
+		//SDL2 didn't create a window
+		fail("SDL_CreateWindow");
+
+	if(glewInit() != GLEW_OK)
+		//glew couldnt sort out the opengl functions
+		fail("glewInit()");
+
+	glcontext = SDL_GL_CreateContext(win);
+	if(!glcontext)
+		//SDL2 didint create the required link with opengl
+		fail("SDL_GL_CreateContext()");
+
+	glClearColor(1,0,0,1);
+	glClear(GL_COLOR_BUFFER_BIT);
+	SDL_GL_SwapWindow(win);
 }
 
 //this is the only CLOSING state function****
