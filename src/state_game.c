@@ -24,6 +24,21 @@ state_game_run()
 {
 	ticks = SDL_GetTicks();
 
+	SDL_Event e;
+	while(SDL_PollEvent(&e))
+	{
+		//handle input
+		if(e.type == SDL_KEYDOWN)
+		{
+			switch(e.key.keysym.sym)
+			{
+				case SDLK_ESCAPE:
+					state_changeto(CLOSING);
+				break;
+			}
+		}
+	}
+
 	glClear(GL_COLOR_BUFFER_BIT);
 	swapWindow();
 
