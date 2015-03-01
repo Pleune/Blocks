@@ -46,6 +46,8 @@ static enum states nextstate;
 SDL_Window *win;
 SDL_GLContext glcontext;
 
+char *basepath;
+
 int
 main(int argc, char *argv[])
 {
@@ -109,6 +111,7 @@ cleanup()
 {
 	printf("STATUS: cleaning up for either an exit or a reboot\n");
 
+	free(basepath);
 	SDL_GL_DeleteContext(glcontext);
 	SDL_DestroyWindow(win);
 	SDL_Quit();
@@ -147,7 +150,14 @@ static void initalize()
 		//glew couldn't do to wrangling
 		fail("glewInit()");
 
+	//apperently this is needed, not sure exactly what it does
+	GLuint VertexArrayID;
+	glGenVertexArrays(1, &VertexArrayID);
+	glBindVertexArray(VertexArrayID);
+
 	glClearColor(1,0,0,1);
+
+	basepath = SDL_GetBasePath();
 }
 
 //this is the only CLOSING state function****
@@ -168,4 +178,10 @@ void
 swapWindow()
 {
 	SDL_GL_SwapWindow(win);
+}
+
+char *
+getbasepath()
+{
+	return basepath;
 }
