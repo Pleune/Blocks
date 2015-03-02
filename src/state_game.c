@@ -126,6 +126,7 @@ state_game_init()
 	roty = 0;
 
 	centermouse();
+	SDL_ShowCursor(0);
 
 	ticks = SDL_GetTicks();
 }
@@ -143,6 +144,8 @@ state_game_run()
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
 	{
+		if(e.type == SDL_QUIT)
+			state_changeto(CLOSING);
 		//handle input
 		if(e.type == SDL_KEYDOWN)
 		{
