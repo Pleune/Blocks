@@ -8,13 +8,15 @@
 #include <SDL2/SDL.h>
 
 #include "state.h"
+#include "custommath.h"
 
 uint32_t ticks = 0;
 
 GLuint vertexbuffer;
 GLuint program;
+GLuint matrix;
 
-int fpscap = 0;
+int fpscap = 1;
 const int fpsmax = 60;
 
 static void
@@ -111,6 +113,8 @@ state_game_init()
 
 	glDeleteShader(vertexshader);
 	glDeleteShader(fragmentshader);
+
+	matrix = glGetUniformLocation(program, "MVP");
 }
 
 void
@@ -131,10 +135,51 @@ state_game_run()
 				break;
 			}
 		}
+		else if(e.type == SDL_WINDOWEVENT)
+		{
+			if(e.window.event == SDL_WINDOWEVENT_RESIZED)
+				updatewindowbounds(e.window.data1, e.window.data2);
+		}
 	}
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(program);
+
+	int windoww, windowh;
+	getwindowsize(&windoww, &windowh);
+
+	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, .1, 100);
+
+	static float i = 4;
+	static int wobbledir = 0;
+	if(wobbledir)
+	{
+		i+= .3;
+		if(i>6)
+			wobbledir = 0;
+	} else {
+		i -= .1;
+		if(i<-6)
+			wobbledir = 1;
+	}
+
+	vec3_t pos;
+	pos.x = i;
+	pos.y = 4;
+	pos.z = 3;
+	vec3_t target;
+	target.x = 0;
+	target.y = 0;
+	target.z = 0;
+	vec3_t up;
+	up.x = 0;
+	up.y = 1;
+	up.z = 0;
+	mat4_t view = getviewmatrix(pos, target, up);
+
+	mat4_t mvp;
+	dotmat4mat4(&mvp, &projection, &view);
+	glUniformMatrix4fv(matrix, 1, GL_FALSE, mvp.mat);
 
 	GLfloat g_vertex_buffer_data[] = {
 		-1.0f, -1.0f, 0.0f,
@@ -161,7 +206,7 @@ state_game_run()
 
 	glDisableVertexAttribArray(0);
 
-	swapWindow();
+	swapwindow();
 
 	if(fpscap)
 	{

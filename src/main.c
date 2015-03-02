@@ -46,6 +46,8 @@ static enum states nextstate;
 SDL_Window *win;
 SDL_GLContext glcontext;
 
+int windoww, windowh;
+
 char *basepath;
 
 int
@@ -150,12 +152,14 @@ static void initalize()
 		//glew couldn't do to wrangling
 		fail("glewInit()");
 
+	SDL_GetWindowSize(win, &windoww, &windowh);
+
 	//apperently this is needed, not sure exactly what it does
 	GLuint VertexArrayID;
 	glGenVertexArrays(1, &VertexArrayID);
 	glBindVertexArray(VertexArrayID);
 
-	glClearColor(1,0,0,1);
+	glClearColor(.3,0,0,1);
 
 	basepath = SDL_GetBasePath();
 }
@@ -175,7 +179,23 @@ exitgame()
 
 //functions used outside this file
 void
-swapWindow()
+updatewindowbounds(int w, int h)
+{
+	glViewport(0, 0, w, h);
+	windoww = w;
+	windowh = h;
+	printf("resize\n");
+}
+
+void
+getwindowsize(int *w, int*h)
+{
+	*w = windoww;
+	*h = windowh;
+}
+
+void
+swapwindow()
 {
 	SDL_GL_SwapWindow(win);
 }
