@@ -19,6 +19,9 @@ GLuint matrix;
 int fpscap = 1;
 const int fpsmax = 60;
 
+vec3_t pos;
+float rotx, roty;
+
 static void
 fail(char* msg)
 {
@@ -115,12 +118,27 @@ state_game_init()
 	glDeleteShader(fragmentshader);
 
 	matrix = glGetUniformLocation(program, "MVP");
+
+	pos.x = 0;
+	pos.y = 0;
+	pos.z = 0;
+	rotx = 0;
+	roty = 0;
+
+	centermouse();
+
+	ticks = SDL_GetTicks();
 }
 
 void
 state_game_run()
 {
-	ticks = SDL_GetTicks();
+	int newticks = SDL_GetTicks();
+	double deltatime = newticks - ticks;
+	ticks = newticks;
+
+	int windoww, windowh;
+	getwindowsize(&windoww, &windowh);
 
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
@@ -142,40 +160,75 @@ state_game_run()
 		}
 	}
 
+	const uint8_t *keyboard = SDL_GetKeyboardState(0);
+	int mousex, mousey;
+	SDL_GetMouseState(&mousex, &mousey);
+	centermouse();
+	double deltamousex = mousex - windoww/2;
+	double deltamousey = mousey - windowh/2;
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(program);
 
-	int windoww, windowh;
-	getwindowsize(&windoww, &windowh);
-
 	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, .1, 100);
 
-	static float i = 4;
-	static int wobbledir = 0;
-	if(wobbledir)
-	{
-		i+= .3;
-		if(i>6)
-			wobbledir = 0;
-	} else {
-		i -= .1;
-		if(i<-6)
-			wobbledir = 1;
-	}
-
-	vec3_t pos;
-	pos.x = i;
-	pos.y = 4;
-	pos.z = 3;
-	vec3_t target;
-	target.x = 0;
-	target.y = 0;
-	target.z = 0;
 	vec3_t up;
 	up.x = 0;
 	up.y = 1;
 	up.z = 0;
-	mat4_t view = getviewmatrix(pos, target, up);
+
+	rotx += deltamousex/800;
+	roty -= deltamousey/800;
+
+	vec3_t forwardcamera;
+	forwardcamera.x = sin(rotx);
+	forwardcamera.y = sin(roty);
+	forwardcamera.z = -cos(rotx) * cos(roty);
+
+	vec2_t forwardmovement;
+	forwardmovement.x = forwardcamera.x;
+	forwardmovement.y = -cos(rotx);
+
+	vec2_t right;
+	right.x = -forwardcamera.y;
+	right.y = -forwardcamera.x;
+
+	if(keyboard[SDL_SCANCODE_W])
+	{
+		pos.x += forwardmovement.x * (deltatime / 1000);
+		pos.z += forwardmovement.y * (deltatime / 1000);
+	}
+	if(keyboard[SDL_SCANCODE_A])
+	{
+		pos.x += forwardmovement.y * (deltatime / 1000);
+		pos.z -= forwardmovement.x * (deltatime / 1000);
+	}
+	if(keyboard[SDL_SCANCODE_S])
+	{
+		pos.x -= forwardmovement.x * (deltatime / 1000);
+		pos.z -= forwardmovement.y * (deltatime / 1000);
+	}
+	if(keyboard[SDL_SCANCODE_D])
+	{
+		pos.x -= forwardmovement.y * (deltatime / 1000);
+		pos.z += forwardmovement.x * (deltatime / 1000);
+	}
+	if(keyboard[SDL_SCANCODE_LSHIFT])
+	{
+		pos.y -= 1 * (deltatime / 1000);
+	}
+	if(keyboard[SDL_SCANCODE_SPACE])
+	{
+		pos.y += 1 * (deltatime / 1000);
+	}
+
+	forwardcamera.x += pos.x;
+	forwardcamera.y += pos.y;
+	forwardcamera.z += pos.z;
+
+	printf("ROTX: %f   ROTY: %f\n", rotx, roty);
+
+	mat4_t view = getviewmatrix(pos, forwardcamera, up);
 
 	mat4_t mvp;
 	dotmat4mat4(&mvp, &projection, &view);

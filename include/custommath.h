@@ -1,6 +1,11 @@
 #ifndef CUSTOMMATH_H
 #define CUSTOMMATH_H
 
+typedef struct vec2_s {
+	float x;
+	float y;
+} vec2_t;
+
 typedef struct vec3_s {
 	float x;
 	float y;

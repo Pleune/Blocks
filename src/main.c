@@ -205,3 +205,10 @@ getbasepath()
 {
 	return basepath;
 }
+
+void
+centermouse()
+{
+	printf("c\n");
+	SDL_WarpMouseInWindow(win, windoww/2, windowh/2);
+}
