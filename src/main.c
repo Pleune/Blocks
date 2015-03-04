@@ -160,6 +160,9 @@ static void initalize()
 	glBindVertexArray(VertexArrayID);
 
 	glClearColor(.3,0,0,1);
+	glFrontFace(GL_CCW);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
 
 	basepath = SDL_GetBasePath();
 }
@@ -209,6 +212,5 @@ getbasepath()
 void
 centermouse()
 {
-	printf("c\n");
 	SDL_WarpMouseInWindow(win, windoww/2, windowh/2);
 }

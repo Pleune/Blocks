@@ -10,6 +10,9 @@
 #include "state.h"
 #include "custommath.h"
 
+#include "chunk.h"
+#include "mesh.h"
+
 uint32_t ticks = 0;
 
 GLuint vertexbuffer;
@@ -21,6 +24,8 @@ const int fpsmax = 60;
 
 vec3_t pos;
 float rotx, roty;
+
+chunk_t chunk;
 
 static void
 fail(char* msg)
@@ -119,9 +124,21 @@ state_game_init()
 
 	matrix = glGetUniformLocation(program, "MVP");
 
+	//load the world
+	chunk = callocchunk();
+	chunk.data[0].id = 1;
+	mesh_t mesh = getmesh(chunk, 0, 0, 0, 0, 0, 0);
+	free(chunk.data);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+	glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_DYNAMIC_DRAW);
+	free(mesh.data);
+
+	chunk.points = mesh.size;
+
 	pos.x = 0;
 	pos.y = 0;
-	pos.z = 0;
+	pos.z = 3;
 	rotx = 0;
 	roty = 0;
 
@@ -229,7 +246,7 @@ state_game_run()
 	forwardcamera.y += pos.y;
 	forwardcamera.z += pos.z;
 
-	printf("ROTX: %f   ROTY: %f\n", rotx, roty);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	mat4_t view = getviewmatrix(pos, forwardcamera, up);
 
@@ -237,16 +254,8 @@ state_game_run()
 	dotmat4mat4(&mvp, &projection, &view);
 	glUniformMatrix4fv(matrix, 1, GL_FALSE, mvp.mat);
 
-	GLfloat g_vertex_buffer_data[] = {
-		-1.0f, -1.0f, 0.0f,
-		1.0f, -1.0f, 0.0f,
-		0.0f,  1.0f, 0.0f,
-	};
-
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
-
 	glEnableVertexAttribArray(0);
+
 	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
 	glVertexAttribPointer(
 		0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
@@ -256,10 +265,7 @@ state_game_run()
 		0,                  // stride
 		(void*)0            // array buffer offset
 	);
-
-	//Draw the triangle !
-	glDrawArrays(GL_TRIANGLES, 0, 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
-
+	glDrawArrays(GL_TRIANGLES, 0, chunk.points); // Starting from vertex 0; 3 vertices total -> 1 triangle
 	glDisableVertexAttribArray(0);
 
 	swapwindow();
