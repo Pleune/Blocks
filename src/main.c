@@ -187,7 +187,6 @@ updatewindowbounds(int w, int h)
 	glViewport(0, 0, w, h);
 	windoww = w;
 	windowh = h;
-	printf("resize\n");
 }
 
 void

@@ -71,10 +71,8 @@ mat4_t
 getprojectionmatrix(float fov, float aspect, float far, float near)
 {
 	float top = near * tan(0.00872664625/*(pi/180)/2*/ * fov);
-	//float bottom = -top;
 
 	float right = top * aspect;
-	//float left = -right;
 
 	mat4_t mat;
 

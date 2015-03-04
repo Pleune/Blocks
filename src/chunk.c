@@ -16,7 +16,8 @@ smartinc(int *c, uint16_t *i, GLfloat **memchunks)
 		memchunks[*c] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
 		return 65535;
 	} else {
-		return *i++;
+		*i += 1;
+		return *i-1;
 	}
 }
 
@@ -149,11 +150,11 @@ getmesh(chunk_t chunk, block_t *chunkabove, block_t *chunkbelow, block_t *chunkn
 	int w;
 	for(w=0; w<c; w++)
 	{
-		memcpy(finaldata + w*65536, memchunks[w], 65563 * sizeof(GLfloat));
+		memcpy(&finaldata[w*65536], memchunks[w], 65563 * sizeof(GLfloat));
 		free(memchunks[w]);
 	}
 
-	memcpy(finaldata + c*65536, memchunks[c], i * sizeof(GLfloat));
+	memcpy(&finaldata[c*65536], memchunks[c], i * sizeof(GLfloat));
 
 	mesh_t ret;
 	ret.data = finaldata;

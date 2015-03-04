@@ -7,7 +7,7 @@
 #include "mesh.h"
 
 typedef struct {
-	int points;
+	long points;
 	block_t *data;
 } chunk_t;
 

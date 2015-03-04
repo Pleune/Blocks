@@ -126,12 +126,21 @@ state_game_init()
 
 	//load the world
 	chunk = callocchunk();
-	chunk.data[0].id = 1;
+	long i;
+	for(i=0; i<CHUNKSIZE; i++)
+	{
+		chunk.data[i + CHUNKSIZE*i + CHUNKSIZE*CHUNKSIZE*i].id=1;
+	}
+
+	for(i=0; i<100000; i++)
+		chunk.data[rand()%(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE)].id=1;
+
 	mesh_t mesh = getmesh(chunk, 0, 0, 0, 0, 0, 0);
 	free(chunk.data);
 
 	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
 	glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_DYNAMIC_DRAW);
+	
 	free(mesh.data);
 
 	chunk.points = mesh.size;
@@ -154,6 +163,16 @@ state_game_run()
 	int newticks = SDL_GetTicks();
 	double deltatime = newticks - ticks;
 	ticks = newticks;
+
+	static uint32_t lastcheck = 0;
+	static int frame = 0;
+	frame++;
+	if(newticks - lastcheck >= 1000)
+	{
+		lastcheck = newticks;
+		printf("FPS: %i\n", frame);
+		frame=0;
+	}
 
 	int windoww, windowh;
 	getwindowsize(&windoww, &windowh);
@@ -190,7 +209,7 @@ state_game_run()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(program);
 
-	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, .1, 100);
+	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, .1, 1000);
 
 	vec3_t up;
 	up.x = 0;
@@ -201,7 +220,7 @@ state_game_run()
 	roty -= deltamousey/800;
 
 	vec3_t forwardcamera;
-	forwardcamera.x = sin(rotx);
+	forwardcamera.x = sin(rotx) * cos(roty);
 	forwardcamera.y = sin(roty);
 	forwardcamera.z = -cos(rotx) * cos(roty);
 
@@ -246,7 +265,7 @@ state_game_run()
 	forwardcamera.y += pos.y;
 	forwardcamera.z += pos.z;
 
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	mat4_t view = getviewmatrix(pos, forwardcamera, up);
 
