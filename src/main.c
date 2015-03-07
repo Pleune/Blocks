@@ -154,15 +154,12 @@ static void initalize()
 
 	SDL_GetWindowSize(win, &windoww, &windowh);
 
-	//apperently this is needed, not sure exactly what it does
-	GLuint VertexArrayID;
-	glGenVertexArrays(1, &VertexArrayID);
-	glBindVertexArray(VertexArrayID);
-
 	glClearColor(.3,0,0,1);
 	glFrontFace(GL_CCW);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
+	glClear(GL_COLOR_BUFFER_BIT);
+	SDL_GL_SwapWindow(win);
 
 	basepath = SDL_GetBasePath();
 }
