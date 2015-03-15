@@ -7,12 +7,12 @@
 #include "mesh.h"
 
 typedef struct {
-	long points;
+	long pos[3];
 	block_t *data;
 } chunk_t;
 
 //uses the adjacent chunks to cut out unneeded triangles. if the pointers are null, they work as a empty chunk.
-mesh_t getmesh(chunk_t chunk, block_t *chunkabove, block_t *chunkbelow, block_t *chunknorth, block_t *chunksouth, block_t *chunkeast, block_t *chunkwest);
+mesh_t chunk_getmesh(chunk_t chunk, block_t *chunkabove, block_t *chunkbelow, block_t *chunknorth, block_t *chunksouth, block_t *chunkeast, block_t *chunkwest);
 
 chunk_t mallocchunk();
 chunk_t callocchunk();

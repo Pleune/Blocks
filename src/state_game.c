@@ -10,13 +10,10 @@
 #include "state.h"
 #include "custommath.h"
 
-#include "chunk.h"
-#include "mesh.h"
+#include "world.h"
 
 uint32_t ticks = 0;
 
-GLuint world;
-GLuint line;
 GLuint program;
 GLuint matrix;
 
@@ -25,8 +22,6 @@ const int fpsmax = 60;
 
 vec3_t pos;
 float rotx, roty;
-
-chunk_t chunk;
 
 static void
 fail(char* msg)
@@ -123,58 +118,7 @@ state_game_init()
 	matrix = glGetUniformLocation(program, "MVP");
 
 	//load the world
-	chunk = callocchunk();
-	long i;
-	for(i=0; i<CHUNKSIZE; i++)
-	{
-		chunk.data[i + CHUNKSIZE*i + CHUNKSIZE*CHUNKSIZE*i].id=1;
-	}
-
-	for(i=0; i< CHUNKSIZE*CHUNKSIZE/10 ; i++)
-		chunk.data[rand()%(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE)].id=1;
-
-	mesh_t mesh = getmesh(chunk, 0, 0, 0, 0, 0, 0);
-	free(chunk.data);
-
-	GLuint vertexbuffer;
-
-	glGenVertexArrays(1, &world);
-	glBindVertexArray(world);
-	glGenBuffers(1, &vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(
-		0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-		3,                  // size
-		GL_FLOAT,           // type
-		GL_FALSE,           // normalized?
-		0,                  // stride
-		(void*)0            // array buffer offset
-	);
-	free(mesh.data);
-
-	GLfloat linedata[6] = {
-		0.0f, 5.0f, 0.0f,
-		30.0f, 30.0f, 30.0f
-	};
-
-	glGenVertexArrays(1, &line);
-	glBindVertexArray(line);
-	glGenBuffers(1, &vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat), linedata, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(
-		0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-		3,                  // size
-		GL_FLOAT,           // type
-		GL_FALSE,           // normalized?
-		0,                  // stride
-		(void*)0            // array buffer offset
-	);
-
-	chunk.points = mesh.size;
+	world_initalload();
 
 	pos.x = 0;
 	pos.y = 0;
@@ -278,31 +222,31 @@ state_game_run()
 
 	if(keyboard[SDL_SCANCODE_W])
 	{
-		pos.x += 40 * forwardmovement.x * (deltatime / 1000);
-		pos.z += 40 * forwardmovement.y * (deltatime / 1000);
+		pos.x += 14 * forwardmovement.x * (deltatime / 1000);
+		pos.z += 14 * forwardmovement.y * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_A])
 	{
-		pos.x += 40 * forwardmovement.y * (deltatime / 1000);
-		pos.z -= 40 * forwardmovement.x * (deltatime / 1000);
+		pos.x += 14 * forwardmovement.y * (deltatime / 1000);
+		pos.z -= 14 * forwardmovement.x * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_S])
 	{
-		pos.x -= 40 * forwardmovement.x * (deltatime / 1000);
-		pos.z -= 40 * forwardmovement.y * (deltatime / 1000);
+		pos.x -= 14 * forwardmovement.x * (deltatime / 1000);
+		pos.z -= 14 * forwardmovement.y * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_D])
 	{
-		pos.x -= 40 * forwardmovement.y * (deltatime / 1000);
-		pos.z += 40 * forwardmovement.x * (deltatime / 1000);
+		pos.x -= 14 * forwardmovement.y * (deltatime / 1000);
+		pos.z += 14 * forwardmovement.x * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_LSHIFT])
 	{
-		pos.y -= 40 * (deltatime / 1000);
+		pos.y -= 14 * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_SPACE])
 	{
-		pos.y += 40 * (deltatime / 1000);
+		pos.y += 14 * (deltatime / 1000);
 	}
 
 	forwardcamera.x += pos.x;
@@ -316,11 +260,7 @@ state_game_run()
 
 	glUniformMatrix4fv(matrix, 1, GL_FALSE, mvp.mat);
 
-	glBindVertexArray(world);
-	glDrawArrays(GL_TRIANGLES, 0, chunk.points);
-
-	glBindVertexArray(line);
-	glDrawArrays(GL_LINES, 0 ,6);
+	world_render();
 
 	swapwindow();
 
