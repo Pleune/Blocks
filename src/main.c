@@ -152,6 +152,10 @@ static void initalize()
 		//glew couldn't do to wrangling
 		fail("glewInit()");
 
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
 	SDL_GetWindowSize(win, &windoww, &windowh);
 
 	glClearColor(.3,0,0,1);

@@ -25,8 +25,8 @@ world_initalload()
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
-				glGenVertexArrays(1, &blockvbos[x][y][z].vao);
-				glBindVertexArray(blockvbos[x][y][z].vao);
+//				glGenVertexArrays(1, &blockvbos[x][y][z].vao);
+//				glBindVertexArray(blockvbos[x][y][z].vao);
 
 				glGenBuffers(1, &blockvbos[x][y][z].vbo);
 				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
@@ -47,33 +47,38 @@ world_initalload()
 void
 world_render()
 {
-	int x, y, z;
+	int x=0;
+	int y=0;
+	int z=0;
+
 	for(x=0; x<WORLDSIZE; x++)
 	{
 		for(y=0; y<WORLDSIZE; y++)
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
-				glBindVertexArray(blockvbos[x][y][z].vao);
+				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
+				glVertexAttribPointer(
+					0,
+					3,
+					GL_FLOAT,
+					GL_FALSE,
+					0,
+					0);
+				glEnableVertexAttribArray(0);
 				if(!blockvbos[x][y][z].iscurrent)
 				{
+					printf("bing\n");
 					mesh_t mesh = chunk_getmesh(loadedchunks[x][y][z], 0,0,0,0,0,0);
 
-					glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
 					glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_STATIC_DRAW);
 
-					glVertexAttribPointer(
-						0,
-						3,
-						GL_FLOAT,
-						GL_FALSE,
-						0,
-						0);
 					glEnableVertexAttribArray(0);
 
 					blockvbos[x][y][z].points = mesh.size / 3;
 					blockvbos[x][y][z].iscurrent = 1;
 				}
+
 				glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].points);
 			}
 		}
