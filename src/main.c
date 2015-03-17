@@ -151,7 +151,7 @@ static void initalize()
 	if(glewInit())
 		//glew couldn't do to wrangling
 		fail("glewInit()");
-
+	
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
