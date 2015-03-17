@@ -1,4 +1,7 @@
-#version 150
+#version 300 es
+
+precision mediump float;
+
 in vec2 Texcoord;
 out vec3 outColor;
 uniform sampler2D tex;

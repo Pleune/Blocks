@@ -38,6 +38,7 @@ vec3_t pos;
 float rotx, roty;
 
 int lines = 0;
+int pp = 1;
 
 static void
 fail(char* msg)
@@ -157,7 +158,7 @@ state_game_init()
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, windoww, windowh);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, framebuffer.renderbuffer);
 
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, ppinputtex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ppinputtex, 0);
 
 	GLenum DrawBuffers[1] = {GL_COLOR_ATTACHMENT0};
 	glDrawBuffers(1, DrawBuffers);
@@ -197,6 +198,7 @@ state_game_init()
 	SDL_ShowCursor(0);
 
 	ticks = SDL_GetTicks();
+
 }
 
 void
@@ -232,6 +234,16 @@ state_game_run()
 				case SDLK_v:
 					lines = !lines;
 				break;
+				case SDLK_p:
+					pp = !pp;
+					if(pp)
+						glClearColor(.3, 0, 0, 1);
+					else
+						glClearColor(0, 0, .3, 1);
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					glEnable(GL_DEPTH_TEST);
+					glUseProgram(drawprogram);
+				break;
 			}
 		}
 		else if(e.type == SDL_WINDOWEVENT)
@@ -254,7 +266,7 @@ state_game_run()
 
 				glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.framebuffer);
 
-				glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, ppinputtex, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ppinputtex, 0);
 			}
 		}
 	}
@@ -328,10 +340,13 @@ state_game_run()
 	dotmat4mat4(&mvp, &projection, &view);
 
 	//render to framebuffer here
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.framebuffer);
-	glEnable(GL_DEPTH_TEST);
+	if(pp)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.framebuffer);
+		glEnable(GL_DEPTH_TEST);
+		glUseProgram(drawprogram);
+	}
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glUseProgram(drawprogram);
 
 	if(lines)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -344,21 +359,23 @@ state_game_run()
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	//render to screen here
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glDisable(GL_DEPTH_TEST);
-	glClear(GL_COLOR_BUFFER_BIT);
+	if(pp)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glDisable(GL_DEPTH_TEST);
+		glClear(GL_COLOR_BUFFER_BIT);
 
-	glUseProgram(ppprogram);
-	glBindBuffer(GL_ARRAY_BUFFER, pppointbuffer);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(0);
+		glUseProgram(ppprogram);
+		glBindBuffer(GL_ARRAY_BUFFER, pppointbuffer);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(0);
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, ppinputtex);
-	glUniform1i(pppointbifferid, 0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, ppinputtex);
+		glUniform1i(pppointbifferid, 0);
 
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+	}
 	swapwindow();
 
 	if(fpscap)
