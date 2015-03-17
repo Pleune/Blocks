@@ -136,8 +136,8 @@ state_game_init()
 	getwindowsize(&windoww, &windowh);
 
 	//load shaders 'n stuff
-	loadprogram(&drawprogram, "vs", "fs");
-	loadprogram(&ppprogram, "pvs", "pfs");
+	loadprogram(&drawprogram, "shaders/vs", "shaders/fs");
+	loadprogram(&ppprogram, "shaders/pvs", "shaders/pfs");
 
 	matrix = glGetUniformLocation(drawprogram, "MVP");
 	pppointbifferid = glGetUniformLocation(ppprogram, "tex");
