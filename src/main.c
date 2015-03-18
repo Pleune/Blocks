@@ -151,14 +151,14 @@ static void initalize()
 	if(glewInit())
 		//glew couldn't do to wrangling
 		fail("glewInit()");
-	
+
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
 	SDL_GetWindowSize(win, &windoww, &windowh);
 
-	glClearColor(.3,0,0,1);
+	glClearColor(1,1,1,1);
 	glFrontFace(GL_CCW);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);

@@ -236,13 +236,12 @@ state_game_run()
 				break;
 				case SDLK_p:
 					pp = !pp;
-					if(pp)
-						glClearColor(0, 0, 0, 1);
-					else
-						glClearColor(0, 0, .3, 1);
-					glBindFramebuffer(GL_FRAMEBUFFER, 0);
-					glEnable(GL_DEPTH_TEST);
-					glUseProgram(drawprogram);
+					if(!pp)
+					{
+						glBindFramebuffer(GL_FRAMEBUFFER, 0);
+						glEnable(GL_DEPTH_TEST);
+						glUseProgram(drawprogram);
+					}
 				break;
 			}
 		}
