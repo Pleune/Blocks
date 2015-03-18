@@ -158,7 +158,7 @@ static void initalize()
 
 	SDL_GetWindowSize(win, &windoww, &windowh);
 
-	glClearColor(1,1,1,1);
+	glClearColor(0,0,0,1);
 	glFrontFace(GL_CCW);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);

@@ -7,49 +7,49 @@ out vec3 color;
 
 uniform sampler2D tex;
 
-float threshold(in float thr1, in float thr2 , in float val) {
- if (val < thr1) {return 0.0;}
- if (val > thr2) {return 1.0;}
- return val;
-}
-
-// averaged pixel intensity from 3 color channels
-float avg_intensity(in vec4 pix) {
- return (pix.r + pix.g + pix.b)/3.;
-}
-
-vec4 get_pixel(in vec2 coords, in float dx, in float dy) {
- return texture2D(tex,coords + vec2(dx, dy));
-}
-
-// returns pixel color
-float IsEdge(in vec2 coords){
-  float dxtex = 1.0 / 1366.0 /*image width*/;
-  float dytex = 1.0 / 768.0 /*image height*/;
-  float pix[9];
-  int k = -1;
-  float delta;
-
-  // read neighboring pixel intensities
-  for (int i=-1; i<2; i++) {
-   for(int j=-1; j<2; j++) {
-    k++;
-    pix[k] = avg_intensity(get_pixel(coords,float(i)*dxtex,
-                                          float(j)*dytex));
-   }
-  }
-
-  // average color differences around neighboring pixels
-  delta = (abs(2.0f*pix[1]-2.0f*pix[7])+
-          abs(2.0f*pix[5]-2.0f*pix[3]) +
-          abs(pix[0]-pix[8])+
-          abs(pix[2]-pix[6])
-           )/4.;
-
-  return threshold(0.25,0.4,clamp(1.8*delta,0.0,1.0));
-}
+// Width of Image.
+//uniform float fWidth;
+// Height of Image.
+//uniform float fHeight;
+// Indicating cartoon effect is enabled or not.
+//uniform float fCartoonEffect;
 
 void main()
 {
-  color = vec3(-0.6 * IsEdge(Texcoord.xy)) + texture2D(tex,Texcoord).rgb;
+    float fWidth = 1920.0f;
+    float fHeight = 1080.0f;
+
+    // X directional search matrix.
+    mat3 GX = mat3( -1.0, 0.0, 1.0,
+                    -2.0, 0.0, 2.0,
+                    -1.0, 0.0, 1.0 );
+    // Y directional search matrix.
+    mat3 GY =  mat3( 1.0,  2.0,  1.0,
+                     0.0,  0.0,  0.0,
+                    -1.0, -2.0, -1.0 );
+
+    vec3  fSumX = vec3( 0.0 );
+    vec3  fSumY = vec3( 0.0 );
+    vec3 fTotalSum = vec3( 0.0 );
+
+    /* image boundaries Top, Bottom, Left, Right pixels*/
+    if( ( Texcoord.x < 0.999 && Texcoord.x > 0.001 &&
+            Texcoord.y < 0.999 && Texcoord.y > 0.001 ))
+    {
+        // X Directional Gradient calculation.
+        for(float I=-1.0; I<=1.0; I = I + 1.0)
+        {
+            for(float J=-1.0; J<=1.0; J = J + 1.0)
+            {
+                vec2 fTemp = vec2(Texcoord) + vec2(I/fWidth,J/fHeight);
+                vec3 fTempSum = texture2D( tex, fTemp).rgb;
+                fSumX = fSumX + ( fTempSum * GX[int(I+1.0)][int(J+1.0)]);
+                fSumY = fSumY + ( fTempSum * GY[int(I+1.0)][int(J+1.0)]);
+            }
+        }
+        fTotalSum = sqrt(fSumX * fSumX + fSumY * fSumY) * 2;
+    }
+
+    color = mix( fTotalSum.brg, texture2D( tex,
+                         vec2( Texcoord.s, Texcoord.t)).rgb, 0.7);
 }
