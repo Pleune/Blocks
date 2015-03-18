@@ -5,8 +5,9 @@
 
 #include "defines.h"
 #include "chunk.h"
+#include "block.h"
 
-chunk_t loadedchunks[WORLDSIZE][WORLDSIZE][WORLDSIZE];
+chunk_t loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
 
 struct {
 	GLuint vao;
@@ -14,6 +15,22 @@ struct {
 	int iscurrent;
 	long points;
 } blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
+
+struct int2i_s {
+	int x;
+	int y;
+} centerpos = {0,0};
+
+static inline int
+getspotof(long x, long y, long z)
+{
+	return (x%WORLDSIZE) + (y%WORLDSIZE)*WORLDSIZE + (z%WORLDSIZE)*WORLDSIZE*WORLDSIZE;
+}
+
+//block_t world_getblock()
+//{
+//return {256};
+//}
 
 void
 world_initalload()
@@ -31,12 +48,12 @@ world_initalload()
 				blockvbos[x][y][z].points = 0;
 				blockvbos[x][y][z].iscurrent = 0;
 
-				loadedchunks[x][y][z] = callocchunk();
-				loadedchunks[x][y][z].pos[0] = x;
-				loadedchunks[x][y][z].pos[1] = y;
-				loadedchunks[x][y][z].pos[2] = z;
+				loadedchunks[getspotof(x,y,z)] = callocchunk();
+				loadedchunks[getspotof(x,y,z)].pos[0] = x;
+				loadedchunks[getspotof(x,y,z)].pos[1] = y;
+				loadedchunks[getspotof(x,y,z)].pos[2] = z;
 
-				loadedchunks[x][y][z].data[0].id = 1;//to a refrence point when rendering
+				loadedchunks[getspotof(x,y,z)].data[0].id = 1;//to a refrence point when rendering
 			}
 		}
 	}
@@ -66,7 +83,7 @@ world_render()
 				glEnableVertexAttribArray(0);
 				if(!blockvbos[x][y][z].iscurrent)
 				{
-					mesh_t mesh = chunk_getmesh(loadedchunks[x][y][z], 0,0,0,0,0,0);
+					mesh_t mesh = chunk_getmesh(loadedchunks[getspotof(x,y,z)], 0,0,0,0,0,0);
 
 					glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_STATIC_DRAW);
 

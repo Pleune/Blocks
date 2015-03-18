@@ -214,7 +214,7 @@ state_game_run()
 	if(newticks - lastcheck >= 1000)
 	{
 		lastcheck = newticks;
-		printf("FPS: %i\n", frame);
+		printf("FPS: %i pp? %i\n", frame, pp);
 		frame=0;
 	}
 
@@ -237,7 +237,7 @@ state_game_run()
 				case SDLK_p:
 					pp = !pp;
 					if(pp)
-						glClearColor(.3, 0, 0, 1);
+						glClearColor(0, 0, 0, 1);
 					else
 						glClearColor(0, 0, .3, 1);
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -253,20 +253,24 @@ state_game_run()
 				updatewindowbounds(e.window.data1, e.window.data2);
 				windoww = e.window.data1;
 				windowh = e.window.data2;
+				centermouse();
+
 				glBindRenderbuffer(GL_RENDERBUFFER, framebuffer.renderbuffer);
+				glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.framebuffer);
+
 				glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, windoww, windowh);
 
 				glDeleteTextures(1, &ppinputtex);
-
 				glGenTextures(1, &ppinputtex);
 				glBindTexture(GL_TEXTURE_2D, ppinputtex);
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-				glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.framebuffer);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ppinputtex, 0);
+
+				if(!pp)
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			}
 		}
 	}
