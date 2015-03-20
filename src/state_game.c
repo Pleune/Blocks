@@ -22,14 +22,17 @@ GLuint ppprogram;
 GLuint matrix;
 
 GLuint pppointbuffer;
-GLuint pppointbifferid;
+GLuint pppointbufferid;
 
 struct {
 	GLuint framebuffer;
-	GLuint renderbuffer;
-} framebuffer;
-GLuint ppinputtex;
 
+	GLuint colorbuffer;
+	GLuint depthbuffer;
+
+	GLuint colorbufferid;
+	GLuint depthbufferid;
+} renderbuffer;
 
 int fpscap = 0;
 const int fpsmax = 60;
@@ -141,27 +144,39 @@ state_game_init()
 	loadprogram(&ppprogram, "shaders/pvs", "shaders/pfs");
 
 	matrix = glGetUniformLocation(drawprogram, "MVP");
-	pppointbifferid = glGetUniformLocation(ppprogram, "tex");
+	pppointbufferid = glGetUniformLocation(ppprogram, "tex");
 
 	//generate the post processing framebuffer
-	glGenFramebuffers(1, &framebuffer.framebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.framebuffer);
+	glGenFramebuffers(1, &renderbuffer.framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
 
-	glGenTextures(1, &ppinputtex);
-	glBindTexture(GL_TEXTURE_2D, ppinputtex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glGenTextures(1, &renderbuffer.colorbuffer);
+	glGenTextures(1, &renderbuffer.depthbuffer);
 
-	glGenRenderbuffers(1, &framebuffer.renderbuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, framebuffer.renderbuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, windoww, windowh);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, framebuffer.renderbuffer);
+	glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ppinputtex, 0);
+	glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	GLenum DrawBuffers[1] = {GL_COLOR_ATTACHMENT0};
-	glDrawBuffers(1, DrawBuffers);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderbuffer.colorbuffer, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, renderbuffer.depthbuffer, 0);
+
+	//put the textures in thr right spots
+	glUseProgram(ppprogram);
+	GLuint tex = 0;
+	GLuint depth = 1;
+
+	glUniform1i(tex,0);
+	glUniform1i(depth, 1);
 
 	//generate the post processing mesh
 	GLfloat data[] = {
@@ -176,7 +191,6 @@ state_game_init()
 	glGenBuffers(1, &pppointbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, pppointbuffer);
 	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), data, GL_STATIC_DRAW);
-
 
 	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 	{
@@ -254,19 +268,15 @@ state_game_run()
 				windowh = e.window.data2;
 				centermouse();
 
-				glBindRenderbuffer(GL_RENDERBUFFER, framebuffer.renderbuffer);
-				glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.framebuffer);
+				glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
 
-				glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, windoww, windowh);
+				glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_FLOAT, 0);
 
-				glDeleteTextures(1, &ppinputtex);
-				glGenTextures(1, &ppinputtex);
-				glBindTexture(GL_TEXTURE_2D, ppinputtex);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
 
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ppinputtex, 0);
+				//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ppinputtex, 0);
 
 				if(!pp)
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -281,7 +291,7 @@ state_game_run()
 	double deltamousex = mousex - windoww/2;
 	double deltamousey = mousey - windowh/2;
 
-	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, .1, 2000);
+	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 2000, .1);
 
 	vec3_t up;
 	up.x = 0;
@@ -345,7 +355,7 @@ state_game_run()
 	//render to framebuffer here
 	if(pp)
 	{
-		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.framebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
 		glEnable(GL_DEPTH_TEST);
 		glUseProgram(drawprogram);
 	}
@@ -373,9 +383,12 @@ state_game_run()
 		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(0);
 
+
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, ppinputtex);
-		glUniform1i(pppointbifferid, 0);
+		glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
@@ -393,6 +406,7 @@ void
 state_game_close()
 {
 	glDeleteProgram(drawprogram);
-	glDeleteFramebuffers(1, &framebuffer.framebuffer);
-	glDeleteRenderbuffers(1, &framebuffer.renderbuffer);
+	glDeleteFramebuffers(1, &renderbuffer.framebuffer);
+	glDeleteTextures(1, &renderbuffer.colorbuffer);
+	glDeleteTextures(1, &renderbuffer.depthbuffer);
 }

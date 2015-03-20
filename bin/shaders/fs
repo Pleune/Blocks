@@ -2,8 +2,9 @@
 
 precision mediump float;
 
-layout (location = 0) out vec3 color;
+in vec3 colors;
+out vec3 color;
 
 void main(){
-	color = vec3(0,1,0);
+	color = colors;
 }
