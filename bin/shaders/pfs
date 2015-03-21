@@ -38,11 +38,20 @@ void main()
 		for(float J=-1.0; J<=1.0; J = J + 1.0)
 		{
 			vec2 fTemp = vec2(Texcoord) + vec2(I/fWidth,J/fHeight);
-			vec3 fTempSum = pow( texture2D( depth, fTemp).rgb, vec3(10));
+			vec3 fTempSum = min( pow( texture2D( depth, fTemp).rgb, vec3(40)), vec3(0.92));
 			fSumX = fSumX + ( fTempSum * GX[int(I+1.0)][int(J+1.0)]);
 			fSumY = fSumY + ( fTempSum * GY[int(I+1.0)][int(J+1.0)]);
 		}
 	}
-	fTotalSum = sqrt(fSumX * fSumX + fSumY * fSumY) * vec3(2);
-	color = fTotalSum.brg + texture2D( tex, Texcoord).rgb;
+
+	fSumX = abs( fSumX );
+	fSumY = abs( fSumY );
+
+	fTotalSum = min( pow(fSumX + fSumY, vec3(0.35)), vec3(0.7));
+
+	vec3 temp = texture2D( tex, Texcoord).rgb;
+
+	temp = temp*pow((vec3(1) - vec3(0.35) * fTotalSum), vec3(10.0)) + pow(pow(fTotalSum, vec3(4.0)), vec3(2.0));
+
+	color = temp + fTotalSum;
 }
