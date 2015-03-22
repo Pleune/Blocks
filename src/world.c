@@ -66,7 +66,15 @@ world_initalload()
 				loadedchunks[spot].pos[1] = y;
 				loadedchunks[spot].pos[2] = z;
 
-				loadedchunks[spot].data[0].id = 1;
+				if(y==0)
+				{
+					int j,k;
+					for(j=0; j<CHUNKSIZE; j++)
+					{
+						for(k=0; k<CHUNKSIZE; k++)
+							loadedchunks[spot].data[j+k*CHUNKSIZE*CHUNKSIZE].id = 1;
+					}
+				}
 			}
 		}
 	}

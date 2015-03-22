@@ -6,21 +6,18 @@
 
 #include <GL/glew.h>
 
-static inline uint16_t
-smartinc(int *c, uint16_t *i, GLfloat **memchunks)
+static inline uint32_t
+smartinc(int *c, uint32_t *i, GLfloat **memchunks)
 {
-	if(*i==65535)
+	if(i[0]==65535)
 	{
-		*i=0;
+		i[0]=0;
+		c[0]++;
+		memchunks[c[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
 		return 65535;
 	} else {
-		if(*i == 0)
-		{
-			*c += 1;
-			memchunks[*c] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
-		}
-		*i += 1;
-		return *i-1;
+		i[0] += 1;
+		return i[0]-1;
 	}
 }
 
@@ -29,7 +26,7 @@ chunk_getmesh(chunk_t chunk, block_t *chunkabove, block_t *chunkbelow, block_t *
 {
 	GLfloat *memchunks[256];
 	int c = 0;
-	uint16_t i = 0;
+	uint32_t i = 0;
 
 	memchunks[0] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
 
@@ -42,7 +39,7 @@ chunk_getmesh(chunk_t chunk, block_t *chunkabove, block_t *chunkbelow, block_t *
 			{
 				if(chunk.data[x+CHUNKSIZE*y+CHUNKSIZE*CHUNKSIZE*z].id)
 				{
-					if(i<65428)
+					if(0)//i<65427)
 					{
 						//dont worry about filling the memchunk
 						//top
@@ -148,23 +145,24 @@ chunk_getmesh(chunk_t chunk, block_t *chunkabove, block_t *chunkbelow, block_t *
 			}
 		}
 	}
-	GLfloat *finaldata = (GLfloat *)malloc(sizeof(GLfloat) * (i + 65536*c));
+
+	GLfloat *finaldata = (GLfloat *)malloc(sizeof(GLfloat) * (65536*c + i));
 
 	int w;
-	for(w=0; w<c; w++)
+	for(w=0; w<(c); w++)
 	{
-		memcpy(&finaldata[w*65536], memchunks[w], 65563 * sizeof(GLfloat));
+		memcpy(&(finaldata[w*65536]), memchunks[w], 65536 * sizeof(GLfloat));
 		free(memchunks[w]);
 	}
 
-	memcpy(&finaldata[c*65536], memchunks[c], i * sizeof(GLfloat));
+	memcpy(&finaldata[c*65536], memchunks[c], (i) * sizeof(GLfloat));
+	free(memchunks[c]);
 
 	mesh_t ret;
 	ret.data = finaldata;
 
-	ret.size = i + 65536*c;
+	ret.size = 65536*c + i;
 
-	free(memchunks[c]);
 	return ret;
 }
 

@@ -343,7 +343,7 @@ state_game_run()
 		pos.y += 8 * (deltatime / 1000);
 	}
 
-	if(!keyboard[SDL_SCANCODE_Q] && !keyboard[SDL_SCANCODE_E])
+	/*if(!keyboard[SDL_SCANCODE_Q] && !keyboard[SDL_SCANCODE_E])
 	{
 		int3_t bpos;
 		bpos.x = floor(pos.x);
@@ -359,7 +359,7 @@ state_game_run()
 		bpos.y++;
 		world_addblock(bpos, block, 0);
 		bpos.z++;
-	}
+	}*/
 
 	forwardcamera.x += pos.x;
 	forwardcamera.y += pos.y;
