@@ -12,10 +12,13 @@ smartinc(int *c, uint16_t *i, GLfloat **memchunks)
 	if(*i==65535)
 	{
 		*i=0;
-		*c += 1;
-		memchunks[*c] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
 		return 65535;
 	} else {
+		if(*i == 0)
+		{
+			*c += 1;
+			memchunks[*c] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
+		}
 		*i += 1;
 		return *i-1;
 	}

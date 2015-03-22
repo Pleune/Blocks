@@ -172,8 +172,8 @@ state_game_init()
 
 	//put the textures in thr right spots
 	glUseProgram(ppprogram);
-	GLuint tex = 0;
-	GLuint depth = 1;
+	GLuint tex = 1;
+	GLuint depth = 0;
 
 	glUniform1i(tex,0);
 	glUniform1i(depth, 1);
@@ -316,31 +316,49 @@ state_game_run()
 
 	if(keyboard[SDL_SCANCODE_W])
 	{
-		pos.x += 55 * forwardmovement.x * (deltatime / 1000);
-		pos.z += 55 * forwardmovement.y * (deltatime / 1000);
+		pos.x += 8 * forwardmovement.x * (deltatime / 1000);
+		pos.z += 8 * forwardmovement.y * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_A])
 	{
-		pos.x += 55 * forwardmovement.y * (deltatime / 1000);
-		pos.z -= 55 * forwardmovement.x * (deltatime / 1000);
+		pos.x += 8 * forwardmovement.y * (deltatime / 1000);
+		pos.z -= 8 * forwardmovement.x * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_S])
 	{
-		pos.x -= 55 * forwardmovement.x * (deltatime / 1000);
-		pos.z -= 55 * forwardmovement.y * (deltatime / 1000);
+		pos.x -= 8 * forwardmovement.x * (deltatime / 1000);
+		pos.z -= 8 * forwardmovement.y * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_D])
 	{
-		pos.x -= 55 * forwardmovement.y * (deltatime / 1000);
-		pos.z += 55 * forwardmovement.x * (deltatime / 1000);
+		pos.x -= 8 * forwardmovement.y * (deltatime / 1000);
+		pos.z += 8 * forwardmovement.x * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_LSHIFT])
 	{
-		pos.y -= 55 * (deltatime / 1000);
+		pos.y -= 8 * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_SPACE])
 	{
-		pos.y += 55 * (deltatime / 1000);
+		pos.y += 8 * (deltatime / 1000);
+	}
+
+	if(!keyboard[SDL_SCANCODE_Q] && !keyboard[SDL_SCANCODE_E])
+	{
+		int3_t bpos;
+		bpos.x = floor(pos.x);
+		bpos.y = floor(pos.y);
+		bpos.z = floor(pos.z);
+
+		block_t block;
+		block.id = 1;
+
+		world_addblock(bpos, block, 0);
+		bpos.x++;
+		world_addblock(bpos, block, 0);
+		bpos.y++;
+		world_addblock(bpos, block, 0);
+		bpos.z++;
 	}
 
 	forwardcamera.x += pos.x;
