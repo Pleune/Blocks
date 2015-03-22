@@ -123,11 +123,10 @@ world_addblock(int3_t pos, block_t block, int loadnew)
 	internalpos.x = pos.x - cpos.x*CHUNKSIZE;
 	internalpos.y = pos.y - cpos.y*CHUNKSIZE;
 	internalpos.z = pos.z - cpos.z*CHUNKSIZE;
-printf("x: %i y: %i z: %i ", cpos.x, cpos.y, cpos.z);
+
 	if(isquickloaded(cpos))
 	{
 		int arrindex = getspotof(cpos);
-		printf(" ai: %i\n", arrindex);
 		loadedchunks[arrindex].data[internalpos.x + internalpos.y*CHUNKSIZE + internalpos.z*CHUNKSIZE*CHUNKSIZE] = block;
 		blockvbos[cpos.x][cpos.y][cpos.z].iscurrent = 0;
 		return 0;

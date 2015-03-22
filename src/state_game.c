@@ -172,10 +172,10 @@ state_game_init()
 
 	//put the textures in thr right spots
 	glUseProgram(ppprogram);
-	GLuint tex = 1;
-	GLuint depth = 0;
+	GLuint tex = glGetUniformLocation(ppprogram, "tex");
+	GLuint depth = glGetUniformLocation(ppprogram, "depth");
 
-	glUniform1i(tex,0);
+	glUniform1i(tex, 0);
 	glUniform1i(depth, 1);
 
 	//generate the post processing mesh
