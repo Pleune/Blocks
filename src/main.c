@@ -157,6 +157,7 @@ static void initalize()
 	glBindVertexArray(vao);
 
 	SDL_GetWindowSize(win, &windoww, &windowh);
+	SDL_GL_SetSwapInterval(0);
 
 	glClearColor(0,0,0,1);
 	glFrontFace(GL_CCW);
