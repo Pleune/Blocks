@@ -289,7 +289,7 @@ state_game_run()
 	double deltamousex = mousex - windoww/2;
 	double deltamousey = mousey - windowh/2;
 
-	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 2000, .1);
+	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 1000, .1);
 
 	vec3_t up;
 	up.x = 0;
