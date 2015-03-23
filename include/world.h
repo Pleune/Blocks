@@ -10,6 +10,8 @@ typedef struct {
 } int3_t;
 
 void world_initalload();
+void world_cleanup();
+
 void world_render();
 
 int world_addblock(int3_t pos, block_t block, int loadnew);

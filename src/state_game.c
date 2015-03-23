@@ -237,7 +237,7 @@ state_game_run()
 	{
 		if(e.type == SDL_QUIT)
 			state_changeto(CLOSING);
-		//handle input
+
 		if(e.type == SDL_KEYDOWN)
 		{
 			switch(e.key.keysym.sym)
@@ -275,8 +275,6 @@ state_game_run()
 
 				glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-
-				//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ppinputtex, 0);
 
 				if(!pp)
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -427,4 +425,5 @@ state_game_close()
 	glDeleteFramebuffers(1, &renderbuffer.framebuffer);
 	glDeleteTextures(1, &renderbuffer.colorbuffer);
 	glDeleteTextures(1, &renderbuffer.depthbuffer);
+	world_cleanup();
 }

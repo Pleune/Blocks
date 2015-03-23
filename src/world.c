@@ -13,7 +13,6 @@ chunk_t loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
 int3_t centerpos = {WORLDSIZE/2, WORLDSIZE/2, (WORLDSIZE)/2};
 
 struct {
-	GLuint vao;
 	GLuint vbo;
 	int iscurrent;
 	long points;
@@ -76,6 +75,22 @@ world_initalload()
 							loadedchunks[spot].data[j+k*CHUNKSIZE*CHUNKSIZE].id = 1;
 					}
 				}
+			}
+		}
+	}
+}
+
+void
+world_cleanup()
+{	int x, y, z;
+	for(x=0; x<WORLDSIZE; x++)
+	{
+		for(y=0; y<WORLDSIZE; y++)
+		{
+			for(z=0; z<WORLDSIZE; z++)
+			{
+				glDeleteBuffers(1, &blockvbos[x][y][z].vbo);
+				free(loadedchunks[x + y*WORLDSIZE + z*WORLDSIZE*WORLDSIZE].data);
 			}
 		}
 	}
