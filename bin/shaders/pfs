@@ -3,7 +3,7 @@
 precision mediump float;
 
 in vec2 Texcoord;
-out vec4 color;
+out vec3 color;
 
 uniform sampler2D tex;
 uniform sampler2D depth;
@@ -30,15 +30,14 @@ void main()
 		-1.0, -2.0, -1.0 );
 
 	float  fSumX = 0.0;
-	float  fSumY = 0.0;
-	float fTotalSum = 0.0;
+	float  fSumY =  0.0;
 
 	for(float I=-1.0; I<=1.0; I = I + 1.0)
 	{
 		for(float J=-1.0; J<=1.0; J = J + 1.0)
 		{
 			vec2 fTemp = vec2(Texcoord) + vec2(I/fWidth,J/fHeight);
-			float fTempSum = pow( texture2D( depth, fTemp).r, 40);
+			float fTempSum = pow( texture2D( depth, fTemp).r, 20.0);
 			fSumX = fSumX + ( fTempSum * GX[int(I+1.0)][int(J+1.0)]);
 			fSumY = fSumY + ( fTempSum * GY[int(I+1.0)][int(J+1.0)]);
 		}
@@ -47,11 +46,7 @@ void main()
 	fSumX = abs( fSumX );
 	fSumY = abs( fSumY );
 
-	fTotalSum = min( (fSumX + fSumY)*3.0, 0.7);
+	float fTotalSum = (fSumX + fSumY) * 6.0;
 
-	vec4 temp = texture2D( tex, Texcoord);
-
-	//temp = temp*pow((vec3(1) - vec3(0.35) * fTotalSum), vec3(10.0)) + pow(pow(fTotalSum, vec3(4.0)), vec3(2.0));
-
-	color = temp + fTotalSum;
+	color = texture2D( tex, Texcoord).rgb * vec3(pow((1.0 - 0.35)*fTotalSum, 10.0) + pow(fTotalSum, 6.0)) + vec3(fTotalSum);
 }
