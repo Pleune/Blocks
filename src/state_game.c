@@ -314,31 +314,31 @@ state_game_run()
 
 	if(keyboard[SDL_SCANCODE_W])
 	{
-		pos.x += 8 * forwardmovement.x * (deltatime / 1000);
-		pos.z += 8 * forwardmovement.y * (deltatime / 1000);
+		pos.x += 101 * forwardmovement.x * (deltatime / 1000);
+		pos.z += 101 * forwardmovement.y * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_A])
 	{
-		pos.x += 8 * forwardmovement.y * (deltatime / 1000);
-		pos.z -= 8 * forwardmovement.x * (deltatime / 1000);
+		pos.x += 101 * forwardmovement.y * (deltatime / 1000);
+		pos.z -= 101 * forwardmovement.x * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_S])
 	{
-		pos.x -= 8 * forwardmovement.x * (deltatime / 1000);
-		pos.z -= 8 * forwardmovement.y * (deltatime / 1000);
+		pos.x -= 101 * forwardmovement.x * (deltatime / 1000);
+		pos.z -= 101 * forwardmovement.y * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_D])
 	{
-		pos.x -= 8 * forwardmovement.y * (deltatime / 1000);
-		pos.z += 8 * forwardmovement.x * (deltatime / 1000);
+		pos.x -= 101 * forwardmovement.y * (deltatime / 1000);
+		pos.z += 101 * forwardmovement.x * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_LSHIFT])
 	{
-		pos.y -= 8 * (deltatime / 1000);
+		pos.y -= 101 * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_SPACE])
 	{
-		pos.y += 8 * (deltatime / 1000);
+		pos.y += 101 * (deltatime / 1000);
 	}
 
 	/*if(!keyboard[SDL_SCANCODE_Q] && !keyboard[SDL_SCANCODE_E])
