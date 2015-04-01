@@ -14,5 +14,6 @@ void world_cleanup();
 
 void world_render();
 
-int world_addblock(int3_t pos, block_t block, int loadnew);
+block_t world_getblock(long x, long y, long z, int loadnew);
+int world_setblock(long x, long y, long z, block_t block, int loadnew);
 #endif //WORLD_H

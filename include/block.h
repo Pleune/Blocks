@@ -10,4 +10,6 @@ typedef struct {
 	uint8_t id;
 } block_t;
 
+int block_issolid(block_t b);
+
 #endif //BLOCK_H

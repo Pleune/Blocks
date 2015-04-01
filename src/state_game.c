@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
@@ -232,6 +233,35 @@ state_game_run()
 		frame=0;
 	}
 
+	SDL_PumpEvents();
+
+	const uint8_t *keyboard = SDL_GetKeyboardState(0);
+	int mousex, mousey;
+	SDL_GetMouseState(&mousex, &mousey);
+	centermouse();
+	double deltamousex = mousex - windoww/2;
+	double deltamousey = mousey - windowh/2;
+
+	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 1000, .1);
+
+	vec3_t up;
+	up.x = 0;
+	up.y = 1;
+	up.z = 0;
+
+	rotx += deltamousex/800;
+	roty -= deltamousey/800;
+
+	vec3_t forwardcamera;
+	forwardcamera.x = sin(rotx) * cos(roty);
+	forwardcamera.y = sin(roty) + 0.4f;
+	forwardcamera.z = -cos(rotx) * cos(roty);
+
+	vec2_t forwardmovement;
+	forwardmovement.x = sin(rotx);
+	forwardmovement.y = -cos(rotx);
+
+
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
 	{
@@ -257,6 +287,97 @@ state_game_run()
 						glUseProgram(drawprogram);
 					}
 				break;
+				case SDLK_e:
+				{
+					int3_t p;
+					p.x = (int)floorf(pos.x);
+					p.y = (int)floorf(pos.y);
+					p.z = (int)floorf(pos.z);
+
+					vec3_t b;
+					b.x = pos.x - floorf(pos.x);
+					b.y = pos.y - floorf(pos.y);
+					b.z = pos.z - floorf(pos.z);
+
+					vec3_t r = forwardcamera;
+
+					int posx, posy, posz;
+					if(r.x > 0)
+						posx = 1;
+					else
+						posx = 0;
+					if(r.y > 0)
+						posy = 1;
+					else
+						posy = 0;
+					if(r.z > 0)
+						posz = 1;
+					else
+						posz = 0;
+
+					vec3_t rt;
+					rt.y = r.y / r.x;
+					rt.z = r.z / r.x;
+					float deltax = sqrtf(1 + rt.y*rt.y + rt.z*rt.z);
+					rt.x = r.x / r.y;
+					rt.z = r.z / r.y;
+					float deltay = sqrtf(rt.x*rt.x + 1 + rt.z*rt.z);
+					rt.x = r.x / r.z;
+					rt.y = r.y / r.z;
+					float deltaz = sqrtf(rt.x*rt.x + rt.y*rt.y + 1);
+
+					block_t block;
+					block.id = 0;
+
+					float maxx = deltax * (posx ? (1 - b.x) : b.x);
+					float maxy = deltay * (posy ? (1 - b.y) : b.y);
+					float maxz = deltaz * (posz ? (1 - b.z) : b.z);
+
+					int i;
+					for(i=0; i<1000; i++)
+					{
+					if(maxx < maxy && maxx < maxz)
+					{
+						maxx += deltax;
+						if(posx)
+						{
+							p.x++;
+						}
+						else
+						{
+							p.x--;
+						}
+					}
+					else if(maxy < maxx && maxy < maxz)
+					{
+						maxy += deltay;
+						if(posy)
+						{
+							p.y++;
+						}
+						else
+						{
+							p.y--;
+						}
+					}
+					else if(maxz < maxx && maxz < maxy)
+					{
+						maxz += deltaz;
+						if(posz)
+						{
+							p.z++;
+						}
+						else
+						{
+							p.z--;
+
+						}
+					}
+					world_setblock(p.x, p.y, p.z, block, 0);
+					}
+
+					break;
+				}
 			}
 		}
 		else if(e.type == SDL_WINDOWEVENT)
@@ -282,63 +403,33 @@ state_game_run()
 		}
 	}
 
-	const uint8_t *keyboard = SDL_GetKeyboardState(0);
-	int mousex, mousey;
-	SDL_GetMouseState(&mousex, &mousey);
-	centermouse();
-	double deltamousex = mousex - windoww/2;
-	double deltamousey = mousey - windowh/2;
-
-	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 1000, .1);
-
-	vec3_t up;
-	up.x = 0;
-	up.y = 1;
-	up.z = 0;
-
-	rotx += deltamousex/800;
-	roty -= deltamousey/800;
-
-	vec3_t forwardcamera;
-	forwardcamera.x = sin(rotx) * cos(roty);
-	forwardcamera.y = sin(roty);
-	forwardcamera.z = -cos(rotx) * cos(roty);
-
-	vec2_t forwardmovement;
-	forwardmovement.x = sin(rotx);
-	forwardmovement.y = -cos(rotx);
-
-	vec2_t right;
-	right.x = -forwardcamera.y;
-	right.y = -forwardcamera.x;
-
 	if(keyboard[SDL_SCANCODE_W])
 	{
-		pos.x += 101 * forwardmovement.x * (deltatime / 1000);
-		pos.z += 101 * forwardmovement.y * (deltatime / 1000);
+		pos.x += 2 * forwardmovement.x * (deltatime / 1000);
+		pos.z += 2 * forwardmovement.y * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_A])
 	{
-		pos.x += 101 * forwardmovement.y * (deltatime / 1000);
-		pos.z -= 101 * forwardmovement.x * (deltatime / 1000);
+		pos.x += 2 * forwardmovement.y * (deltatime / 1000);
+		pos.z -= 2 * forwardmovement.x * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_S])
 	{
-		pos.x -= 101 * forwardmovement.x * (deltatime / 1000);
-		pos.z -= 101 * forwardmovement.y * (deltatime / 1000);
+		pos.x -= 2 * forwardmovement.x * (deltatime / 1000);
+		pos.z -= 2 * forwardmovement.y * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_D])
 	{
-		pos.x -= 101 * forwardmovement.y * (deltatime / 1000);
-		pos.z += 101 * forwardmovement.x * (deltatime / 1000);
+		pos.x -= 2 * forwardmovement.y * (deltatime / 1000);
+		pos.z += 2 * forwardmovement.x * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_LSHIFT])
 	{
-		pos.y -= 101 * (deltatime / 1000);
+		pos.y -= 2 * (deltatime / 1000);
 	}
 	if(keyboard[SDL_SCANCODE_SPACE])
 	{
-		pos.y += 101 * (deltatime / 1000);
+		pos.y += 2 * (deltatime / 1000);
 	}
 
 	/*if(!keyboard[SDL_SCANCODE_Q] && !keyboard[SDL_SCANCODE_E])

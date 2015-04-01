@@ -10,7 +10,7 @@ uniform mat4 MVP;
 
 void main(){
 	vec4 temp =  MVP * vec4(vertexPosition_modelspace,1);
-	colors = vertexPosition_modelspace / vec3(500);
+	colors = vertexPosition_modelspace / vec3(30);
 	gl_Position = temp;
 }
 
