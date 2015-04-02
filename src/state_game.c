@@ -287,7 +287,7 @@ state_game_run()
 						glUseProgram(drawprogram);
 					}
 				break;
-				
+
 			}
 		}
 		else if(e.type == SDL_MOUSEBUTTONDOWN)

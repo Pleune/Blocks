@@ -17,8 +17,8 @@ uniform sampler2D depth;
 
 void main()
 {
-	float fWidth = 1920.0f;
-	float fHeight = 1080.0f;
+	float fWidth = 1366.0f;
+	float fHeight = 768.0f;
 
 	// X directional search matrix.
 	mat3 GX = mat3( -1.0, 0.0, 1.0,
