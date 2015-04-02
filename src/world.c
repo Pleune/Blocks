@@ -18,32 +18,36 @@ struct {
 	long points;
 } blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
 
-static inline int
+static inline int3_t
 getinternalspotof(long x, long y, long z)
 {
-	return (x%WORLDSIZE) + (y%WORLDSIZE)*WORLDSIZE + (z%WORLDSIZE)*WORLDSIZE*WORLDSIZE;
+	int3_t blockpos;
+	blockpos.x = x%CHUNKSIZE;
+	blockpos.y = y%CHUNKSIZE;
+	blockpos.z = z%CHUNKSIZE;
+	return blockpos;
 }
 
 static inline int3_t
 getchunkspotof(long x, long y, long z)
 {
-	int3_t blockpos;
-	blockpos.x = floor((double)x / CHUNKSIZE);
-	blockpos.y = floor((double)y / CHUNKSIZE);
-	blockpos.z = floor((double)z / CHUNKSIZE);
-	return blockpos;
+	int3_t chunkpos;
+	chunkpos.x = floor((double)x / CHUNKSIZE);
+	chunkpos.y = floor((double)y / CHUNKSIZE);
+	chunkpos.z = floor((double)z / CHUNKSIZE);
+	return chunkpos;
 }
 
 static inline long
-getinternalarrayspotof(int3_t internalpos)
+getinternalarrayspotof(long x, long y, long z)
 {
-	return (internalpos.x) + (internalpos.y)*CHUNKSIZE + (internalpos.z)*CHUNKSIZE*CHUNKSIZE;
+	return (x) + (y)*CHUNKSIZE + (z)*CHUNKSIZE*CHUNKSIZE;
 }
 
 static inline long
-getchunkarrayspotof(int3_t chunkpos)
+getchunkarrayspotof(long x, long y, long z)
 {
-	return (chunkpos.x) + (chunkpos.y)*WORLDSIZE + (chunkpos.z)*WORLDSIZE*WORLDSIZE;
+	return (x) + (y)*WORLDSIZE + (z)*WORLDSIZE*WORLDSIZE;
 }
 
 static inline int
@@ -68,13 +72,13 @@ world_initalload()
 				blockvbos[x][y][z].points = 0;
 				blockvbos[x][y][z].iscurrent = 0;
 
-				int spot = getinternalspotof(x, y, z);
+				int spot = getchunkarrayspotof(x, y, z);
 				loadedchunks[spot] = callocchunk();
 				loadedchunks[spot].pos[0] = x;
 				loadedchunks[spot].pos[1] = y;
 				loadedchunks[spot].pos[2] = z;
 
-				loadedchunks[spot].data[0].id = 1;
+				//loadedchunks[spot].data[0].id = 1;
 				if(y==0)
 				{
 					int j,k;
@@ -129,7 +133,7 @@ world_render()
 				glEnableVertexAttribArray(0);
 				if(!blockvbos[x][y][z].iscurrent)
 				{
-					mesh_t mesh = chunk_getmesh(loadedchunks[getinternalspotof(x, y, z)], 0,0,0,0,0,0);
+					mesh_t mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(x,y,z)], 0,0,0,0,0,0);
 
 					glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_STATIC_DRAW);
 
@@ -148,8 +152,10 @@ block_t
 world_getblock(long x, long y, long z, int loadnew)
 {
 	int3_t cpos = getchunkspotof(x, y, z);
+	int3_t internalpos = getinternalspotof(x,y,z);
+
 	if(isquickloaded(cpos))
-		return loadedchunks[getchunkarrayspotof(cpos)].data[getinternalspotof(x, y, z)];
+		return loadedchunks[getchunkarrayspotof(cpos.x, cpos.y, cpos.z)].data[getinternalarrayspotof(internalpos.x, internalpos.y, internalpos.z)];
 	block_t error;
 	error.id = 255;
 	return error;
@@ -159,14 +165,11 @@ int
 world_setblock(long x, long y, long z, block_t block, int loadnew)
 {
 	int3_t cpos = getchunkspotof(x, y, z);
-	int3_t internalpos;
-	internalpos.x = x - cpos.x*CHUNKSIZE;
-	internalpos.y = y - cpos.y*CHUNKSIZE;
-	internalpos.z = z - cpos.z*CHUNKSIZE;
+	int3_t internalpos = getinternalspotof(x, y, z);
 
 	if(isquickloaded(cpos))
 	{
-		int arrindex = getchunkarrayspotof(cpos);
+		int arrindex = getchunkarrayspotof(cpos.x, cpos.y, cpos.z);
 		loadedchunks[arrindex].data[internalpos.x + internalpos.y*CHUNKSIZE + internalpos.z*CHUNKSIZE*CHUNKSIZE] = block;
 		blockvbos[cpos.x][cpos.y][cpos.z].iscurrent = 0;
 		return 0;
