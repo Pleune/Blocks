@@ -16,9 +16,11 @@ void main(){
 	offset.y = min(offset.y, 1.0 - offset.y);
 	offset.z = min(offset.z, 1.0 - offset.z);
 
-	offset.x = pow(offset.x, 0.1);
-	offset.y = pow(offset.y, 0.1);
-	offset.z = pow(offset.z, 0.1);
+	offset.x = sqrt(sqrt(offset.x));
+	offset.y = sqrt(sqrt(offset.y));
+	offset.z = sqrt(sqrt(offset.z));
 
-	color = colors * vec3((offset.x + offset.y + offset.z) / 3.0);
+	float o = min( min(max(offset.x, offset.y), max(offset.y, offset.z)), max(offset.z, offset.x));
+
+	color = colors * vec3(o);
 }
