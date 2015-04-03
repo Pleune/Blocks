@@ -14,6 +14,7 @@ int3_t centerpos = {WORLDSIZE/2, WORLDSIZE/2, (WORLDSIZE)/2};
 
 struct {
 	GLuint vbo;
+	GLuint cbo;
 	int iscurrent;
 	long points;
 } blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
@@ -67,7 +68,7 @@ world_initalload()
 			for(z=0; z<WORLDSIZE; z++)
 			{
 				glGenBuffers(1, &blockvbos[x][y][z].vbo);
-				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
+				glGenBuffers(1, &blockvbos[x][y][z].cbo);
 
 				blockvbos[x][y][z].points = 0;
 				blockvbos[x][y][z].iscurrent = 0;
@@ -122,25 +123,64 @@ world_render()
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
-				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
-				glVertexAttribPointer(
-						0,
-						3,
-						GL_FLOAT,
-						GL_FALSE,
-						0,
-						0);
-				glEnableVertexAttribArray(0);
 				if(!blockvbos[x][y][z].iscurrent)
 				{
+					//re set up the buffers
 					mesh_t mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(x,y,z)], 0,0,0,0,0,0);
+					//points buffer
+						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
+						glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_STATIC_DRAW);
 
-					glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_STATIC_DRAW);
+						free(mesh.data);
+
+						//do the stuff the else case needs to do
+						glVertexAttribPointer(
+							0,
+							3,
+							GL_FLOAT,
+							GL_FALSE,
+							0,
+							0);
+						glEnableVertexAttribArray(0);
+					//Color buffer
+						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
+						glBufferData(GL_ARRAY_BUFFER, mesh.colorsize * sizeof(GLfloat), mesh.colordata, GL_STATIC_DRAW);
+
+						free(mesh.colordata);
+
+						//do the stuff the else case needs to do
+						glVertexAttribPointer(
+								1,
+								3,
+								GL_FLOAT,
+								GL_FALSE,
+								0,
+								0);
+						glEnableVertexAttribArray(1);
 
 					blockvbos[x][y][z].points = mesh.size / 3;
 					blockvbos[x][y][z].iscurrent = 1;
-				}
+				} else {
+					glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
+					glVertexAttribPointer(
+							0,
+							3,
+							GL_FLOAT,
+							GL_FALSE,
+							0,
+							0);
+					glEnableVertexAttribArray(0);
 
+					glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
+					glVertexAttribPointer(
+							1,
+							3,
+							GL_FLOAT,
+							GL_FALSE,
+							0,
+							0);
+					glEnableVertexAttribArray(1);
+				}
 				glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].points);
 			}
 		}

@@ -6,6 +6,8 @@
 typedef struct {
 	long size;
 	GLfloat *data;
+	long colorsize;
+	GLfloat *colordata;
 } mesh_t;
 
 #endif //MESH_H

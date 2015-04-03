@@ -298,7 +298,7 @@ state_game_run()
 			if(e.button.button == SDL_BUTTON_LEFT)
 			{
 				block_t b;
-				b.id = 1;
+				b.id = 2;
 				rayadd(pos, forwardcamera, b, 1);
 			}
 			else if(e.button.button == SDL_BUTTON_RIGHT)
