@@ -206,6 +206,8 @@ state_game_init()
 	//load the world
 	world_initalload();
 
+	SDL_CreateThread(world_threadentry, "world", 0);
+
 	pos.x = 0;
 	pos.y = 0;
 	pos.z = 3;

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 
+#include <SDL2/SDL_timer.h>
 #include <GL/glew.h>
 
 #include "defines.h"
@@ -185,6 +186,16 @@ world_render()
 			}
 		}
 	}
+}
+
+int
+world_threadentry(void *ptr)
+{
+	while(1)
+	{
+		SDL_Delay(1000);
+	}
+	return 0;
 }
 
 //TODO: loadnew

@@ -13,14 +13,14 @@ block_getcolor(uint8_t id)
 	switch(id)
 	{
 		case 1:
-			c.x = 1;
-			c.y = 1;
-			c.z = 1;
+			c.x = .4;
+			c.y = .4;
+			c.z = .4;
 		break;
 		case 2:
-			c.x = 1;
-			c.y = 0;
-			c.z = 0;
+			c.x = .08;
+			c.y = .5;
+			c.z = .16;
 		break;
 		case 3:
 			c.x = 0;
@@ -28,14 +28,14 @@ block_getcolor(uint8_t id)
 			c.z = 0;
 		break;
 		case 4:
-			c.x = 0;
-			c.y = 0;
-			c.z = 1;
+			c.x = .8;
+			c.y = .5;
+			c.z = .16;
 		break;
 		default:
-			c.x = .5;
-			c.y = .5;
-			c.z = .5;
+			c.x = .6;
+			c.y = .45;
+			c.z = .25;
 		break;
 	}
 	return c;
