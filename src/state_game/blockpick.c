@@ -71,7 +71,8 @@ rayadd(vec3_t pos, vec3_t r, block_t block, int before)
 			}
 		}
 	}
-	world_setblock(p.x, p.y, p.z, block, 0);
+	if(!block_issolid(world_getblock(p.x,p.y,p.z,0)))
+		world_setblock(p.x, p.y, p.z, block, 0);
 }
 
 inline static void
