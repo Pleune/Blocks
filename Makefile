@@ -2,8 +2,8 @@ CC=gcc
 
 ROOT=./
 
-CFLAGS:= -Wall -O2
-LFLAGS:=
+CFLAGS:= -Wall -O2 -g
+LFLAGS:= -g
 LIBS:=-lm -lSDL2 -lGL -lGLEW
 
 SRCDIR=$(ROOT)src/

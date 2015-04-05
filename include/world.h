@@ -3,11 +3,7 @@
 
 #include "block.h"
 
-typedef struct {
-	int x;
-	int y;
-	int z;
-} int3_t;
+void world_setworldcenter(long x, long y, long z);
 
 void world_initalload();
 void world_cleanup();

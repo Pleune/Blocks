@@ -1,7 +1,7 @@
 static void
 rayadd(vec3_t pos, vec3_t r, block_t block, int before)
 {
-	int3_t p;
+	long3_t p;
 	p.x = (int)floorf(pos.x);
 	p.y = (int)floorf(pos.y);
 	p.z = (int)floorf(pos.z);
@@ -15,9 +15,9 @@ rayadd(vec3_t pos, vec3_t r, block_t block, int before)
 	int posy = r.y > 0 ? 1 : 0;
 	int posz = r.z > 0 ? 1 : 0;
 
-	float dirx = posx ? 1 : -1;
-	float diry = posy ? 1 : -1;
-	float dirz = posz ? 1 : -1;
+	int dirx = posx ? 1 : -1;
+	int diry = posy ? 1 : -1;
+	int dirz = posz ? 1 : -1;
 
 	vec3_t rt;
 	rt.y = r.y / r.x;
@@ -37,7 +37,7 @@ rayadd(vec3_t pos, vec3_t r, block_t block, int before)
 	int i;
 	for(i=0; i<1000; i++)
 	{
-		if(maxx < maxy && maxx < maxz)
+		if(maxx <= maxy && maxx <= maxz)
 		{
 			maxx += deltax;
 			p.x += dirx;
@@ -48,7 +48,7 @@ rayadd(vec3_t pos, vec3_t r, block_t block, int before)
 				break;
 			}
 		}
-		else if(maxy < maxx && maxy < maxz)
+		else if(maxy <= maxx && maxy <= maxz)
 		{
 			maxy += deltay;
 			p.y += diry;
@@ -59,7 +59,7 @@ rayadd(vec3_t pos, vec3_t r, block_t block, int before)
 				break;
 			}
 		}
-		else if(maxz < maxx && maxz < maxy)
+		else if(maxz <= maxx && maxz <= maxy)
 		{
 			maxz += deltaz;
 			p.z += dirz;

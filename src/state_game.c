@@ -266,6 +266,7 @@ state_game_run()
 	forwardmovement.x = sin(rotx);
 	forwardmovement.y = -cos(rotx);
 
+	world_setworldcenter(pos.x, pos.y, pos.z);
 
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
@@ -330,7 +331,7 @@ state_game_run()
 			}
 		}
 	}
-#define SPEED 2
+#define SPEED 10
 	if(keyboard[SDL_SCANCODE_W])
 	{
 		pos.x += SPEED * forwardmovement.x * (deltatime / 1000);
@@ -359,24 +360,6 @@ state_game_run()
 	{
 		pos.y += SPEED * (deltatime / 1000);
 	}
-
-	/*if(!keyboard[SDL_SCANCODE_Q] && !keyboard[SDL_SCANCODE_E])
-	{
-		int3_t bpos;
-		bpos.x = floor(pos.x);
-		bpos.y = floor(pos.y);
-		bpos.z = floor(pos.z);
-
-		block_t block;
-		block.id = 1;
-
-		world_addblock(bpos, block, 0);
-		bpos.x++;
-		world_addblock(bpos, block, 0);
-		bpos.y++;
-		world_addblock(bpos, block, 0);
-		bpos.z++;
-	}*/
 
 	forwardcamera.x += pos.x;
 	forwardcamera.y += pos.y;

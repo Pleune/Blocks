@@ -1,6 +1,12 @@
 #ifndef CUSTOMMATH_H
 #define CUSTOMMATH_H
 
+typedef struct {
+	long x;
+	long y;
+	long z;
+} long3_t;
+
 typedef struct vec2_s {
 	float x;
 	float y;
