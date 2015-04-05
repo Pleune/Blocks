@@ -26,6 +26,8 @@ struct {
 	long points;
 	mesh_t mesh;
 	int ismeshcurrent;
+	SDL_mutex *lock;//only sometimes correct
+	int3_t coords;//must be hand asisgned before use
 } blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
 
 static inline long3_t
@@ -185,6 +187,30 @@ world_render()
 	}
 }
 
+static int
+quickremeshachunk(void *ptr)
+{
+	int3_t *i = (int3_t *)ptr;
+	if(SDL_TryLockMutex(blockvbos[i->x][i->y][i->z].lock)!=0)
+	{
+		printf("Xzz: %i Yzz: %i Zzz: %i\n", i->x, i->y, i->z);
+		blockvbos[i->x][i->y][i->z].iscurrent=0;
+		return -1;
+	}
+	//make sure the other thread dosent do anything stupid
+	blockvbos[i->x][i->y][i->z].ismeshcurrent=1;
+
+	//re set up the buffers
+	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], 0,0,0,0,0,0);
+
+	blockvbos[i->x][i->y][i->z].iscurrent = 1;
+	blockvbos[i->x][i->y][i->z].ismeshcurrent=0;
+	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.size / 3;
+	SDL_UnlockMutex(blockvbos[i->x][i->y][i->z].lock);
+
+	return 0;
+}
+
 int
 world_threadentry(void *ptr)
 {
@@ -221,24 +247,18 @@ world_threadentry(void *ptr)
 			}
 		}
 
-		int x,y,z;
-		for(x = 0; x< WORLDSIZE; x++)
+		int3_t i;
+		for(i.x = 0; i.x< WORLDSIZE; i.x++)
 		{
-			for(y = 0; y< WORLDSIZE; y++)
+			for(i.y = 0; i.y< WORLDSIZE; i.y++)
 			{
-				for(z = 0; z< WORLDSIZE; z++)
+				for(i.z = 0; i.z< WORLDSIZE; i.z++)
 				{
-					if(!blockvbos[x][y][z].iscurrent)
+					if(!blockvbos[i.x][i.y][i.z].iscurrent)
 					{
-						//make sure the other thread dosent do anything stupid
-						blockvbos[x][y][z].ismeshcurrent=1;
-
-						//re set up the buffers
-						blockvbos[x][y][z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(x,y,z)], 0,0,0,0,0,0);
-
-						blockvbos[x][y][z].iscurrent = 1;
-						blockvbos[x][y][z].ismeshcurrent=0;
-						blockvbos[x][y][z].points = blockvbos[x][y][z].mesh.size / 3;
+						long arrpos = i.x + i.y*WORLDSIZE + i.z*WORLDSIZE*WORLDSIZE;
+						blockvbos[i.x][i.y][i.z].lock = loadedchunks[arrpos].lock;
+						quickremeshachunk(&i);
 					}
 				}
 			}
@@ -248,6 +268,8 @@ world_threadentry(void *ptr)
 	}
 	return 0;
 }
+
+
 
 //TODO: loadnew
 block_t
@@ -283,11 +305,22 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 		if(!chunk->writable)
 			return -2;
 
-		SDL_LockMutex(chunk->lock);
-		chunk->data[internalpos.x + internalpos.y*CHUNKSIZE + internalpos.z*CHUNKSIZE*CHUNKSIZE] = block;
-		blockvbos[MODULO(cpos.x, WORLDSIZE)][MODULO(cpos.y, WORLDSIZE)][MODULO(cpos.z, WORLDSIZE)].iscurrent = 0;
-		SDL_UnlockMutex(chunk->lock);
-		return 0;
+		if(SDL_TryLockMutex(chunk->lock)==0)
+		{
+			chunk->data[internalpos.x + internalpos.y*CHUNKSIZE + internalpos.z*CHUNKSIZE*CHUNKSIZE] = block;
+			SDL_UnlockMutex(chunk->lock);
+			int3_t i;
+			i.x = MODULO(cpos.x, WORLDSIZE);
+			i.y = MODULO(cpos.y, WORLDSIZE);
+			i.z = MODULO(cpos.z, WORLDSIZE);
+			blockvbos[i.x][i.y][i.z].coords = i;
+
+			blockvbos[i.x][i.y][i.z].lock = chunk->lock;
+			SDL_CreateThread( quickremeshachunk, "quickblock", &blockvbos[i.x][i.y][i.z].coords);
+
+			return 0;
+		}
+		return -3;
 	}
 	return -1;
 }

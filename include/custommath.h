@@ -2,6 +2,12 @@
 #define CUSTOMMATH_H
 
 typedef struct {
+	int x;
+	int y;
+	int z;
+} int3_t;
+
+typedef struct {
 	long x;
 	long y;
 	long z;
