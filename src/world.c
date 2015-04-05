@@ -24,6 +24,8 @@ struct {
 	GLuint cbo;
 	int iscurrent;
 	long points;
+	mesh_t mesh;
+	int ismeshcurrent;
 } blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
 
 static inline long3_t
@@ -99,6 +101,7 @@ world_initalload()
 
 				blockvbos[x][y][z].points = 0;
 				blockvbos[x][y][z].iscurrent = 0;
+				blockvbos[x][y][z].ismeshcurrent=1;
 
 				int spot = getchunkarrayspotof(x + worldscope.x, y + worldscope.y, z + worldscope.z);
 
@@ -142,64 +145,40 @@ world_render()
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
-				if(!blockvbos[x][y][z].iscurrent)
+				if(!blockvbos[x][y][z].ismeshcurrent)
 				{
-					//re set up the buffers
-					mesh_t mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(x,y,z)], 0,0,0,0,0,0);
 					//points buffer
 						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
-						glBufferData(GL_ARRAY_BUFFER, mesh.size * sizeof(GLfloat), mesh.data, GL_STATIC_DRAW);
+						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.size * sizeof(GLfloat), blockvbos[x][y][z].mesh.data, GL_STATIC_DRAW);
 
-						free(mesh.data);
-
-						//do the stuff the else case needs to do
-						glVertexAttribPointer(
-							0,
-							3,
-							GL_FLOAT,
-							GL_FALSE,
-							0,
-							0);
-						glEnableVertexAttribArray(0);
+						free(blockvbos[x][y][z].mesh.data);
 					//Color buffer
 						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
-						glBufferData(GL_ARRAY_BUFFER, mesh.colorsize * sizeof(GLfloat), mesh.colordata, GL_STATIC_DRAW);
+						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.colorsize * sizeof(GLfloat), blockvbos[x][y][z].mesh.colordata, GL_STATIC_DRAW);
 
-						free(mesh.colordata);
+						free(blockvbos[x][y][z].mesh.colordata);
 
-						//do the stuff the else case needs to do
-						glVertexAttribPointer(
-								1,
-								3,
-								GL_FLOAT,
-								GL_FALSE,
-								0,
-								0);
-						glEnableVertexAttribArray(1);
-
-					blockvbos[x][y][z].points = mesh.size / 3;
-					blockvbos[x][y][z].iscurrent = 1;
-				} else {
-					glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
-					glVertexAttribPointer(
-							0,
-							3,
-							GL_FLOAT,
-							GL_FALSE,
-							0,
-							0);
-					glEnableVertexAttribArray(0);
-
-					glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
-					glVertexAttribPointer(
-							1,
-							3,
-							GL_FLOAT,
-							GL_FALSE,
-							0,
-							0);
-					glEnableVertexAttribArray(1);
+					blockvbos[x][y][z].ismeshcurrent=1;
 				}
+				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
+				glVertexAttribPointer(
+						0,
+						3,
+						GL_FLOAT,
+						GL_FALSE,
+						0,
+						0);
+				glEnableVertexAttribArray(0);
+
+				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
+				glVertexAttribPointer(
+						1,
+						3,
+						GL_FLOAT,
+						GL_FALSE,
+						0,
+						0);
+				glEnableVertexAttribArray(1);
 				glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].points);
 			}
 		}
@@ -224,7 +203,6 @@ world_threadentry(void *ptr)
 					if(!isquickloaded(cpos, &arrindex))
 					{
 						//the chunk should be loaded but its not. load it.
-
 						chunk_t *chunk = &loadedchunks[arrindex];
 
 						SDL_LockMutex(chunk->lock);
@@ -238,6 +216,29 @@ world_threadentry(void *ptr)
 
 						chunk->writable = 1;
 						blockvbos[MODULO(cpos.x, WORLDSIZE)][MODULO(cpos.y, WORLDSIZE)][MODULO(cpos.z, WORLDSIZE)].iscurrent = 0;
+					}
+				}
+			}
+		}
+
+		int x,y,z;
+		for(x = 0; x< WORLDSIZE; x++)
+		{
+			for(y = 0; y< WORLDSIZE; y++)
+			{
+				for(z = 0; z< WORLDSIZE; z++)
+				{
+					if(!blockvbos[x][y][z].iscurrent)
+					{
+						//make sure the other thread dosent do anything stupid
+						blockvbos[x][y][z].ismeshcurrent=1;
+
+						//re set up the buffers
+						blockvbos[x][y][z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(x,y,z)], 0,0,0,0,0,0);
+
+						blockvbos[x][y][z].iscurrent = 1;
+						blockvbos[x][y][z].ismeshcurrent=0;
+						blockvbos[x][y][z].points = blockvbos[x][y][z].mesh.size / 3;
 					}
 				}
 			}
