@@ -14,7 +14,7 @@
 
 #include "worldgen.h"
 
-#define MODULO(a, b) ((a % b + b) % b)
+#define MODULO(a, b) (((a) % (b) + (b)) % (b))
 
 chunk_t loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
 long3_t worldscope = {-2, -2, -2};
