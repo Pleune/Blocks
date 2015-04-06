@@ -3,7 +3,7 @@
 #include "defines.h"
 
 void
-worldgen_genchunk(chunk_t *chunk)
+worldgen_genchunk(chunk_p *chunk)
 {
 	if(!chunk->data)
 		free(chunk->data);

@@ -22,7 +22,7 @@ smartinc(int *c, uint32_t *i, GLfloat **memchunks)
 }
 
 mesh_t
-chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest)
+chunk_getmesh(chunk_p *chunk, chunk_p *chunkabove, chunk_p *chunkbelow, chunk_p *chunknorth, chunk_p *chunksouth, chunk_p *chunkeast, chunk_p *chunkwest)
 {
 	GLfloat *memchunks[256];
 	int c = 0;
@@ -43,7 +43,7 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 			for(z=0; z<CHUNKSIZE; z++)
 			{
 				long index = x+CHUNKSIZE*y+CHUNKSIZE*CHUNKSIZE*z;
-				if(chunk.data[index].id)
+				if(chunk->data[index].id)
 				{
 					int top, bottom, north, south, east, west;
 
@@ -51,7 +51,7 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						top=1;
 					} else {
-						if(chunk.data[index+CHUNKSIZE].id)
+						if(chunk->data[index+CHUNKSIZE].id)
 							top = 0;
 						else
 							top = 1;
@@ -60,7 +60,7 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						bottom=1;
 					} else {
-						if(chunk.data[index-CHUNKSIZE].id)
+						if(chunk->data[index-CHUNKSIZE].id)
 							bottom = 0;
 						else
 							bottom = 1;
@@ -69,7 +69,7 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						north=1;
 					} else {
-						if(chunk.data[index-CHUNKSIZE*CHUNKSIZE].id)
+						if(chunk->data[index-CHUNKSIZE*CHUNKSIZE].id)
 							north = 0;
 						else
 							north = 1;
@@ -78,7 +78,7 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						south=1;
 					} else {
-						if(chunk.data[index+CHUNKSIZE*CHUNKSIZE].id)
+						if(chunk->data[index+CHUNKSIZE*CHUNKSIZE].id)
 							south = 0;
 						else
 							south = 1;
@@ -87,7 +87,7 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						east=1;
 					} else {
-						if(chunk.data[index+1].id)
+						if(chunk->data[index+1].id)
 							east = 0;
 						else
 							east = 1;
@@ -96,13 +96,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						west=1;
 					} else {
-						if(chunk.data[index-1].id)
+						if(chunk->data[index-1].id)
 							west = 0;
 						else
 							west = 1;
 					}
 
-					vec3_t color = block_getcolor(chunk.data[index].id);
+					vec3_t color = block_getcolor(chunk->data[index].id);
 
 					if(i<65400)
 					{
@@ -110,13 +110,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//top
 						if(top)
 						{
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
 
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
 
 							//color
 							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
@@ -129,13 +129,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//bottom
 						if(bottom)
 						{
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
 
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
 
 							//color
 							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
@@ -148,13 +148,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//north
 						if(north)
 						{
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
 
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
 
 							//color
 							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
@@ -167,13 +167,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//south
 						if(south)
 						{
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
 
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
 
 							//color
 							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
@@ -186,13 +186,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//east
 						if(east)
 						{
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
 
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
 
 							//color
 							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
@@ -205,13 +205,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//west
 						if(west)
 						{
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
 
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
 
 							//color
 							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
@@ -226,13 +226,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//top
 						if(top)
 						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
 
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
 
 							//color
 							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
@@ -245,13 +245,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//bottom
 						if(bottom)
 						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
 
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
 
 							//color
 							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
@@ -264,13 +264,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//north
 						if(north)
 						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
 
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
 
 							//color
 							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
@@ -283,13 +283,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//south
 						if(south)
 						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
 
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
 
 							//color
 							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
@@ -302,13 +302,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//east
 						if(east)
 						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
 
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
 
 							//color
 							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
@@ -321,13 +321,13 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						//west
 						if(west)
 						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
 
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk.pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk.pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk.pos.z*CHUNKSIZE;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
+							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
 
 							//color
 							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
@@ -379,10 +379,10 @@ chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	return ret;
 }
 
-inline chunk_t
+inline chunk_p
 chunk_initchunk(long3_t pos)
 {
-	chunk_t ret;
+	chunk_p ret;
 	ret.lock = SDL_CreateMutex();
 	ret.writable = 1;
 	ret.pos = pos;
@@ -390,33 +390,33 @@ chunk_initchunk(long3_t pos)
 	return ret;
 }
 
-chunk_t
+chunk_p
 chunk_mallocchunk(long3_t pos)
 {
-	chunk_t ret = chunk_initchunk(pos);
+	chunk_p ret = chunk_initchunk(pos);
 
 	ret.data = (block_t *)malloc(sizeof(block_t) * CHUNKSIZE*CHUNKSIZE*CHUNKSIZE);
 	return ret;
 }
 
-chunk_t
+chunk_p
 chunk_callocchunk(long3_t pos)
 {
-	chunk_t ret = chunk_initchunk(pos);
+	chunk_p ret = chunk_initchunk(pos);
 
 	ret.data = (block_t *)calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
 	return ret;
 }
 
 void
-chunk_zerochunk(chunk_t chunk)
+chunk_zerochunk(chunk_p *chunk)
 {
-	memset(chunk.data, 0, CHUNKSIZE*CHUNKSIZE*CHUNKSIZE);
+	memset(chunk->data, 0, CHUNKSIZE*CHUNKSIZE*CHUNKSIZE);
 }
 
 void
-chunk_freechunk(chunk_t chunk)
+chunk_freechunk(chunk_p *chunk)
 {
-	free(chunk.data);
-	SDL_DestroyMutex(chunk.lock);
+	free(chunk->data);
+	SDL_DestroyMutex(chunk->lock);
 }

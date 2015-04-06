@@ -3,6 +3,6 @@
 
 #include "chunk.h"
 
-void worldgen_genchunk(chunk_t *chunk);
+void worldgen_genchunk(chunk_p *chunk);
 
 #endif //WORLDGEN_H

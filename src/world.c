@@ -16,7 +16,7 @@
 
 #define MODULO(a, b) (((a) % (b) + (b)) % (b))
 
-chunk_t loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
+chunk_p loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
 long3_t worldscope = {-2, -2, -2};
 
 struct {
@@ -130,7 +130,7 @@ world_cleanup()
 			for(z=0; z<WORLDSIZE; z++)
 			{
 				glDeleteBuffers(1, &blockvbos[x][y][z].vbo);
-				chunk_freechunk(loadedchunks[x + y*WORLDSIZE + z*WORLDSIZE*WORLDSIZE]);
+				chunk_freechunk(&loadedchunks[x + y*WORLDSIZE + z*WORLDSIZE*WORLDSIZE]);
 			}
 		}
 	}
@@ -212,12 +212,12 @@ quickremeshachunk(void *ptr)
 		return -1;
 	}
 
-	chunk_t *north=0;
-	chunk_t *south=0;
-	chunk_t *east=0;
-	chunk_t *west=0;
-	chunk_t *up=0;
-	chunk_t *down=0;
+	chunk_p *north=0;
+	chunk_p *south=0;
+	chunk_p *east=0;
+	chunk_p *west=0;
+	chunk_p *up=0;
+	chunk_p *down=0;
 
 	long temparrpos;
 	long3_t tempcpos = loadedchunks[arrpos].pos;
@@ -275,7 +275,7 @@ quickremeshachunk(void *ptr)
 	if(blockvbos[i->x][i->y][i->z].mesh.colordata)
 		free(blockvbos[i->x][i->y][i->z].mesh.colordata);
 
-	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], up,down,north,south,east,west);
+	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(&loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], up,down,north,south,east,west);
 
 	blockvbos[i->x][i->y][i->z].iscurrent = 1;
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=0;
@@ -316,7 +316,7 @@ world_threadentry(void *ptr)
 					if(!isquickloaded(cpos, &arrindex))
 					{
 						//the chunk should be loaded but its not. load it.
-						chunk_t *chunk = &loadedchunks[arrindex];
+						chunk_p *chunk = &loadedchunks[arrindex];
 
 						SDL_LockMutex(chunk->lock);
 						chunk->writable = 0;
@@ -368,7 +368,7 @@ world_getblock(long x, long y, long z, int loadnew)
 	if(isquickloaded(cpos, &arrindex))
 	{
 		long test = getinternalarrayspotof(internalpos.x, internalpos.y, internalpos.z);
-		chunk_t *ctest = &loadedchunks[arrindex];
+		chunk_p *ctest = &loadedchunks[arrindex];
 		return ctest->data[test];
 	}
 	block_t error;
@@ -386,7 +386,7 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 	long arrindex;
 	if(isquickloaded(cpos, &arrindex))
 	{
-		chunk_t *chunk = &loadedchunks[arrindex];
+		chunk_p *chunk = &loadedchunks[arrindex];
 		if(!chunk->writable)
 			return -2;
 
