@@ -38,7 +38,7 @@ struct {
 	GLuint depthbufferid;
 } renderbuffer;
 
-int fpscap = 1;
+int fpscap = 0;
 const int fpsmax = 120;
 
 vec3_t pos;

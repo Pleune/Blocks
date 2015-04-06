@@ -22,7 +22,7 @@ smartinc(int *c, uint32_t *i, GLfloat **memchunks)
 }
 
 mesh_t
-chunk_getmesh(chunk_t chunk, block_t *chunkabove, block_t *chunkbelow, block_t *chunknorth, block_t *chunksouth, block_t *chunkeast, block_t *chunkwest)
+chunk_getmesh(chunk_t chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest)
 {
 	GLfloat *memchunks[256];
 	int c = 0;

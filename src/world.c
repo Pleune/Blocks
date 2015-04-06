@@ -26,7 +26,6 @@ struct {
 	long points;
 	mesh_t mesh;
 	int ismeshcurrent;
-	SDL_mutex *lock;//only sometimes correct
 	int3_t coords;//must be hand asisgned before use
 } blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
 
@@ -105,6 +104,9 @@ world_initalload()
 				blockvbos[x][y][z].iscurrent = 0;
 				blockvbos[x][y][z].ismeshcurrent=1;
 
+				blockvbos[x][y][z].mesh.data=0;
+				blockvbos[x][y][z].mesh.colordata=0;
+
 				int spot = getchunkarrayspotof(x + worldscope.x, y + worldscope.y, z + worldscope.z);
 
 				long3_t cpos;
@@ -153,12 +155,21 @@ world_render()
 						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
 						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.size * sizeof(GLfloat), blockvbos[x][y][z].mesh.data, GL_STATIC_DRAW);
 
-						free(blockvbos[x][y][z].mesh.data);
+						if(blockvbos[x][y][z].mesh.data)
+						{
+							free(blockvbos[x][y][z].mesh.data);
+							blockvbos[x][y][z].mesh.data=0;
+						}
+
 					//Color buffer
 						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
 						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.colorsize * sizeof(GLfloat), blockvbos[x][y][z].mesh.colordata, GL_STATIC_DRAW);
 
-						free(blockvbos[x][y][z].mesh.colordata);
+						if(blockvbos[x][y][z].mesh.colordata)
+						{
+							free(blockvbos[x][y][z].mesh.colordata);
+							blockvbos[x][y][z].mesh.colordata=0;
+						}
 
 					blockvbos[x][y][z].ismeshcurrent=1;
 				}
@@ -191,22 +202,98 @@ static int
 quickremeshachunk(void *ptr)
 {
 	int3_t *i = (int3_t *)ptr;
-	if(SDL_TryLockMutex(blockvbos[i->x][i->y][i->z].lock)!=0)
+
+	long arrpos = getchunkarrayspotof(i->x, i->y, i->z);
+
+	if(SDL_TryLockMutex(loadedchunks[arrpos].lock)!=0)
 	{
 		printf("Xzz: %i Yzz: %i Zzz: %i\n", i->x, i->y, i->z);
 		blockvbos[i->x][i->y][i->z].iscurrent=0;
 		return -1;
 	}
+
+	chunk_t *north=0;
+	chunk_t *south=0;
+	chunk_t *east=0;
+	chunk_t *west=0;
+	chunk_t *up=0;
+	chunk_t *down=0;
+
+	long temparrpos;
+	long3_t tempcpos = loadedchunks[arrpos].pos;
+
+
+
+	tempcpos.x++;
+	if(isquickloaded(tempcpos, &temparrpos))
+	{
+		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
+			east = &loadedchunks[temparrpos];
+	}
+	tempcpos.x -= 2;
+	if(isquickloaded(tempcpos, &temparrpos))
+	{
+		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
+			west = &loadedchunks[temparrpos];
+	}
+	tempcpos.x++;
+
+	tempcpos.y++;
+	if(isquickloaded(tempcpos, &temparrpos))
+	{
+		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
+			up = &loadedchunks[temparrpos];
+	}
+	tempcpos.y -= 2;
+	if(isquickloaded(tempcpos, &temparrpos))
+	{
+		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
+			down = &loadedchunks[temparrpos];
+	}
+	tempcpos.y++;
+
+	tempcpos.z++;
+	if(isquickloaded(tempcpos, &temparrpos))
+	{
+		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
+			south = &loadedchunks[temparrpos];
+	}
+	tempcpos.z -= 2;
+	if(isquickloaded(tempcpos, &temparrpos))
+	{
+		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
+			north = &loadedchunks[temparrpos];
+	}
+
+
 	//make sure the other thread dosent do anything stupid
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=1;
 
 	//re set up the buffers
-	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], 0,0,0,0,0,0);
+	if(blockvbos[i->x][i->y][i->z].mesh.data)
+		free(blockvbos[i->x][i->y][i->z].mesh.data);
+	if(blockvbos[i->x][i->y][i->z].mesh.colordata)
+		free(blockvbos[i->x][i->y][i->z].mesh.colordata);
+
+	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], up,down,north,south,east,west);
 
 	blockvbos[i->x][i->y][i->z].iscurrent = 1;
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=0;
 	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.size / 3;
-	SDL_UnlockMutex(blockvbos[i->x][i->y][i->z].lock);
+	SDL_UnlockMutex(loadedchunks[arrpos].lock);
+
+	if(north)
+		SDL_UnlockMutex(north->lock);
+	if(south)
+		SDL_UnlockMutex(south->lock);
+	if(east)
+		SDL_UnlockMutex(east->lock);
+	if(west)
+		SDL_UnlockMutex(west->lock);
+	if(up)
+		SDL_UnlockMutex(up->lock);
+	if(down)
+		SDL_UnlockMutex(down->lock);
 
 	return 0;
 }
@@ -256,8 +343,6 @@ world_threadentry(void *ptr)
 				{
 					if(!blockvbos[i.x][i.y][i.z].iscurrent)
 					{
-						long arrpos = i.x + i.y*WORLDSIZE + i.z*WORLDSIZE*WORLDSIZE;
-						blockvbos[i.x][i.y][i.z].lock = loadedchunks[arrpos].lock;
 						quickremeshachunk(&i);
 					}
 				}
@@ -315,7 +400,6 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 			i.z = MODULO(cpos.z, WORLDSIZE);
 			blockvbos[i.x][i.y][i.z].coords = i;
 
-			blockvbos[i.x][i.y][i.z].lock = chunk->lock;
 			SDL_CreateThread( quickremeshachunk, "quickblock", &blockvbos[i.x][i.y][i.z].coords);
 
 			return 0;
