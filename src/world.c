@@ -14,7 +14,7 @@
 
 #define MODULO(a, b) (((a) % (b) + (b)) % (b))
 
-chunk_p *loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
+chunk_t *loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
 long3_t worldscope = {0, 0, 0};
 
 struct {
@@ -212,12 +212,12 @@ quickremeshachunk(void *ptr)
 		return -1;
 	}
 
-	chunk_p *north=0;
-	chunk_p *south=0;
-	chunk_p *east=0;
-	chunk_p *west=0;
-	chunk_p *up=0;
-	chunk_p *down=0;
+	chunk_t *north=0;
+	chunk_t *south=0;
+	chunk_t *east=0;
+	chunk_t *west=0;
+	chunk_t *up=0;
+	chunk_t *down=0;
 
 	long temparrpos;
 	long3_t tempcpos = chunk_getpos(loadedchunks[arrpos]);
@@ -314,7 +314,7 @@ world_threadentry(void *ptr)
 					if(!isquickloaded(cpos, &arrindex))
 					{
 						//the chunk should be loaded but its not. load it.
-						chunk_p *chunk = loadedchunks[arrindex];
+						chunk_t *chunk = loadedchunks[arrindex];
 
 						int3_t bp;
 						bp.x = MODULO(cpos.x,WORLDSIZE);
@@ -387,7 +387,7 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 	long arrindex;
 	if(isquickloaded(cpos, &arrindex))
 	{
-		chunk_p *chunk = loadedchunks[arrindex];
+		chunk_t *chunk = loadedchunks[arrindex];
 		if(!blockvbos[bp.x][bp.y][bp.z].iswritable)
 			return -2;
 
