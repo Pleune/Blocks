@@ -12,12 +12,10 @@
 #include "chunk.h"
 #include "custommath.h"
 
-#include "worldgen.h"
-
 #define MODULO(a, b) (((a) % (b) + (b)) % (b))
 
-chunk_p loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
-long3_t worldscope = {-2, -2, -2};
+chunk_p *loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
+long3_t worldscope = {0, 0, 0};
 
 struct {
 	GLuint vbo;
@@ -27,6 +25,8 @@ struct {
 	mesh_t mesh;
 	int ismeshcurrent;
 	int3_t coords;//must be hand asisgned before use
+	SDL_mutex *lock;
+	int iswritable;
 } blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
 
 static inline long3_t
@@ -64,12 +64,14 @@ shouldbequickloaded(long3_t pos)
 }
 
 static inline int
-isquickloaded(long3_t cpos, long *arrindex)
+isquickloaded(long3_t pos, long *arrindex)
 {
-	long ai = getchunkarrayspotof(cpos.x, cpos.y, cpos.z);
+	long ai = getchunkarrayspotof(pos.x, pos.y, pos.z);
 	if(arrindex)
 		*arrindex = ai;
-	return shouldbequickloaded(cpos) && !memcmp(&cpos, &loadedchunks[ai].pos, sizeof(long3_t));
+
+	long3_t cpos = chunk_getpos(loadedchunks[ai]);
+	return shouldbequickloaded(cpos) && !memcmp(&cpos, &pos, sizeof(long3_t));
 }
 
 void
@@ -101,14 +103,16 @@ world_initalload()
 				blockvbos[x][y][z].mesh.data=0;
 				blockvbos[x][y][z].mesh.colordata=0;
 
+				blockvbos[x][y][z].iswritable=1;
+				blockvbos[x][y][z].lock = SDL_CreateMutex();
+
 				int spot = getchunkarrayspotof(x + worldscope.x, y + worldscope.y, z + worldscope.z);
 
 				long3_t cpos;
 				cpos.x = x + worldscope.x;
 				cpos.y = y + worldscope.y;
 				cpos.z = z + worldscope.z;
-				loadedchunks[spot] = chunk_initchunk(cpos);
-				worldgen_genchunk(&loadedchunks[spot]);
+				chunk_loadchunk(cpos, &loadedchunks[spot]);
 			}
 		}
 	}
@@ -123,8 +127,10 @@ world_cleanup()
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
+				glDeleteBuffers(1, &blockvbos[x][y][z].cbo);
 				glDeleteBuffers(1, &blockvbos[x][y][z].vbo);
-				chunk_freechunk(&loadedchunks[x + y*WORLDSIZE + z*WORLDSIZE*WORLDSIZE]);
+				SDL_DestroyMutex(blockvbos[x][y][z].lock);
+				chunk_freechunk(loadedchunks[x + y*WORLDSIZE + z*WORLDSIZE*WORLDSIZE]);
 			}
 		}
 	}
@@ -199,7 +205,7 @@ quickremeshachunk(void *ptr)
 
 	long arrpos = getchunkarrayspotof(i->x, i->y, i->z);
 
-	if(SDL_TryLockMutex(loadedchunks[arrpos].lock)!=0)
+	if(SDL_TryLockMutex(blockvbos[i->x][i->y][i->z].lock)!=0)
 	{
 		printf("Xzz: %i Yzz: %i Zzz: %i\n", i->x, i->y, i->z);
 		blockvbos[i->x][i->y][i->z].iscurrent=0;
@@ -214,49 +220,47 @@ quickremeshachunk(void *ptr)
 	chunk_p *down=0;
 
 	long temparrpos;
-	long3_t tempcpos = loadedchunks[arrpos].pos;
-
-
+	long3_t tempcpos = chunk_getpos(loadedchunks[arrpos]);
 
 	tempcpos.x++;
 	if(isquickloaded(tempcpos, &temparrpos))
 	{
-		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
-			east = &loadedchunks[temparrpos];
+		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x+1,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock))
+			east = loadedchunks[temparrpos];
 	}
 	tempcpos.x -= 2;
 	if(isquickloaded(tempcpos, &temparrpos))
 	{
-		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
-			west = &loadedchunks[temparrpos];
+		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x-1,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock))
+			west = loadedchunks[temparrpos];
 	}
 	tempcpos.x++;
 
 	tempcpos.y++;
 	if(isquickloaded(tempcpos, &temparrpos))
 	{
-		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
-			up = &loadedchunks[temparrpos];
+		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y+1,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock))
+			up = loadedchunks[temparrpos];
 	}
 	tempcpos.y -= 2;
 	if(isquickloaded(tempcpos, &temparrpos))
 	{
-		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
-			down = &loadedchunks[temparrpos];
+		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y-1,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock))
+			down = loadedchunks[temparrpos];
 	}
 	tempcpos.y++;
 
 	tempcpos.z++;
 	if(isquickloaded(tempcpos, &temparrpos))
 	{
-		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
-			south = &loadedchunks[temparrpos];
+		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z+1,WORLDSIZE)].lock))
+			south = loadedchunks[temparrpos];
 	}
 	tempcpos.z -= 2;
 	if(isquickloaded(tempcpos, &temparrpos))
 	{
-		if(!SDL_TryLockMutex(loadedchunks[temparrpos].lock))
-			north = &loadedchunks[temparrpos];
+		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z-1,WORLDSIZE)].lock))
+			north = loadedchunks[temparrpos];
 	}
 
 
@@ -269,25 +273,25 @@ quickremeshachunk(void *ptr)
 	if(blockvbos[i->x][i->y][i->z].mesh.colordata)
 		free(blockvbos[i->x][i->y][i->z].mesh.colordata);
 
-	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(&loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], up,down,north,south,east,west);
+	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], up,down,north,south,east,west);
 
 	blockvbos[i->x][i->y][i->z].iscurrent = 1;
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=0;
 	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.size / 3;
-	SDL_UnlockMutex(loadedchunks[arrpos].lock);
+	SDL_UnlockMutex(blockvbos[i->x][i->y][i->z].lock);
 
 	if(north)
-		SDL_UnlockMutex(north->lock);
+		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z-1,WORLDSIZE)].lock);
 	if(south)
-		SDL_UnlockMutex(south->lock);
+		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z+1,WORLDSIZE)].lock);
 	if(east)
-		SDL_UnlockMutex(east->lock);
+		SDL_UnlockMutex(blockvbos[MODULO(i->x+1,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock);
 	if(west)
-		SDL_UnlockMutex(west->lock);
+		SDL_UnlockMutex(blockvbos[MODULO(i->x-1,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock);
 	if(up)
-		SDL_UnlockMutex(up->lock);
+		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y+1,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock);
 	if(down)
-		SDL_UnlockMutex(down->lock);
+		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y-1,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock);
 
 	return 0;
 }
@@ -310,19 +314,21 @@ world_threadentry(void *ptr)
 					if(!isquickloaded(cpos, &arrindex))
 					{
 						//the chunk should be loaded but its not. load it.
-						chunk_p *chunk = &loadedchunks[arrindex];
+						chunk_p *chunk = loadedchunks[arrindex];
 
-						SDL_LockMutex(chunk->lock);
-						chunk->writable = 0;
-						SDL_UnlockMutex(chunk->lock);
+						int3_t bp;
+						bp.x = MODULO(cpos.x,WORLDSIZE);
+						bp.y = MODULO(cpos.y,WORLDSIZE);
+						bp.z = MODULO(cpos.z,WORLDSIZE);
 
-						free(chunk->data);
-						chunk->pos = cpos;
+						SDL_UnlockMutex(blockvbos[bp.x][bp.y][bp.z].lock);
+						blockvbos[bp.x][bp.y][bp.z].iswritable = 0;
+						SDL_UnlockMutex(blockvbos[bp.x][bp.y][bp.z].lock);
 
-						worldgen_genchunk(chunk);
+						chunk_reloadchunk(cpos, chunk);
 
-						chunk->writable = 1;
-						blockvbos[MODULO(cpos.x, WORLDSIZE)][MODULO(cpos.y, WORLDSIZE)][MODULO(cpos.z, WORLDSIZE)].iscurrent = 0;
+						blockvbos[bp.x][bp.y][bp.z].iswritable = 1;
+						blockvbos[bp.x][bp.y][bp.z].iscurrent = 0;
 					}
 				}
 			}
@@ -360,7 +366,7 @@ world_getblock(long x, long y, long z, int loadnew)
 	long arrindex;
 
 	if(isquickloaded(cpos, &arrindex))
-		return chunk_getblock(&loadedchunks[arrindex], internalpos.x, internalpos.y, internalpos.z);
+		return chunk_getblock(loadedchunks[arrindex], internalpos.x, internalpos.y, internalpos.z);
 	block_t error;
 	error.id = 255;
 	return error;
@@ -373,17 +379,22 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 	long3_t cpos = getchunkspotof(x, y, z);
 	long3_t internalpos = getinternalspotof(x, y, z);
 
+	int3_t bp;
+	bp.x = MODULO(cpos.x,WORLDSIZE);
+	bp.y = MODULO(cpos.y,WORLDSIZE);
+	bp.z = MODULO(cpos.z,WORLDSIZE);
+
 	long arrindex;
 	if(isquickloaded(cpos, &arrindex))
 	{
-		chunk_p *chunk = &loadedchunks[arrindex];
-		if(!chunk->writable)
+		chunk_p *chunk = loadedchunks[arrindex];
+		if(!blockvbos[bp.x][bp.y][bp.z].iswritable)
 			return -2;
 
-		if(SDL_TryLockMutex(chunk->lock)==0)
+		if(SDL_TryLockMutex(blockvbos[bp.x][bp.y][bp.z].lock)==0)
 		{
 			chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
-			SDL_UnlockMutex(chunk->lock);
+			SDL_UnlockMutex(blockvbos[bp.x][bp.y][bp.z].lock);
 			int3_t i;
 			i.x = MODULO(cpos.x, WORLDSIZE);
 			i.y = MODULO(cpos.y, WORLDSIZE);

@@ -9,6 +9,11 @@
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
+struct chunk_s {
+	long3_t pos;
+	block_t *data;
+};
+
 static inline uint32_t
 smartinc(int *c, uint32_t *i, GLfloat **memchunks)
 {
@@ -25,7 +30,7 @@ smartinc(int *c, uint32_t *i, GLfloat **memchunks)
 }
 
 mesh_t
-chunk_getmesh(chunk_p *chunk, chunk_p *chunkabove, chunk_p *chunkbelow, chunk_p *chunknorth, chunk_p *chunksouth, chunk_p *chunkeast, chunk_p *chunkwest)
+chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest)
 {
 	GLfloat *memchunks[256];
 	int c = 0;
@@ -382,50 +387,81 @@ chunk_getmesh(chunk_p *chunk, chunk_p *chunkabove, chunk_p *chunkbelow, chunk_p 
 	return ret;
 }
 
-inline chunk_p
-chunk_initchunk(long3_t pos)
+void
+worldgen_genchunk(chunk_t *chunk)
 {
-	chunk_p ret;
-	ret.lock = SDL_CreateMutex();
-	ret.writable = 1;
-	ret.pos = pos;
-	ret.data = 0;
-	return ret;
-}
+	if(!chunk->data)
+		free(chunk->data);
+	chunk->data = chunk_callocdata();
 
-chunk_p
-chunk_mallocchunk(long3_t pos)
-{
-	chunk_p ret = chunk_initchunk(pos);
-
-	ret.data = (block_t *)malloc(sizeof(block_t) * CHUNKSIZE*CHUNKSIZE*CHUNKSIZE);
-	return ret;
-}
-
-chunk_p
-chunk_callocchunk(long3_t pos)
-{
-	chunk_p ret = chunk_initchunk(pos);
-
-	ret.data = (block_t *)calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
-	return ret;
+	int x, y, z;
+	for(x=0; x<CHUNKSIZE; x++)
+	{
+		for(y=0; y<CHUNKSIZE; y++)
+		{
+			for(z=0; z<CHUNKSIZE; z++)
+			{
+				int i = 0;
+				if(x==0 || x==CHUNKSIZE-1)
+					i++;
+				if(y==0 || y==CHUNKSIZE-1)
+					i++;
+				if(z==0 || z==CHUNKSIZE-1)
+					i++;
+				if(i>1)
+					chunk->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id=1;
+			}
+		}
+	}
 }
 
 void
-chunk_zerochunk(chunk_p *chunk)
-{
-	memset(chunk->data, 0, CHUNKSIZE*CHUNKSIZE*CHUNKSIZE);
-}
-
-void
-chunk_freechunk(chunk_p *chunk)
+chunk_freechunk(chunk_t *chunk)
 {
 	free(chunk->data);
-	SDL_DestroyMutex(chunk->lock);
+	free(chunk);
+}
+
+int
+chunk_loadchunk(long3_t pos, chunk_t **chunk)
+{
+	*chunk = (chunk_t *)malloc(sizeof(chunk_t));
+
+	(*chunk)->pos = pos;
+	(*chunk)->data=0;
+
+	worldgen_genchunk(*chunk);
+
+	return 0;//never laods from disk.
+}
+
+void
+chunk_loademptychunk(long3_t pos, chunk_t **chunk)
+{
+	*chunk = (chunk_t *)malloc(sizeof(chunk_t));
+
+	(*chunk)->pos = pos;
+	(*chunk)->data = calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
+}
+
+int
+chunk_reloadchunk(long3_t pos, chunk_t *chunk)
+{
+	chunk->pos = pos;
+	worldgen_genchunk(chunk);
+	return 0;//never loads from disk
+}
+
+void
+chunk_emptychunk(chunk_t *chunk)
+{
+	if(chunk->data)
+		free(chunk->data);
+	chunk->data = calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
 }
 
 block_t
-chunk_getblock(chunk_p *c, int x, int y, int z)
+chunk_getblock(chunk_t *c, int x, int y, int z)
 {
 	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
 	{
@@ -438,10 +474,16 @@ chunk_getblock(chunk_p *c, int x, int y, int z)
 }
 
 void
-chunk_setblock(chunk_p *c, int x, int y, int z, block_t b)
+chunk_setblock(chunk_t *c, int x, int y, int z, block_t b)
 {
 	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
 		return;
 
 	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
+}
+
+long3_t
+chunk_getpos(chunk_t *chunk)
+{
+	return chunk->pos;
 }
