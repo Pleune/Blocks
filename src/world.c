@@ -50,12 +50,6 @@ getchunkspotof(long x, long y, long z)
 }
 
 static inline long
-getinternalarrayspotof(long x, long y, long z)
-{
-	return (x) + (y)*CHUNKSIZE + (z)*CHUNKSIZE*CHUNKSIZE;
-}
-
-static inline long
 getchunkarrayspotof(long x, long y, long z)
 {
 	return MODULO(x, WORLDSIZE) + MODULO(y, WORLDSIZE)*WORLDSIZE + MODULO(z, WORLDSIZE)*WORLDSIZE*WORLDSIZE;
@@ -366,11 +360,7 @@ world_getblock(long x, long y, long z, int loadnew)
 	long arrindex;
 
 	if(isquickloaded(cpos, &arrindex))
-	{
-		long test = getinternalarrayspotof(internalpos.x, internalpos.y, internalpos.z);
-		chunk_p *ctest = &loadedchunks[arrindex];
-		return ctest->data[test];
-	}
+		return chunk_getblock(&loadedchunks[arrindex], internalpos.x, internalpos.y, internalpos.z);
 	block_t error;
 	error.id = 255;
 	return error;
@@ -392,7 +382,7 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 
 		if(SDL_TryLockMutex(chunk->lock)==0)
 		{
-			chunk->data[internalpos.x + internalpos.y*CHUNKSIZE + internalpos.z*CHUNKSIZE*CHUNKSIZE] = block;
+			chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
 			SDL_UnlockMutex(chunk->lock);
 			int3_t i;
 			i.x = MODULO(cpos.x, WORLDSIZE);

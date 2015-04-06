@@ -31,5 +31,6 @@ void chunk_zerochunk(chunk_p *chunk);
 void chunk_freechunk(chunk_p *chunk);
 
 block_t chunk_getblock(chunk_p *c, int x, int y, int z);
+void chunk_setblock(chunk_p *c, int x, int y, int z, block_t b);
 
 #endif //CHUNK_H

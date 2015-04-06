@@ -6,6 +6,9 @@
 
 #include <GL/glew.h>
 
+#define MIN(a,b) ((a)<(b)?(a):(b))
+#define MAX(a,b) ((a)>(b)?(a):(b))
+
 static inline uint32_t
 smartinc(int *c, uint32_t *i, GLfloat **memchunks)
 {
@@ -343,38 +346,38 @@ chunk_getmesh(chunk_p *chunk, chunk_p *chunkabove, chunk_p *chunkbelow, chunk_p 
 		}
 	}
 
-	GLfloat *finaldata = (GLfloat *)malloc(sizeof(GLfloat) * (65536*c + i));
+	GLfloat *finaldata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)65536*c + i));
 
 	int w;
 	for(w=0; w<c; w++)
 	{
-		memcpy(&(finaldata[w*65536]), memchunks[w], 65536 * sizeof(GLfloat));
+		memcpy(&(finaldata[(long)w*65536]), memchunks[w], (long)65536 * sizeof(GLfloat));
 		free(memchunks[w]);
 	}
 
-	memcpy(&finaldata[c*65536], memchunks[c], (i) * sizeof(GLfloat));
+	memcpy(&finaldata[(long)c*65536], memchunks[c], (i) * sizeof(GLfloat));
 	free(memchunks[c]);
 
 	mesh_t ret;
 	ret.data = finaldata;
 
-	ret.size = 65536*c + i;
+	ret.size = (long)65536*c + i;
 
 	//color
-	GLfloat *finalcolordata = (GLfloat *)malloc(sizeof(GLfloat) * (65536*k + j));
+	GLfloat *finalcolordata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)65536*k + j));
 
 	for(w=0; w<k; w++)
 	{
-		memcpy(&(finalcolordata[w*65536]), colorchunks[w], 65536 * sizeof(GLfloat));
+		memcpy(&(finalcolordata[(long)w*65536]), colorchunks[w], (long)65536 * sizeof(GLfloat));
 		free(colorchunks[w]);
 	}
 
-	memcpy(&finalcolordata[k*65536], colorchunks[k], j * sizeof(GLfloat));
+	memcpy(&finalcolordata[(long)k*65536], colorchunks[k], j * sizeof(GLfloat));
 	free(colorchunks[k]);
 
 	ret.colordata = finalcolordata;
 
-	ret.colorsize = 65536*k + j;
+	ret.colorsize = (long)65536*k + j;
 
 	return ret;
 }
@@ -419,4 +422,26 @@ chunk_freechunk(chunk_p *chunk)
 {
 	free(chunk->data);
 	SDL_DestroyMutex(chunk->lock);
+}
+
+block_t
+chunk_getblock(chunk_p *c, int x, int y, int z)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
+	{
+		block_t ret;
+		ret.id = 255;
+		return ret;
+	}
+
+	return c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+}
+
+void
+chunk_setblock(chunk_p *c, int x, int y, int z, block_t b)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
+		return;
+
+	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
 }
