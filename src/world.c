@@ -20,6 +20,7 @@ long3_t worldscope = {0, 0, 0};
 struct {
 	GLuint vbo;
 	GLuint cbo;
+	GLuint ebo;
 	int iscurrent;
 	long points;
 	mesh_t mesh;
@@ -93,6 +94,7 @@ world_initalload()
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
+				glGenBuffers(1, &blockvbos[x][y][z].ebo);
 				glGenBuffers(1, &blockvbos[x][y][z].vbo);
 				glGenBuffers(1, &blockvbos[x][y][z].cbo);
 
@@ -100,7 +102,8 @@ world_initalload()
 				blockvbos[x][y][z].iscurrent = 0;
 				blockvbos[x][y][z].ismeshcurrent=1;
 
-				blockvbos[x][y][z].mesh.data=0;
+				blockvbos[x][y][z].mesh.vbodata=0;
+				blockvbos[x][y][z].mesh.ebodata=0;
 				blockvbos[x][y][z].mesh.colordata=0;
 
 				blockvbos[x][y][z].iswritable=1;
@@ -153,24 +156,23 @@ world_render()
 				{
 					//points buffer
 						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
-						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.size * sizeof(GLfloat), blockvbos[x][y][z].mesh.data, GL_STATIC_DRAW);
+						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.vbosize * sizeof(GLfloat), blockvbos[x][y][z].mesh.vbodata, GL_STATIC_DRAW);
 
-						if(blockvbos[x][y][z].mesh.data)
-						{
-							free(blockvbos[x][y][z].mesh.data);
-							blockvbos[x][y][z].mesh.data=0;
-						}
+					//element buffer
+						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].ebo);
+						glBufferData(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].mesh.ebosize * sizeof(GLuint), blockvbos[x][y][z].mesh.ebodata, GL_STATIC_DRAW);
 
 					//Color buffer
 						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
 						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.colorsize * sizeof(GLfloat), blockvbos[x][y][z].mesh.colordata, GL_STATIC_DRAW);
 
-						if(blockvbos[x][y][z].mesh.colordata)
-						{
-							free(blockvbos[x][y][z].mesh.colordata);
-							blockvbos[x][y][z].mesh.colordata=0;
-						}
 
+					if(blockvbos[x][y][z].mesh.ebodata)
+						free(blockvbos[x][y][z].mesh.ebodata);
+					if(blockvbos[x][y][z].mesh.vbodata)
+						free(blockvbos[x][y][z].mesh.vbodata);
+					if(blockvbos[x][y][z].mesh.colordata)
+						free(blockvbos[x][y][z].mesh.colordata);
 					blockvbos[x][y][z].ismeshcurrent=1;
 				}
 				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
@@ -192,7 +194,11 @@ world_render()
 						0,
 						0);
 				glEnableVertexAttribArray(1);
-				glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].points);
+
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].ebo);
+				glDrawElements(GL_TRIANGLES, blockvbos[x][y][z].points, GL_UNSIGNED_INT, 0);
+				//glPointSize(10.0f);
+				//glDrawArrays(GL_POINTS, 0, blockvbos[x][y][z].mesh.vbosize/3);
 			}
 		}
 	}
@@ -268,16 +274,18 @@ quickremeshachunk(void *ptr)
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=1;
 
 	//re set up the buffers
-	if(blockvbos[i->x][i->y][i->z].mesh.data)
-		free(blockvbos[i->x][i->y][i->z].mesh.data);
-	if(blockvbos[i->x][i->y][i->z].mesh.colordata)
-		free(blockvbos[i->x][i->y][i->z].mesh.colordata);
+//	if(blockvbos[i->x][i->y][i->z].mesh.ebodata)
+//		free(blockvbos[i->x][i->y][i->z].mesh.ebodata);
+//	if(blockvbos[i->x][i->y][i->z].mesh.vbodata)
+//		free(blockvbos[i->x][i->y][i->z].mesh.vbodata);
+//	if(blockvbos[i->x][i->y][i->z].mesh.colordata)
+//		free(blockvbos[i->x][i->y][i->z].mesh.colordata);
 
 	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], up,down,north,south,east,west);
 
 	blockvbos[i->x][i->y][i->z].iscurrent = 1;
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=0;
-	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.size / 3;
+	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.ebosize / 3;
 	SDL_UnlockMutex(blockvbos[i->x][i->y][i->z].lock);
 
 	if(north)

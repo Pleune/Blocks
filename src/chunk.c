@@ -14,34 +14,121 @@ struct chunk_s {
 	block_t *data;
 };
 
-static inline uint32_t
-smartinc(int *c, uint32_t *i, GLfloat **memchunks)
+static inline void
+addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o, GLfloat **vbos, int *k, uint16_t *j, GLfloat **color, GLuint *ebc, GLint x, GLint y, GLint z, vec3_t blockcolor)
 {
-	if(i[0]==65535)
+	GLint index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1);
+	if(!ebc[index])
+	{
+		//add point to vbo
+		//the max for o is a multiple for three, so we only have to check for the 'overflow' every three floats or one point
+		vbos[v[0]][o[0]++] = x + chunk->pos.x*CHUNKSIZE;
+		vbos[v[0]][o[0]++] = y + chunk->pos.y*CHUNKSIZE;
+		vbos[v[0]][o[0]++] = z + chunk->pos.z*CHUNKSIZE;
+		if(o[0] == 9999)
+		{
+			o[0]=0;
+			v[0]++;
+			vbos[v[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
+		}
+
+		ebc[index] = v[0]*3333 + o[0]/3 +1;//add one because 0 is null. subtract one everywhere else.
+	}
+	ebos[c[0]][i[0]++] = ebc[index] -1;
+	if(i[0] == 9999)
 	{
 		i[0]=0;
 		c[0]++;
-		memchunks[c[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
-		return 65535;
-	} else {
-		i[0] += 1;
-		return i[0]-1;
+		ebos[c[0]] = (GLuint *)malloc(sizeof(GLuint) * 9999);
+	}
+
+	color[k[0]][j[0]++] = blockcolor.x;
+	color[k[0]][j[0]++] = blockcolor.y;
+	color[k[0]][j[0]++] = blockcolor.z;
+	if(j[0] == 9999)
+	{
+		j[0]=0;
+		k[0]++;
+		color[k[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 	}
 }
+
+const static GLfloat faces[] = {
+//top
+0,1,0,
+0,1,1,
+1,1,0,
+
+1,1,1,
+1,1,0,
+0,1,1,
+
+//bottom
+0,0,0,
+1,0,1,
+0,0,1,
+
+1,0,1,
+0,0,1,
+1,0,0,
+
+//north
+0,1,0,
+1,1,0,
+0,0,0,
+
+1,0,0,
+0,0,0,
+1,1,0,
+
+//south
+0,1,1,
+0,0,1,
+1,1,1,
+
+1,0,1,
+1,1,1,
+0,0,1,
+
+//east
+1,1,0,
+1,1,1,
+1,0,0,
+
+1,0,1,
+1,0,0,
+1,1,1,
+
+//west
+0,1,0,
+0,0,0,
+0,1,1,
+
+0,0,1,
+0,1,1,
+0,0,0
+};
 
 mesh_t
 chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest)
 {
-	GLfloat *memchunks[256];
+	GLuint *ebos[256];
 	int c = 0;
-	uint32_t i = 0;
+	uint16_t i = 0;
 
-	GLfloat *colorchunks[256];
+	GLfloat *vbos[256];
+	int v = 0;
+	uint16_t o = 0;
+
+	GLfloat *color[256];
 	int k = 0;
-	uint32_t j = 0;
+	uint16_t j = 0;
 
-	memchunks[0] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
-	colorchunks[0] = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
+	ebos[0] = (GLuint *)malloc(sizeof(GLuint) * 9999);
+	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
+	color[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
+
+	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1));
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; x++)
@@ -110,240 +197,31 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 							west = 1;
 					}
 
-					vec3_t color = block_getcolor(chunk->data[index].id);
+					vec3_t blockcolor = block_getcolor(chunk->data[index].id);
 
-					if(i<65400)
+					int U[6];
+					U[0]=top;
+					U[1]=bottom;
+					U[2]=north;
+					U[3]=south;
+					U[4]=east;
+					U[5]=west;
+					int q=0;
+					int t;
+					for(t=0;t<6;t++)
 					{
-						//dont worry about filling the memchunk
-						//top
-						if(top)
+						if(U[t])
 						{
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							//color
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-						}
-						//bottom
-						if(bottom)
-						{
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-
-							//color
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-						}
-						//north
-						if(north)
-						{
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-
-							//color
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-						}
-						//south
-						if(south)
-						{
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							//color
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-						}
-						//east
-						if(east)
-						{
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							//color
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-						}
-						//west
-						if(west)
-						{
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][i++] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][i++] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][i++] = z+chunk->pos.z*CHUNKSIZE;
-
-							//color
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-							colorchunks[k][j++] = color.x; colorchunks[k][j++] = color.y; colorchunks[k][j++] = color.z;
-						}
-					} else {
-						//dont worry about filling the memchunk
-						//top
-						if(top)
-						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							//color
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-						}
-						//bottom
-						if(bottom)
-						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-
-							//color
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-						}
-						//north
-						if(north)
-						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-
-							//color
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-						}
-						//south
-						if(south)
-						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							//color
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-						}
-						//east
-						if(east)
-						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							//color
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-						}
-						//west
-						if(west)
-						{
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE+1; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE+1;
-							memchunks[c][smartinc(&c, &i, memchunks)] = x+chunk->pos.x*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = y+chunk->pos.y*CHUNKSIZE; memchunks[c][smartinc(&c, &i, memchunks)] = z+chunk->pos.z*CHUNKSIZE;
-
-							//color
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
-							colorchunks[k][smartinc(&k, &j, colorchunks)] = color.x; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.y; colorchunks[k][smartinc(&k, &j, colorchunks)] = color.z;
+							int Q=q+18;
+							while(q<Q)
+							{
+								GLfloat x_ = faces[q++] + x;
+								GLfloat y_ = faces[q++] + y;
+								GLfloat z_ = faces[q++] + z;
+								addpoint(chunk, &c,&i,ebos,&v,&o,vbos,&k,&j,color,ebc,x_,y_,z_,blockcolor);
+							}
+						} else {
+							q+=18;
 						}
 					}
 				}
@@ -351,38 +229,53 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 		}
 	}
 
-	GLfloat *finaldata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)65536*c + i));
+	vec3_t blockcolor;
+	blockcolor.x = 1;
+	blockcolor.y = 1;
+	blockcolor.z = 0;
+
+	free(ebc);
 
 	int w;
+
+	GLuint *finalebodata = (GLuint *)malloc(sizeof(GLuint) * ((long)9999*c + i));
+
 	for(w=0; w<c; w++)
 	{
-		memcpy(&(finaldata[(long)w*65536]), memchunks[w], (long)65536 * sizeof(GLfloat));
-		free(memchunks[w]);
+		memcpy(&finalebodata[(long)w*9999], ebos[w], (long)9999 * sizeof(GLuint));
+		free(ebos[w]);
 	}
+	memcpy(&finalebodata[(long)c*9999], ebos[c], i*sizeof(GLuint));
+	free(ebos[c]);
 
-	memcpy(&finaldata[(long)c*65536], memchunks[c], (i) * sizeof(GLfloat));
-	free(memchunks[c]);
+	GLfloat *finalvbodata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*v + o));
 
-	mesh_t ret;
-	ret.data = finaldata;
+	for(w=0; w<v; w++)
+	{
+		memcpy(&finalvbodata[(long)w*9999], vbos[w], (long)9999 * sizeof(GLfloat));
+		free(vbos[w]);
+	}
+	memcpy(&finalvbodata[(long)c*9999], vbos[v], o*sizeof(GLfloat));
+	free(vbos[v]);
 
-	ret.size = (long)65536*c + i;
-
-	//color
-	GLfloat *finalcolordata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)65536*k + j));
+	GLfloat *finalcolordata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*k + j));
 
 	for(w=0; w<k; w++)
 	{
-		memcpy(&(finalcolordata[(long)w*65536]), colorchunks[w], (long)65536 * sizeof(GLfloat));
-		free(colorchunks[w]);
+		memcpy(&finalcolordata[(long)w*9999], ebos[w], (long)9999 * sizeof(GLfloat));
+		free(color[w]);
 	}
+	memcpy(&finalcolordata[(long)k*9999], color[k], j*sizeof(GLfloat));
+	free(color[c]);
 
-	memcpy(&finalcolordata[(long)k*65536], colorchunks[k], j * sizeof(GLfloat));
-	free(colorchunks[k]);
-
+	mesh_t ret;
+	ret.ebodata = finalebodata;
+	ret.vbodata = finalvbodata;
 	ret.colordata = finalcolordata;
 
-	ret.colorsize = (long)65536*k + j;
+	ret.ebosize = (long)9999*c + i;
+	ret.vbosize = (long)9999*v + o;
+	ret.colorsize = (long)9999*k + j;
 
 	return ret;
 }

@@ -4,8 +4,12 @@
 #include <GL/glew.h>
 
 typedef struct {
-	long size;
-	GLfloat *data;
+	long vbosize;
+	GLfloat *vbodata;
+
+	long ebosize;
+	GLuint *ebodata;
+
 	long colorsize;
 	GLfloat *colordata;
 } mesh_t;
