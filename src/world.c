@@ -197,8 +197,6 @@ world_render()
 
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].ebo);
 				glDrawElements(GL_TRIANGLES, blockvbos[x][y][z].points, GL_UNSIGNED_INT, 0);
-				//glPointSize(10.0f);
-				//glDrawArrays(GL_POINTS, 0, blockvbos[x][y][z].mesh.vbosize/3);
 			}
 		}
 	}
@@ -285,7 +283,7 @@ quickremeshachunk(void *ptr)
 
 	blockvbos[i->x][i->y][i->z].iscurrent = 1;
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=0;
-	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.ebosize / 3;
+	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.ebosize;
 	SDL_UnlockMutex(blockvbos[i->x][i->y][i->z].lock);
 
 	if(north)

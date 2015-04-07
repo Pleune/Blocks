@@ -15,41 +15,35 @@ struct chunk_s {
 };
 
 static inline void
-addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o, GLfloat **vbos, int *k, uint16_t *j, GLfloat **color, GLuint *ebc, GLint x, GLint y, GLint z, vec3_t blockcolor)
+addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o, GLfloat **vbos, GLfloat **color, GLuint *ebc, GLint x, GLint y, GLint z, vec3_t blockcolor, uint8_t blockid)
 {
-	GLint index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1);
+	GLint index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1) + blockid * (CHUNKSIZE+1)*(CHUNKSIZE+1)*256;
 	if(!ebc[index])
 	{
 		//add point to vbo
 		//the max for o is a multiple for three, so we only have to check for the 'overflow' every three floats or one point
-		vbos[v[0]][o[0]++] = x + chunk->pos.x*CHUNKSIZE;
-		vbos[v[0]][o[0]++] = y + chunk->pos.y*CHUNKSIZE;
-		vbos[v[0]][o[0]++] = z + chunk->pos.z*CHUNKSIZE;
+		vbos[v[0]][o[0]] = x + chunk->pos.x*CHUNKSIZE;
+		color[v[0]][o[0]++] = blockcolor.x;
+		vbos[v[0]][o[0]] = y + chunk->pos.y*CHUNKSIZE;
+		color[v[0]][o[0]++] = blockcolor.y;
+		vbos[v[0]][o[0]] = z + chunk->pos.z*CHUNKSIZE;
+		color[v[0]][o[0]++] = blockcolor.z;
 		if(o[0] == 9999)
 		{
 			o[0]=0;
 			v[0]++;
 			vbos[v[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
+			color[v[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 		}
 
-		ebc[index] = v[0]*3333 + o[0]/3 +1;//add one because 0 is null. subtract one everywhere else.
+		ebc[index] = v[0]*3333 + o[0]/3;
 	}
-	ebos[c[0]][i[0]++] = ebc[index] -1;
+	ebos[c[0]][i[0]++] = ebc[index] - 1;
 	if(i[0] == 9999)
 	{
 		i[0]=0;
 		c[0]++;
 		ebos[c[0]] = (GLuint *)malloc(sizeof(GLuint) * 9999);
-	}
-
-	color[k[0]][j[0]++] = blockcolor.x;
-	color[k[0]][j[0]++] = blockcolor.y;
-	color[k[0]][j[0]++] = blockcolor.z;
-	if(j[0] == 9999)
-	{
-		j[0]=0;
-		k[0]++;
-		color[k[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 	}
 }
 
@@ -65,7 +59,7 @@ const static GLfloat faces[] = {
 
 //bottom
 0,0,0,
-1,0,1,
+1,0,0,
 0,0,1,
 
 1,0,1,
@@ -121,14 +115,12 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 	uint16_t o = 0;
 
 	GLfloat *color[256];
-	int k = 0;
-	uint16_t j = 0;
 
 	ebos[0] = (GLuint *)malloc(sizeof(GLuint) * 9999);
 	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 	color[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 
-	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1));
+	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * 256);
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; x++)
@@ -197,7 +189,8 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 							west = 1;
 					}
 
-					vec3_t blockcolor = block_getcolor(chunk->data[index].id);
+					uint8_t blockid = chunk->data[index].id;
+					vec3_t blockcolor = block_getcolor(blockid);
 
 					int U[6];
 					U[0]=top;
@@ -218,7 +211,7 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 								GLfloat x_ = faces[q++] + x;
 								GLfloat y_ = faces[q++] + y;
 								GLfloat z_ = faces[q++] + z;
-								addpoint(chunk, &c,&i,ebos,&v,&o,vbos,&k,&j,color,ebc,x_,y_,z_,blockcolor);
+								addpoint(chunk, &c,&i,ebos,&v,&o,vbos,color,ebc,x_,y_,z_,blockcolor,blockid);
 							}
 						} else {
 							q+=18;
@@ -249,24 +242,19 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 	free(ebos[c]);
 
 	GLfloat *finalvbodata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*v + o));
+	GLfloat *finalcolordata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*v + o));
 
 	for(w=0; w<v; w++)
 	{
 		memcpy(&finalvbodata[(long)w*9999], vbos[w], (long)9999 * sizeof(GLfloat));
 		free(vbos[w]);
-	}
-	memcpy(&finalvbodata[(long)c*9999], vbos[v], o*sizeof(GLfloat));
-	free(vbos[v]);
-
-	GLfloat *finalcolordata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*k + j));
-
-	for(w=0; w<k; w++)
-	{
 		memcpy(&finalcolordata[(long)w*9999], ebos[w], (long)9999 * sizeof(GLfloat));
 		free(color[w]);
 	}
-	memcpy(&finalcolordata[(long)k*9999], color[k], j*sizeof(GLfloat));
-	free(color[c]);
+	memcpy(&finalvbodata[(long)v*9999], vbos[v], o*sizeof(GLfloat));
+	free(vbos[v]);
+	memcpy(&finalcolordata[(long)v*9999], color[v], o*sizeof(GLfloat));
+	free(color[v]);
 
 	mesh_t ret;
 	ret.ebodata = finalebodata;
@@ -275,7 +263,7 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 
 	ret.ebosize = (long)9999*c + i;
 	ret.vbosize = (long)9999*v + o;
-	ret.colorsize = (long)9999*k + j;
+	ret.colorsize = (long)9999*v + o;
 
 	return ret;
 }
@@ -286,6 +274,8 @@ worldgen_genchunk(chunk_t *chunk)
 	if(!chunk->data)
 		free(chunk->data);
 	chunk->data = chunk_callocdata();
+
+	//chunk->data[0].id=1;
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; x++)

@@ -1,7 +1,7 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-#define CHUNKSIZE 5
-#define WORLDSIZE 5
+#define CHUNKSIZE 10
+#define WORLDSIZE 20
 
 #endif //DEFINES_H

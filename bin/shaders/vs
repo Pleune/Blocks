@@ -1,7 +1,7 @@
 #version 300 es
 
 // Input vertex data, different for all executions of this shader.
-layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 c;
 
 out vec3 colors;
@@ -11,10 +11,10 @@ out vec3 vp;
 uniform mat4 MVP;
 
 void main(){
-	vec4 temp =  MVP * vec4(vertexPosition_modelspace,1);
+	vec4 temp =  MVP * vec4(position,1);
 	colors = c;//vertexPosition_modelspace / vec3(30);
 	//colors = vec3(1.0);
 	gl_Position = temp;
-	vp = vertexPosition_modelspace;
+	vp = position;
 }
 
