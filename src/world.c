@@ -17,6 +17,9 @@
 chunk_t *loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
 long3_t worldscope = {0, 0, 0};
 
+int stopthread;
+SDL_Thread *thread;
+
 struct {
 	GLuint vbo;
 	GLuint cbo;
@@ -119,11 +122,18 @@ world_initalload()
 			}
 		}
 	}
+	thread = SDL_CreateThread(world_threadentry, "world", 0);
 }
 
 void
 world_cleanup()
-{	int x, y, z;
+{
+	stopthread=1;
+
+	int ret;
+	SDL_WaitThread(thread, &ret);
+
+	int x, y, z;
 	for(x=0; x<WORLDSIZE; x++)
 	{
 		for(y=0; y<WORLDSIZE; y++)
@@ -134,6 +144,12 @@ world_cleanup()
 				glDeleteBuffers(1, &blockvbos[x][y][z].vbo);
 				SDL_DestroyMutex(blockvbos[x][y][z].lock);
 				chunk_freechunk(loadedchunks[x + y*WORLDSIZE + z*WORLDSIZE*WORLDSIZE]);
+				if(!blockvbos[x][y][z].ismeshcurrent)
+				{
+					free(blockvbos[x][y][z].mesh.ebodata);
+					free(blockvbos[x][y][z].mesh.vbodata);
+					free(blockvbos[x][y][z].mesh.colordata);
+				}
 			}
 		}
 	}
@@ -305,20 +321,29 @@ quickremeshachunk(void *ptr)
 int
 world_threadentry(void *ptr)
 {
-	while(1)
+	stopthread=0;
+	while(!stopthread)
 	{
 
 		long3_t cpos;
 
 		for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
 		{
+			if(stopthread)
+				break;
 			for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
 			{
+				if(stopthread)
+					break;
 				for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
 				{
+					if(stopthread)
+						break;
 					long arrindex;
 					if(!isquickloaded(cpos, &arrindex))
 					{
+						if(stopthread)
+							break;
 						//the chunk should be loaded but its not. load it.
 						chunk_t *chunk = loadedchunks[arrindex];
 
@@ -343,10 +368,16 @@ world_threadentry(void *ptr)
 		int3_t i;
 		for(i.x = 0; i.x< WORLDSIZE; i.x++)
 		{
+			if(stopthread)
+				break;
 			for(i.y = 0; i.y< WORLDSIZE; i.y++)
 			{
+				if(stopthread)
+					break;
 				for(i.z = 0; i.z< WORLDSIZE; i.z++)
 				{
+					if(stopthread)
+						break;
 					if(!blockvbos[i.x][i.y][i.z].iscurrent)
 					{
 						quickremeshachunk(&i);
@@ -355,7 +386,8 @@ world_threadentry(void *ptr)
 			}
 		}
 
-		SDL_Delay(300);
+		if(!stopthread)
+			SDL_Delay(300);
 	}
 	return 0;
 }
