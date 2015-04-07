@@ -136,7 +136,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 
 					if(y==CHUNKSIZE-1)
 					{
-						top=1;
+						if(chunkabove)
+						{
+							if(chunkabove->data[x+0+CHUNKSIZE*CHUNKSIZE*z].id)
+								top=0;
+							else
+								top=1;
+						} else
+							top=1;
 					} else {
 						if(chunk->data[index+CHUNKSIZE].id)
 							top = 0;
@@ -145,7 +152,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					}
 					if(y==0)
 					{
-						bottom=1;
+						if(chunkbelow)
+						{
+							if(chunkbelow->data[x+(CHUNKSIZE-1)*CHUNKSIZE+CHUNKSIZE*CHUNKSIZE*z].id)
+								bottom=0;
+							else
+								bottom=1;
+						} else
+							bottom=1;
 					} else {
 						if(chunk->data[index-CHUNKSIZE].id)
 							bottom = 0;
@@ -154,7 +168,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					}
 					if(z==0)
 					{
-						north=1;
+						if(chunknorth)
+						{
+							if(chunknorth->data[x+(CHUNKSIZE-1)*CHUNKSIZE+CHUNKSIZE*CHUNKSIZE*z].id)
+								north=0;
+							else
+								north=1;
+						} else
+							north=1;
 					} else {
 						if(chunk->data[index-CHUNKSIZE*CHUNKSIZE].id)
 							north = 0;
@@ -163,7 +184,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					}
 					if(z==CHUNKSIZE-1)
 					{
-						south=1;
+						if(chunksouth)
+						{
+							if(chunksouth->data[x+0+CHUNKSIZE*CHUNKSIZE*z].id)
+								south=0;
+							else
+								south=1;
+						} else
+							south=1;
 					} else {
 						if(chunk->data[index+CHUNKSIZE*CHUNKSIZE].id)
 							south = 0;
@@ -172,7 +200,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					}
 					if(x==CHUNKSIZE-1)
 					{
-						east=1;
+						if(chunkeast)
+						{
+							if(chunkeast->data[x+0+CHUNKSIZE*CHUNKSIZE*z].id)
+								east=0;
+							else
+								east=1;
+						} else
+							east=1;
 					} else {
 						if(chunk->data[index+1].id)
 							east = 0;
@@ -181,7 +216,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					}
 					if(x==0)
 					{
-						west=1;
+						if(chunkwest)
+						{
+							if(chunkwest->data[x+(CHUNKSIZE-1)*CHUNKSIZE+CHUNKSIZE*CHUNKSIZE*z].id)
+								west=0;
+							else
+								west=1;
+						} else
+							west=1;
 					} else {
 						if(chunk->data[index-1].id)
 							west = 0;
