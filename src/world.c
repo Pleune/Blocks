@@ -28,7 +28,6 @@ struct {
 	long points;
 	mesh_t mesh;
 	int ismeshcurrent;
-	int3_t coords;//must be hand asisgned before use
 	SDL_mutex *lock;
 	int iswritable;
 } blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
@@ -288,13 +287,6 @@ quickremeshachunk(void *ptr)
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=1;
 
 	//re set up the buffers
-//	if(blockvbos[i->x][i->y][i->z].mesh.ebodata)
-//		free(blockvbos[i->x][i->y][i->z].mesh.ebodata);
-//	if(blockvbos[i->x][i->y][i->z].mesh.vbodata)
-//		free(blockvbos[i->x][i->y][i->z].mesh.vbodata);
-//	if(blockvbos[i->x][i->y][i->z].mesh.colordata)
-//		free(blockvbos[i->x][i->y][i->z].mesh.colordata);
-
 	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], up,down,north,south,east,west);
 
 	blockvbos[i->x][i->y][i->z].iscurrent = 1;
@@ -302,6 +294,7 @@ quickremeshachunk(void *ptr)
 	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.ebosize;
 	SDL_UnlockMutex(blockvbos[i->x][i->y][i->z].lock);
 
+	//TODO:optimize this and the locking above
 	if(north)
 		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z-1,WORLDSIZE)].lock);
 	if(south)
@@ -410,6 +403,13 @@ world_getblock(long x, long y, long z, int loadnew)
 	return error;
 }
 
+static int
+placeblockremesher(void *ptr)
+{
+
+	return 0;
+}
+
 //TODO: loadnew
 int
 world_setblock(long x, long y, long z, block_t block, int loadnew)
@@ -437,9 +437,8 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 			i.x = MODULO(cpos.x, WORLDSIZE);
 			i.y = MODULO(cpos.y, WORLDSIZE);
 			i.z = MODULO(cpos.z, WORLDSIZE);
-			blockvbos[i.x][i.y][i.z].coords = i;
 
-			SDL_CreateThread( quickremeshachunk, "quickblock", &blockvbos[i.x][i.y][i.z].coords);
+			quickremeshachunk(&i);
 
 			return 0;
 		}
