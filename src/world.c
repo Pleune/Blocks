@@ -354,10 +354,10 @@ world_threadentry(void *ptr)
 						blockvbos[bp.x][bp.y][bp.z].iswritable = 1;
 						blockvbos[bp.x][bp.y][bp.z].iscurrent = 0;
 
-						blockvbos[bp.x][bp.y][bp.x == WORLDSIZE-1 ? 0 : bp.x+1].iscurrent = 0;
-						blockvbos[bp.x][bp.y][bp.x == 0 ? WORLDSIZE-1 : bp.x-1].iscurrent = 0;
-						blockvbos[bp.x][bp.y][bp.y == WORLDSIZE-1 ? 0 : bp.y+1].iscurrent = 0;
-						blockvbos[bp.x][bp.y][bp.y == 0 ? WORLDSIZE-1 : bp.y-1].iscurrent = 0;
+						blockvbos[bp.x == WORLDSIZE-1 ? 0 : bp.x+1][bp.y][bp.z].iscurrent = 0;
+						blockvbos[bp.x == 0 ? WORLDSIZE-1 : bp.x-1][bp.y][bp.z].iscurrent = 0;
+						blockvbos[bp.x][bp.y == WORLDSIZE-1 ? 0 : bp.y+1][bp.z].iscurrent = 0;
+						blockvbos[bp.x][bp.y == 0 ? WORLDSIZE-1 : bp.y-1][bp.z].iscurrent = 0;
 						blockvbos[bp.x][bp.y][bp.z == WORLDSIZE-1 ? 0 : bp.z+1].iscurrent = 0;
 						blockvbos[bp.x][bp.y][bp.z == 0 ? WORLDSIZE-1 : bp.z-1].iscurrent = 0;
 					}

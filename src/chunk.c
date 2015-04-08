@@ -138,14 +138,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					{
 						if(chunkabove)
 						{
-							if(chunkabove->data[x+0+CHUNKSIZE*CHUNKSIZE*z].id)
+							if(chunk_getblock(chunkabove,x,0,z).id)
 								top=0;
 							else
 								top=1;
 						} else
 							top=1;
 					} else {
-						if(chunk->data[index+CHUNKSIZE].id)
+						if(chunk_getblock(chunk,x,y+1,z).id)
 							top = 0;
 						else
 							top = 1;
@@ -154,14 +154,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					{
 						if(chunkbelow)
 						{
-							if(chunkbelow->data[x+(CHUNKSIZE-1)*CHUNKSIZE+CHUNKSIZE*CHUNKSIZE*z].id)
+							if(chunk_getblock(chunkbelow,x,CHUNKSIZE-1,z).id)
 								bottom=0;
 							else
 								bottom=1;
 						} else
 							bottom=1;
 					} else {
-						if(chunk->data[index-CHUNKSIZE].id)
+						if(chunk_getblock(chunk,x,y-1,z).id)
 							bottom = 0;
 						else
 							bottom = 1;
@@ -170,14 +170,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					{
 						if(chunknorth)
 						{
-							if(chunknorth->data[x+(CHUNKSIZE-1)*CHUNKSIZE+CHUNKSIZE*CHUNKSIZE*z].id)
+							if(chunk_getblock(chunknorth,x,y,CHUNKSIZE-1).id)
 								north=0;
 							else
 								north=1;
 						} else
 							north=1;
 					} else {
-						if(chunk->data[index-CHUNKSIZE*CHUNKSIZE].id)
+						if(chunk_getblock(chunk,x,y,z-1).id)
 							north = 0;
 						else
 							north = 1;
@@ -186,14 +186,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					{
 						if(chunksouth)
 						{
-							if(chunksouth->data[x+0+CHUNKSIZE*CHUNKSIZE*z].id)
+							if(chunk_getblock(chunksouth,x,y,0).id)
 								south=0;
 							else
 								south=1;
 						} else
 							south=1;
 					} else {
-						if(chunk->data[index+CHUNKSIZE*CHUNKSIZE].id)
+						if(chunk_getblock(chunk,x,y,z+1).id)
 							south = 0;
 						else
 							south = 1;
@@ -202,14 +202,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					{
 						if(chunkeast)
 						{
-							if(chunkeast->data[x+0+CHUNKSIZE*CHUNKSIZE*z].id)
+							if(chunk_getblock(chunkeast,0,y,z).id)
 								east=0;
 							else
 								east=1;
 						} else
 							east=1;
 					} else {
-						if(chunk->data[index+1].id)
+						if(chunk_getblock(chunk,x+1,y,z).id)
 							east = 0;
 						else
 							east = 1;
@@ -218,14 +218,14 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					{
 						if(chunkwest)
 						{
-							if(chunkwest->data[x+(CHUNKSIZE-1)*CHUNKSIZE+CHUNKSIZE*CHUNKSIZE*z].id)
+							if(chunk_getblock(chunkwest,CHUNKSIZE-1,y,z).id)
 								west=0;
 							else
 								west=1;
 						} else
 							west=1;
 					} else {
-						if(chunk->data[index-1].id)
+						if(chunk_getblock(chunk,x-1,y,z).id)
 							west = 0;
 						else
 							west = 1;
