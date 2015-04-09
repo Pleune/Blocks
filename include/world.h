@@ -1,6 +1,8 @@
 #ifndef WORLD_H
 #define WORLD_H
 
+#include <GL/glew.h>
+
 #include "block.h"
 
 void world_setworldcenter(long x, long y, long z);
@@ -8,7 +10,7 @@ void world_setworldcenter(long x, long y, long z);
 void world_initalload();
 void world_cleanup();
 
-void world_render();
+void world_render(GLuint drawprogram, GLuint terminalscreensprogram);
 
 int world_threadentry(void *ptr);
 

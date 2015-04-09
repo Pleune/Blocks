@@ -2,7 +2,7 @@ CC=gcc
 
 ROOT=./
 
-CFLAGS:= -Wall -O2 -g
+CFLAGS:= -Wall -O3 -g
 LFLAGS:= -g
 LIBS:=-lm -lSDL2 -lGL -lGLEW
 
@@ -20,7 +20,7 @@ OBJS=$(patsubst %,$(BUILDDIR)%,$(_OBJS))
 NAME=run
 
 
-%.o:	$(SRCDIR)%.c 
+%.o:	$(SRCDIR)%.c
 	gcc $(CFLAGS) -I $(INCDIR) -c $(CFLAGS) $< -o $(BUILDDIR)$@
 
 blocks: $(_OBJS)

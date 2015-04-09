@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include <SDL2/SDL_timer.h>
-#include <GL/glew.h>
 
 #include "defines.h"
 #include "chunk.h"
@@ -20,10 +19,15 @@ long3_t worldscope = {0, 0, 0};
 int stopthread;
 SDL_Thread *thread;
 
+GLuint termtexture;
+unsigned char termscreen[128*128*3] = { 0 };
+
 struct {
 	GLuint vbo;
 	GLuint cbo;
 	GLuint ebo;
+	GLuint termbo;
+	int termpoints;
 	int iscurrent;
 	long points;
 	mesh_t mesh;
@@ -99,6 +103,8 @@ world_initalload()
 				glGenBuffers(1, &blockvbos[x][y][z].ebo);
 				glGenBuffers(1, &blockvbos[x][y][z].vbo);
 				glGenBuffers(1, &blockvbos[x][y][z].cbo);
+				glGenBuffers(1, &blockvbos[x][y][z].termbo);
+				glGenTextures(1, &termtexture);//TODO: cleanup
 
 				blockvbos[x][y][z].points = 0;
 				blockvbos[x][y][z].iscurrent = 0;
@@ -107,6 +113,7 @@ world_initalload()
 				blockvbos[x][y][z].mesh.vbodata=0;
 				blockvbos[x][y][z].mesh.ebodata=0;
 				blockvbos[x][y][z].mesh.colordata=0;
+				blockvbos[x][y][z].mesh.termscreendata=0;
 
 				blockvbos[x][y][z].iswritable=1;
 				blockvbos[x][y][z].lock = SDL_CreateMutex();
@@ -141,6 +148,8 @@ world_cleanup()
 			{
 				glDeleteBuffers(1, &blockvbos[x][y][z].cbo);
 				glDeleteBuffers(1, &blockvbos[x][y][z].vbo);
+				glDeleteBuffers(1, &blockvbos[x][y][z].ebo);
+				glDeleteBuffers(1, &blockvbos[x][y][z].termbo);
 				SDL_DestroyMutex(blockvbos[x][y][z].lock);
 				chunk_freechunk(loadedchunks[x + y*WORLDSIZE + z*WORLDSIZE*WORLDSIZE]);
 				if(!blockvbos[x][y][z].ismeshcurrent)
@@ -155,8 +164,10 @@ world_cleanup()
 }
 
 void
-world_render()
+world_render(GLuint drawprogram, GLuint terminalscreensprogram)
 {
+	glEnable(GL_DEPTH_TEST);
+
 	int x=0;
 	int y=0;
 	int z=0;
@@ -180,7 +191,9 @@ world_render()
 					//Color buffer
 						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
 						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.colorsize * sizeof(GLfloat), blockvbos[x][y][z].mesh.colordata, GL_STATIC_DRAW);
-
+					//terminal buffer
+						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].termbo);
+						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.termscreensize * sizeof(GLfloat), blockvbos[x][y][z].mesh.termscreendata, GL_STATIC_DRAW);
 
 					if(blockvbos[x][y][z].mesh.ebodata)
 						free(blockvbos[x][y][z].mesh.ebodata);
@@ -188,8 +201,12 @@ world_render()
 						free(blockvbos[x][y][z].mesh.vbodata);
 					if(blockvbos[x][y][z].mesh.colordata)
 						free(blockvbos[x][y][z].mesh.colordata);
+					if(blockvbos[x][y][z].mesh.termscreendata)
+						free(blockvbos[x][y][z].mesh.termscreendata);
 					blockvbos[x][y][z].ismeshcurrent=1;
 				}
+
+				glUseProgram(drawprogram);
 				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
 				glVertexAttribPointer(
 						0,
@@ -212,6 +229,39 @@ world_render()
 
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].ebo);
 				glDrawElements(GL_TRIANGLES, blockvbos[x][y][z].points, GL_UNSIGNED_INT, 0);
+				glDisableVertexAttribArray(0);
+				glDisableVertexAttribArray(1);
+
+				glUseProgram(terminalscreensprogram);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, termtexture);
+				glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, 128, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, termscreen);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				//TODO: put this in a proper place
+				//GLint uniform_mytexture = glGetUniformLocation(terminalscreensprogram, "myTextureSampler");
+				//glUniform1i(uniform_mytexture, 0);
+				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].termbo);
+				glVertexAttribPointer(
+						0,
+						3,
+						GL_FLOAT,
+						GL_FALSE,
+						5 * sizeof(GLfloat),//*sizeof(GLfloat),
+						0);
+				glEnableVertexAttribArray(0);
+
+				glVertexAttribPointer(
+						1,
+						2,
+						GL_FLOAT,
+						GL_FALSE,
+						5*sizeof(GLfloat),
+						(void *)(9*sizeof(GLfloat)));
+				glEnableVertexAttribArray(1);
+				glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].termpoints);
+				glDisableVertexAttribArray(0);
+				glDisableVertexAttribArray(1);
 			}
 		}
 	}
@@ -292,6 +342,7 @@ quickremeshachunk(void *ptr)
 	blockvbos[i->x][i->y][i->z].iscurrent = 1;
 	blockvbos[i->x][i->y][i->z].ismeshcurrent=0;
 	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.ebosize;
+	blockvbos[i->x][i->y][i->z].termpoints = blockvbos[i->x][i->y][i->z].mesh.termscreensize / 5;
 	SDL_UnlockMutex(blockvbos[i->x][i->y][i->z].lock);
 
 	//TODO:optimize this and the locking above
@@ -408,13 +459,6 @@ world_getblock(long x, long y, long z, int loadnew)
 	block_t error;
 	error.id = 255;
 	return error;
-}
-
-static int
-placeblockremesher(void *ptr)
-{
-
-	return 0;
 }
 
 //TODO: loadnew

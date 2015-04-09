@@ -67,13 +67,13 @@ const static GLfloat faces[] = {
 1,0,0,
 
 //north
-0,1,0,
 1,1,0,
-0,0,0,
-
 1,0,0,
+0,1,0,
+
 0,0,0,
-1,1,0,
+0,1,0,
+1,0,0,
 
 //south
 0,1,1,
@@ -89,9 +89,9 @@ const static GLfloat faces[] = {
 1,1,1,
 1,0,0,
 
-1,0,1,
 1,0,0,
 1,1,1,
+1,0,1,
 
 //west
 0,1,0,
@@ -101,6 +101,22 @@ const static GLfloat faces[] = {
 0,0,1,
 0,1,1,
 0,0,0
+};
+
+GLfloat terminaltexcoords[] = {
+	0,0,
+	1,0,
+	1,1,
+	0,1
+};
+
+int terminaltexcoordsabstraction[] = {
+	0,
+	3,
+	1,
+	2,
+	1,
+	3
 };
 
 mesh_t
@@ -115,6 +131,10 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 	uint16_t o = 0;
 
 	GLfloat *color[256];
+
+	//TODO: prevent overflow
+	GLfloat *terminalscreens = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
+	uint16_t termi= 0;
 
 	ebos[0] = (GLuint *)malloc(sizeof(GLuint) * 9999);
 	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
@@ -231,43 +251,80 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 							west = 1;
 					}
 
-					uint8_t blockid = chunk->data[index].id;
-					vec3_t blockcolor = block_getcolor(blockid);
+					block_t block = chunk_getblock(chunk,x,y,z);
+					vec3_t blockcolor = block_getcolor(block.id);
 
-					int U[6];
-					U[0]=top;
-					U[1]=bottom;
-					U[2]=north;
-					U[3]=south;
-					U[4]=east;
-					U[5]=west;
+					int U[6] = {
+						top, bottom, north, south, east, west
+					};
 					int q=0;
 					int t;
-					for(t=0;t<6;t++)
+
+					switch(block.id)
 					{
-						if(U[t])
+					case 2:
+					{
+						for(t=0;t<6;t++)
 						{
-							int Q=q+18;
-							while(q<Q)
+							if(U[t])
 							{
-								GLfloat x_ = faces[q++] + x;
-								GLfloat y_ = faces[q++] + y;
-								GLfloat z_ = faces[q++] + z;
-								addpoint(chunk, &c,&i,ebos,&v,&o,vbos,color,ebc,x_,y_,z_,blockcolor,blockid);
+								if(t == ((struct block_term_t *)(block.metadata.pointer))->face)
+								{
+									int Q=q+18;
+									int texcount = 0;
+									while(q<Q)
+									{
+										//point data
+										terminalscreens[termi++] = faces[q++] + x + chunk->pos.x*CHUNKSIZE;
+										terminalscreens[termi++] = faces[q++] + y + chunk->pos.y*CHUNKSIZE;
+										terminalscreens[termi++] = faces[q++] + z + chunk->pos.z*CHUNKSIZE;
+
+										//texcoord data
+										terminalscreens[termi++] = terminaltexcoords[terminaltexcoordsabstraction[texcount]*2];
+										terminalscreens[termi++] = terminaltexcoords[terminaltexcoordsabstraction[texcount++]*2+1];
+									}
+								} else {
+									int Q=q+18;
+									while(q<Q)
+									{
+										GLfloat x_ = faces[q++] + x;
+										GLfloat y_ = faces[q++] + y;
+										GLfloat z_ = faces[q++] + z;
+										addpoint(chunk, &c,&i,ebos,&v,&o,vbos,color,ebc,x_,y_,z_,blockcolor,block.id);
+									}
+								}
+							} else {
+								q+=18;
 							}
-						} else {
-							q+=18;
 						}
+						break;
+					}
+
+					default:
+					{
+						for(t=0;t<6;t++)
+						{
+							if(U[t])
+							{
+								int Q=q+18;
+								while(q<Q)
+								{
+									GLfloat x_ = faces[q++] + x;
+									GLfloat y_ = faces[q++] + y;
+									GLfloat z_ = faces[q++] + z;
+									addpoint(chunk, &c,&i,ebos,&v,&o,vbos,color,ebc,x_,y_,z_,blockcolor,block.id);
+								}
+							} else {
+								q+=18;
+							}
+						}
+						break;
+					}
 					}
 				}
 			}
 		}
 	}
-
-	vec3_t blockcolor;
-	blockcolor.x = 1;
-	blockcolor.y = 1;
-	blockcolor.z = 0;
 
 	free(ebc);
 
@@ -298,14 +355,20 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 	memcpy(&finalcolordata[(long)v*9999], color[v], o*sizeof(GLfloat));
 	free(color[v]);
 
+	GLfloat *finaltermscreendata = (GLfloat *)malloc(sizeof(GLfloat) * termi);
+	memcpy(finaltermscreendata, terminalscreens, sizeof(GLfloat) * termi);
+	free(terminalscreens);
+
 	mesh_t ret;
 	ret.ebodata = finalebodata;
 	ret.vbodata = finalvbodata;
 	ret.colordata = finalcolordata;
+	ret.termscreendata = finaltermscreendata;
 
 	ret.ebosize = (long)9999*c + i;
 	ret.vbosize = (long)9999*v + o;
 	ret.colorsize = (long)9999*v + o;
+	ret.termscreensize = termi;
 
 	return ret;
 }

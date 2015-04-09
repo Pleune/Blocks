@@ -1,12 +1,13 @@
 #include "state_game.h"
 
-#include <unistd.h>
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
+
+#include "gl.h"
 
 #include "state.h"
 #include "custommath.h"
@@ -16,14 +17,20 @@
 
 #include "state_game/blockpick.c"
 
+const struct block_term_t termdata = {
+	2,
+};
+
 uint32_t ticks = 0;
 
 int windoww, windowh;
 
 GLuint drawprogram;
+GLuint drawprogrammatrixinput;
+GLuint terminalscreensprogram;
+GLuint terminalscreensprogrammatrixinput;
 GLuint ppprogram;
 
-GLuint matrix;
 
 GLuint pppointbuffer;
 GLuint pppointbufferid;
@@ -47,107 +54,18 @@ float rotx, roty;
 int lines = 0;
 int pp = 1;
 
-static void
-fail(char* msg)
-{
-	printf("ERROR: %s\n", msg);
-	state_changeto(CLOSING);
-}
-
-static void
-loadprogram(GLuint *program, char *vertexshadername, char *fragmentshadername)
-{
-	GLuint vertexshader = glCreateShader(GL_VERTEX_SHADER);
-	GLuint fragmentshader = glCreateShader(GL_FRAGMENT_SHADER);
-
-	char *file;
-	char *file_contents;
-	long input_file_size;
-	FILE *input_file;
-	const char *intermediary;
-
-	file = (char *)calloc(1024, sizeof(char));
-	strncat(file, getbasepath(), 1024);
-	strncat(file, vertexshadername, 1024 - strlen(file));
-
-	input_file = fopen(file, "rb");
-	free(file);
-	if(!input_file)
-		fail("getting a handle on the vertexshader file");
-	fseek(input_file, 0, SEEK_END);
-	input_file_size = ftell(input_file);
-	rewind(input_file);
-	file_contents = malloc((input_file_size + 1) * (sizeof(char)));
-	fread(file_contents, sizeof(char), input_file_size, input_file);
-	fclose(input_file);
-	file_contents[input_file_size] = 0;
-
-	intermediary = file_contents;
-	glShaderSource(vertexshader, 1, &intermediary, NULL);
-	glCompileShader(vertexshader);
-	free(file_contents);
-
-	file = (char *)calloc(1024, sizeof(char));
-	strncat(file, getbasepath(), 1024);
-	strncat(file, fragmentshadername, 1024 - strlen(file));
-
-	input_file = fopen(file, "rb");
-	free(file);
-	if(!input_file)
-		fail("getting a handle on the fragmentshader file");
-	fseek(input_file, 0, SEEK_END);
-	input_file_size = ftell(input_file);
-	rewind(input_file);
-	file_contents = malloc((input_file_size + 1) * (sizeof(char)));
-	fread(file_contents, sizeof(char), input_file_size, input_file);
-	fclose(input_file);
-	file_contents[input_file_size] = 0;
-
-	intermediary = file_contents;
-	glShaderSource(fragmentshader, 1, &intermediary, NULL);
-	glCompileShader(fragmentshader);
-	free(file_contents);
-
-	int errorlen;
-	char *message;
-
-	glGetShaderiv(vertexshader, GL_INFO_LOG_LENGTH, &errorlen);
-	message = (char *)malloc(errorlen * sizeof(char));
-	glGetShaderInfoLog(vertexshader, errorlen, 0, message);
-	printf("INFO: vertexshader info:\n%s\n", message);
-	free(message);
-
-	glGetShaderiv(fragmentshader, GL_INFO_LOG_LENGTH, &errorlen);
-	message = (char *)malloc(errorlen * sizeof(char));
-	glGetShaderInfoLog(fragmentshader, errorlen, 0, message);
-	printf("INFO: fragmentshader info:\n%s\n", message);
-	free(message);
-
-	*program = glCreateProgram();
-	glAttachShader(*program, vertexshader);
-	glAttachShader(*program, fragmentshader);
-	glLinkProgram(*program);
-
-	glGetProgramiv(*program, GL_INFO_LOG_LENGTH, &errorlen);
-	message = (char *)malloc(errorlen * sizeof(char));
-	glGetProgramInfoLog(*program, errorlen, 0, message);
-	printf("INFO: opengl program info:\n%s\n", message);
-	free(message);
-
-	glDeleteShader(vertexshader);
-	glDeleteShader(fragmentshader);
-}
-
 void
 state_game_init()
 {
 	getwindowsize(&windoww, &windowh);
 
 	//load shaders 'n stuff
-	loadprogram(&drawprogram, "shaders/vs", "shaders/fs");
-	loadprogram(&ppprogram, "shaders/pvs", "shaders/pfs");
+	gl_loadprogram(&drawprogram, "shaders/vs", "shaders/fs");
+	gl_loadprogram(&ppprogram, "shaders/pvs", "shaders/pfs");
+	gl_loadprogram(&terminalscreensprogram, "shaders/termvs", "shaders/termfs");
 
-	matrix = glGetUniformLocation(drawprogram, "MVP");
+	drawprogrammatrixinput = glGetUniformLocation(drawprogram, "MVP");
+	terminalscreensprogrammatrixinput = glGetUniformLocation(drawprogram, "MVP");
 	pppointbufferid = glGetUniformLocation(ppprogram, "tex");
 
 	//generate the post processing framebuffer
@@ -300,6 +218,7 @@ state_game_run()
 			{
 				block_t b;
 				b.id = 2;
+				b.metadata.pointer = (void *)&termdata;
 				rayadd(pos, forwardcamera, b, 1);
 			}
 			else if(e.button.button == SDL_BUTTON_RIGHT)
@@ -370,19 +289,19 @@ state_game_run()
 
 	//render to framebuffer here
 	if(pp)
-	{
 		glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
-		glEnable(GL_DEPTH_TEST);
-		glUseProgram(drawprogram);
-	}
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if(lines)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-	glUniformMatrix4fv(matrix, 1, GL_FALSE, mvp.mat);
+	glUseProgram(terminalscreensprogram);
+	glUniformMatrix4fv(terminalscreensprogrammatrixinput, 1, GL_FALSE, mvp.mat);
 
-	world_render();
+	glUseProgram(drawprogram);
+	glUniformMatrix4fv(drawprogrammatrixinput, 1, GL_FALSE, mvp.mat);
+
+	world_render(drawprogram, terminalscreensprogram);
 
 	if(lines)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

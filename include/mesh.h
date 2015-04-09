@@ -12,6 +12,9 @@ typedef struct {
 
 	long colorsize;
 	GLfloat *colordata;
+
+	int termscreensize;
+	GLfloat *termscreendata;
 } mesh_t;
 
 #endif //MESH_H
