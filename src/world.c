@@ -104,9 +104,9 @@ world_initalload()
 	{
 		for(v=0; v<128; v++)
 		{
-			termscreen[u*v*3]=u;
-			termscreen[u*v*3+1]=v;
-			termscreen[u*v*3+2]=0;
+			termscreen[(u + 128*v) *3]=u;
+			termscreen[(u + 128*v) *3 + 1]=0;
+			termscreen[(u + 128*v) *3 + 2]=v;
 		}
 	}
 
@@ -280,14 +280,14 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram)
 				if(blockvbos[x][y][z].termpbohasnewdata)
 				{
 					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
-						glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-						blockvbos[x][y][z].mappedptr=0;
+					glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+					blockvbos[x][y][z].mappedptr=0;
 					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
 					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+					//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+					//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 					blockvbos[x][y][z].termpbohasnewdata=0;
 					blockvbos[x][y][z].termpboloadnexttime=1;
 				}
