@@ -15,6 +15,9 @@ typedef struct {
 
 	int termscreensize;
 	GLfloat *termscreendata;
+
+	int termscreenuvsize;
+	GLfloat *termscreenuvdata;
 } mesh_t;
 
 #endif //MESH_H

@@ -280,8 +280,11 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 										terminalscreens[termi++] = faces[q++] + z + chunk->pos.z*CHUNKSIZE;
 
 										//texcoord data
-										terminalscreens[termi++] = terminaltexcoords[terminaltexcoordsabstraction[texcount]*2];
-										terminalscreens[termi++] = terminaltexcoords[terminaltexcoordsabstraction[texcount++]*2+1];
+										GLfloat one = terminaltexcoords[terminaltexcoordsabstraction[texcount]*2];
+										GLfloat two = terminaltexcoords[terminaltexcoordsabstraction[texcount++]*2+1];
+										terminalscreens[termi++] = one;
+										terminalscreens[termi++] = two;
+										printf("ONE: %lf TWO: %lf\n", one, two);
 									}
 								} else {
 									int Q=q+18;
