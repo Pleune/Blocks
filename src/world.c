@@ -33,6 +33,7 @@ struct {
 	void *mappedptr;
 	int termpboloadnexttime;
 	int termpbohasnewdata;
+	int termcounter;
 
 	int iscurrent;
 	long points;
@@ -104,8 +105,8 @@ world_initalload()
 	{
 		for(v=0; v<128; v++)
 		{
-			termscreen[(u + 128*v) *3]=u;
-			termscreen[(u + 128*v) *3 + 1]=0;
+			termscreen[(u + 128*v) *3]=0;
+			termscreen[(u + 128*v) *3 + 1]=u;
 			termscreen[(u + 128*v) *3 + 2]=v;
 		}
 	}
@@ -127,6 +128,7 @@ world_initalload()
 				blockvbos[x][y][z].mappedptr=0;
 				blockvbos[x][y][z].termpboloadnexttime=1;
 				blockvbos[x][y][z].termpbohasnewdata=0;
+				blockvbos[x][y][z].termcounter=0;
 
 				blockvbos[x][y][z].points = 0;
 				blockvbos[x][y][z].iscurrent = 0;
@@ -194,6 +196,11 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram)
 	int y=0;
 	int z=0;
 
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
+	glUseProgram(drawprogram);
+
 	for(x=0; x<WORLDSIZE; x++)
 	{
 		for(y=0; y<WORLDSIZE; y++)
@@ -229,7 +236,7 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram)
 					blockvbos[x][y][z].ismeshcurrent=1;
 				}
 
-				glUseProgram(drawprogram);
+				//glUseProgram(drawprogram);
 				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
 				glVertexAttribPointer(
 						0,
@@ -238,7 +245,6 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram)
 						GL_FALSE,
 						0,
 						0);
-				glEnableVertexAttribArray(0);
 
 				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
 				glVertexAttribPointer(
@@ -248,48 +254,55 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram)
 						GL_FALSE,
 						0,
 						0);
-				glEnableVertexAttribArray(1);
 
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].ebo);
 				glDrawElements(GL_TRIANGLES, blockvbos[x][y][z].points, GL_UNSIGNED_INT, 0);
-				glDisableVertexAttribArray(0);
-				glDisableVertexAttribArray(1);
 
-				glUseProgram(terminalscreensprogram);
+			}
+		}
+	}
 
+	glUseProgram(terminalscreensprogram);
+	for(x=0; x<WORLDSIZE; x++)
+	{
+		for(y=0; y<WORLDSIZE; y++)
+		{
+			for(z=0; z<WORLDSIZE; z++)
+			{
 				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, termtexture);
+
 				if(blockvbos[x][y][z].termpboloadnexttime)
 				{
 					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
-					glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, 128*128*3, 0, GL_STREAM_DRAW_ARB);
+					glBufferData(GL_PIXEL_UNPACK_BUFFER, 128*128*3, 0, GL_STREAM_DRAW);
+
 					blockvbos[x][y][z].mappedptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
 					blockvbos[x][y][z].termpboloadnexttime=0;
-					int i = glGetError();
-					while(i)
-					{
-						printf("GLERR: %i\n", i);
-						i=glGetError();
-					}
 				}
+
 				if(!blockvbos[x][y][z].mappedptr)
 					blockvbos[x][y][z].termpboloadnexttime=1;
-					blockvbos[x][y][z].termpboloadnexttime=0;
 
-				if(blockvbos[x][y][z].termpbohasnewdata)
+				blockvbos[x][y][z].termcounter++;
+				if(blockvbos[x][y][z].termpbohasnewdata && (blockvbos[x][y][z].termcounter > 1000))
 				{
+					blockvbos[x][y][z].termcounter=0;
+
 					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
+
 					glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 					blockvbos[x][y][z].mappedptr=0;
+
 					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
 					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-					//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-					//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+					//TODO: do i need there here? or can they go somewhere else
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 					blockvbos[x][y][z].termpbohasnewdata=0;
-					blockvbos[x][y][z].termpboloadnexttime=1;
 				}
 
 				//TODO: put this in a proper place
@@ -303,7 +316,6 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram)
 						GL_FALSE,
 						5 * sizeof(GLfloat),//*sizeof(GLfloat),
 						0);
-				glEnableVertexAttribArray(0);
 
 				glVertexAttribPointer(
 						1,
@@ -312,10 +324,7 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram)
 						GL_FALSE,
 						5*sizeof(GLfloat),
 						(void *)(3*sizeof(GLfloat)));
-				glEnableVertexAttribArray(1);
 				glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].termpoints);
-				glDisableVertexAttribArray(0);
-				glDisableVertexAttribArray(1);
 			}
 		}
 	}
@@ -493,7 +502,6 @@ world_threadentry(void *ptr)
 					{
 						memcpy(blockvbos[i.x][i.y][i.z].mappedptr, termscreen, 128*128*3);
 						blockvbos[i.x][i.y][i.z].termpbohasnewdata=1;
-						printf("TEST\n");
 					}
 				}
 			}
