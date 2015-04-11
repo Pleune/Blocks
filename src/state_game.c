@@ -182,8 +182,6 @@ state_game_run()
 	forwardmovement.x = sin(rotx);
 	forwardmovement.y = -cos(rotx);
 
-	world_setworldcenter(pos.x, pos.y, pos.z);
-
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
 	{
@@ -301,7 +299,7 @@ state_game_run()
 	glUseProgram(drawprogram);
 	glUniformMatrix4fv(drawprogrammatrixinput, 1, GL_FALSE, mvp.mat);
 
-	world_render(drawprogram, terminalscreensprogram);
+	world_render(drawprogram, terminalscreensprogram, pos);
 
 	if(lines)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

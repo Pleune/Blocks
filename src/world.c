@@ -9,7 +9,6 @@
 
 #include "defines.h"
 #include "chunk.h"
-#include "custommath.h"
 
 #define MODULO(a, b) (((a) % (b) + (b)) % (b))
 
@@ -88,10 +87,10 @@ isquickloaded(long3_t pos, long *arrindex)
 	return shouldbequickloaded(cpos) && !memcmp(&cpos, &pos, sizeof(long3_t));
 }
 
-void
-world_setworldcenter(long x, long y, long z)
+static void
+setworldcenter(vec3_t pos)
 {
-	worldscope = getchunkspotof(x, y, z);
+	worldscope = getchunkspotof(pos.x, pos.y, pos.z);
 	worldscope.x -= WORLDSIZE/2;
 	worldscope.y -= WORLDSIZE/2;
 	worldscope.z -= WORLDSIZE/2;
@@ -188,8 +187,9 @@ world_cleanup()
 }
 
 void
-world_render(GLuint drawprogram, GLuint terminalscreensprogram)
+world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 {
+	setworldcenter(pos);
 	glEnable(GL_DEPTH_TEST);
 
 	int x=0;
