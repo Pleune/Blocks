@@ -41,6 +41,8 @@ typedef struct mat4_s {
 
 //many of these are not actually coded in yet
 
+long double *distlong3(long double *out, long3_t *a, long3_t *b);
+
 //vector stuff
 vec3_t *normalvec3(vec3_t *out, vec3_t *in);
 vec4_t *normalvec4(vec4_t *out, vec4_t *in);

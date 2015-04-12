@@ -3,5 +3,6 @@
 
 #define CHUNKSIZE 8
 #define WORLDSIZE 10
+#define TERMINALRENDERDIST 3
 
 #endif //DEFINES_H

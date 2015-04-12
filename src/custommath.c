@@ -3,6 +3,18 @@
 #include <string.h>
 #include <math.h>
 
+long double *
+distlong3(long double *out, long3_t *a, long3_t *b)
+{
+	long3_t a_ = *a;
+	a_.x -= b->x;
+	a_.y -= b->y;
+	a_.z -= b->z;
+	*out = sqrtl(a_.x*a_.x + a_.y*a_.y + a_.z*a_.z);
+	return out;
+}
+
+
 vec3_t *
 normalvec3(vec3_t *out, vec3_t *in)
 {

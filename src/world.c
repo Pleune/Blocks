@@ -14,6 +14,7 @@
 
 chunk_t *loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
 long3_t worldscope = {0, 0, 0};
+long3_t worldcenter = {0, 0, 0};
 
 int stopthread;
 SDL_Thread *thread;
@@ -90,10 +91,10 @@ isquickloaded(long3_t pos, long *arrindex)
 static void
 setworldcenter(vec3_t pos)
 {
-	worldscope = getchunkspotof(pos.x, pos.y, pos.z);
-	worldscope.x -= WORLDSIZE/2;
-	worldscope.y -= WORLDSIZE/2;
-	worldscope.z -= WORLDSIZE/2;
+	worldcenter = getchunkspotof(pos.x, pos.y, pos.z);
+	worldscope.x = worldcenter.x - WORLDSIZE/2;
+	worldscope.y = worldcenter.y - WORLDSIZE/2;
+	worldscope.z = worldcenter.z - WORLDSIZE/2;
 }
 
 void
@@ -269,62 +270,70 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, termtexture);
+				long double dist;
 
-				if(blockvbos[x][y][z].termpboloadnexttime)
+				long3_t chunkpos = chunk_getpos(loadedchunks[x+y*WORLDSIZE+z*WORLDSIZE*WORLDSIZE]);
+				distlong3(&dist, &chunkpos, &worldcenter);
+
+				if(dist < TERMINALRENDERDIST)
 				{
-					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
-					glBufferData(GL_PIXEL_UNPACK_BUFFER, 128*128*3, 0, GL_STREAM_DRAW);
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, termtexture);
 
-					blockvbos[x][y][z].mappedptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
-					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+					if(blockvbos[x][y][z].termpboloadnexttime)
+					{
+						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
+						glBufferData(GL_PIXEL_UNPACK_BUFFER, 128*128*3, 0, GL_STREAM_DRAW);
 
-					blockvbos[x][y][z].termpboloadnexttime=0;
+						blockvbos[x][y][z].mappedptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+						blockvbos[x][y][z].termpboloadnexttime=0;
+					}
+
+					if(!blockvbos[x][y][z].mappedptr)
+						blockvbos[x][y][z].termpboloadnexttime=1;
+
+					blockvbos[x][y][z].termcounter++;
+					if(blockvbos[x][y][z].termpbohasnewdata && (blockvbos[x][y][z].termcounter > 1000))
+					{
+						blockvbos[x][y][z].termcounter=0;
+
+						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
+
+						glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+						blockvbos[x][y][z].mappedptr=0;
+
+						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
+						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+						//TODO: do i need there here? or can they go somewhere else
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+						blockvbos[x][y][z].termpbohasnewdata=0;
+					}
+
+					//TODO: put this in a proper place
+					GLint uniform_mytexture = glGetUniformLocation(terminalscreensprogram, "myTextureSampler");
+					glUniform1i(uniform_mytexture, 0);
+					glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].termbo);
+					glVertexAttribPointer(
+							0,
+							3,
+							GL_FLOAT,
+							GL_FALSE,
+							5 * sizeof(GLfloat),//*sizeof(GLfloat),
+							0);
+
+					glVertexAttribPointer(
+							1,
+							2,
+							GL_FLOAT,
+							GL_FALSE,
+							5*sizeof(GLfloat),
+							(void *)(3*sizeof(GLfloat)));
+					glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].termpoints);
 				}
-
-				if(!blockvbos[x][y][z].mappedptr)
-					blockvbos[x][y][z].termpboloadnexttime=1;
-
-				blockvbos[x][y][z].termcounter++;
-				if(blockvbos[x][y][z].termpbohasnewdata && (blockvbos[x][y][z].termcounter > 1000))
-				{
-					blockvbos[x][y][z].termcounter=0;
-
-					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
-
-					glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-					blockvbos[x][y][z].mappedptr=0;
-
-					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
-					glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-					//TODO: do i need there here? or can they go somewhere else
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-					blockvbos[x][y][z].termpbohasnewdata=0;
-				}
-
-				//TODO: put this in a proper place
-				GLint uniform_mytexture = glGetUniformLocation(terminalscreensprogram, "myTextureSampler");
-				glUniform1i(uniform_mytexture, 0);
-				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].termbo);
-				glVertexAttribPointer(
-						0,
-						3,
-						GL_FLOAT,
-						GL_FALSE,
-						5 * sizeof(GLfloat),//*sizeof(GLfloat),
-						0);
-
-				glVertexAttribPointer(
-						1,
-						2,
-						GL_FLOAT,
-						GL_FALSE,
-						5*sizeof(GLfloat),
-						(void *)(3*sizeof(GLfloat)));
-				glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].termpoints);
 			}
 		}
 	}
