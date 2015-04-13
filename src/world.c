@@ -148,7 +148,7 @@ world_initalload()
 				cpos.x = x + worldscope.x;
 				cpos.y = y + worldscope.y;
 				cpos.z = z + worldscope.z;
-				chunk_loadchunk(cpos, &loadedchunks[spot]);
+				loadedchunks[spot] = chunk_loadchunk(cpos);
 			}
 		}
 	}

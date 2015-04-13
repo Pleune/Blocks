@@ -408,26 +408,28 @@ chunk_freechunk(chunk_t *chunk)
 	free(chunk);
 }
 
-int
-chunk_loadchunk(long3_t pos, chunk_t **chunk)
+chunk_t *
+chunk_loadchunk(long3_t pos)
 {
-	*chunk = (chunk_t *)malloc(sizeof(chunk_t));
+	chunk_t *chunk = (chunk_t *)malloc(sizeof(chunk_t));
 
-	(*chunk)->pos = pos;
-	(*chunk)->data = (block_t *)calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
+	chunk->pos = pos;
+	chunk->data = (block_t *)calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
 
-	worldgen_genchunk(*chunk);
+	worldgen_genchunk(chunk);
 
-	return 0;//never laods from disk.
+	return chunk;//never laods from disk.
 }
 
-void
-chunk_loademptychunk(long3_t pos, chunk_t **chunk)
+chunk_t *
+chunk_loademptychunk(long3_t pos)
 {
-	*chunk = (chunk_t *)malloc(sizeof(chunk_t));
+	chunk_t *chunk = (chunk_t *)malloc(sizeof(chunk_t));
 
-	(*chunk)->pos = pos;
-	(*chunk)->data = calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
+	chunk->pos = pos;
+	chunk->data = calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
+
+	return chunk;
 }
 
 int
@@ -439,11 +441,9 @@ chunk_reloadchunk(long3_t pos, chunk_t *chunk)
 }
 
 void
-chunk_emptychunk(chunk_t *chunk)
+chunk_zerochunk(chunk_t *chunk)
 {
-	if(chunk->data)
-		free(chunk->data);
-	chunk->data = calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
+	memset(chunk->data, 0, sizeof(block_t));
 }
 
 block_t
