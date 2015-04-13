@@ -376,9 +376,6 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 void
 worldgen_genchunk(chunk_t *chunk)
 {
-	if(!chunk->data)
-		free(chunk->data);
-	chunk->data = chunk_callocdata();
 
 	//chunk->data[0].id=1;
 
@@ -398,6 +395,8 @@ worldgen_genchunk(chunk_t *chunk)
 					i++;
 				if(i>1)
 					chunk->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id=1;
+				else
+					chunk->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id=0;
 			}
 		}
 	}
@@ -416,7 +415,7 @@ chunk_loadchunk(long3_t pos, chunk_t **chunk)
 	*chunk = (chunk_t *)malloc(sizeof(chunk_t));
 
 	(*chunk)->pos = pos;
-	(*chunk)->data=0;
+	(*chunk)->data = (block_t *)calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
 
 	worldgen_genchunk(*chunk);
 
