@@ -1,2 +1,3 @@
 **/*.swp
+**/*.swo
 **/.ycm_extra_conf.pyc
