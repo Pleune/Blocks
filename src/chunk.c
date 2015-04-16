@@ -65,15 +65,6 @@ const static GLfloat faces[] = {
 0,0,1,
 1,0,0,
 
-//north
-1,1,0,
-1,0,0,
-0,1,0,
-
-0,0,0,
-0,1,0,
-1,0,0,
-
 //south
 0,1,1,
 0,0,1,
@@ -82,6 +73,15 @@ const static GLfloat faces[] = {
 1,0,1,
 1,1,1,
 0,0,1,
+
+//north
+1,1,0,
+1,0,0,
+0,1,0,
+
+0,0,0,
+0,1,0,
+1,0,0,
 
 //east
 1,1,0,
@@ -151,7 +151,7 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 				long index = x+CHUNKSIZE*y+CHUNKSIZE*CHUNKSIZE*z;
 				if(chunk->data[index].id)
 				{
-					int top, bottom, north, south, east, west;
+					int top, bottom, south, north, east, west;
 
 					if(y==CHUNKSIZE-1)
 					{
@@ -184,6 +184,21 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 							bottom = 0;
 						else
 							bottom = 1;
+					}					if(z==CHUNKSIZE-1)
+					{
+						if(chunksouth)
+						{
+							if(chunk_getblock(chunksouth,x,y,0).id)
+								south=0;
+							else
+								south=1;
+						} else
+							south=1;
+					} else {
+						if(chunk_getblock(chunk,x,y,z+1).id)
+							south = 0;
+						else
+							south = 1;
 					}
 					if(z==0)
 					{
@@ -201,22 +216,7 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 						else
 							north = 1;
 					}
-					if(z==CHUNKSIZE-1)
-					{
-						if(chunksouth)
-						{
-							if(chunk_getblock(chunksouth,x,y,0).id)
-								south=0;
-							else
-								south=1;
-						} else
-							south=1;
-					} else {
-						if(chunk_getblock(chunk,x,y,z+1).id)
-							south = 0;
-						else
-							south = 1;
-					}
+
 					if(x==CHUNKSIZE-1)
 					{
 						if(chunkeast)
@@ -254,7 +254,7 @@ chunk_getmesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t 
 					vec3_t blockcolor = block_getcolor(block.id);
 
 					int U[6] = {
-						top, bottom, north, south, east, west
+						top, bottom, south, north, east, west
 					};
 					int q=0;
 					int t;
