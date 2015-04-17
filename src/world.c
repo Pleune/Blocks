@@ -111,6 +111,8 @@ world_initalload()
 		}
 	}
 
+	termscreen[7000] = 0;
+
 	int x, y, z;
 	for(x=0; x<WORLDSIZE; x++)
 	{
@@ -124,6 +126,9 @@ world_initalload()
 				glGenBuffers(1, &blockvbos[x][y][z].termbo);
 				glGenBuffers(1, &blockvbos[x][y][z].termpbo);
 				glGenTextures(1, &termtexture);//TODO: cleanup
+				glBindTexture(GL_TEXTURE_2D, termtexture);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 				blockvbos[x][y][z].mappedptr=0;
 				blockvbos[x][y][z].termpboloadnexttime=1;
@@ -307,9 +312,6 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
 						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-						//TODO: do i need there here? or can they go somewhere else
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 						blockvbos[x][y][z].termpbohasnewdata=0;
 					}
 
