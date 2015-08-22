@@ -12,7 +12,6 @@
 
 #define MODULO(a, b) (((a) % (b) + (b)) % (b))
 
-chunk_t *loadedchunks[WORLDSIZE * WORLDSIZE * WORLDSIZE];
 long3_t worldscope = {0, 0, 0};
 long3_t worldcenter = {0, 0, 0};
 
@@ -23,6 +22,8 @@ GLuint termtexture;
 unsigned char termscreen[128*128*3] = { 0 };
 
 struct {
+	chunk_t *chunk;
+
 	GLuint vbo;
 	GLuint cbo;
 	GLuint ebo;
@@ -41,12 +42,12 @@ struct {
 	int ismeshcurrent;
 	SDL_mutex *lock;
 	int iswritable;
-} blockvbos[WORLDSIZE][WORLDSIZE][WORLDSIZE];
+} data[WORLDSIZE][WORLDSIZE][WORLDSIZE];
 
-static inline long3_t
-getinternalspotof(long x, long y, long z)
+static inline int3_t
+getinternalspotofspot(long x, long y, long z)
 {
-	long3_t blockpos;
+	int3_t blockpos;
 	blockpos.x = MODULO(x, CHUNKSIZE);
 	blockpos.y = MODULO(y, CHUNKSIZE);
 	blockpos.z = MODULO(z, CHUNKSIZE);
@@ -54,7 +55,7 @@ getinternalspotof(long x, long y, long z)
 }
 
 static inline long3_t
-getchunkspotof(long x, long y, long z)
+getchunkofspot(long x, long y, long z)
 {
 	long3_t chunkpos;
 	chunkpos.x = floor((double)x / CHUNKSIZE);
@@ -63,10 +64,15 @@ getchunkspotof(long x, long y, long z)
 	return chunkpos;
 }
 
-static inline long
-getchunkarrayspotof(long x, long y, long z)
+static inline int3_t
+getchunkindexofchunk(long3_t pos)
 {
-	return MODULO(x, WORLDSIZE) + MODULO(y, WORLDSIZE)*WORLDSIZE + MODULO(z, WORLDSIZE)*WORLDSIZE*WORLDSIZE;
+	int3_t icpo = {
+		MODULO(pos.x, WORLDSIZE),
+		MODULO(pos.y, WORLDSIZE),
+		MODULO(pos.z, WORLDSIZE)
+	};
+	return icpo;
 }
 
 static inline int
@@ -78,27 +84,200 @@ shouldbequickloaded(long3_t pos)
 }
 
 static inline int
-isquickloaded(long3_t pos, long *arrindex)
+isquickloaded(long3_t pos, int3_t *chunkindex)
 {
-	long ai = getchunkarrayspotof(pos.x, pos.y, pos.z);
-	if(arrindex)
-		*arrindex = ai;
+	int3_t ci = getchunkindexofchunk(pos);
+	if(chunkindex)
+		*chunkindex = ci;
 
-	long3_t cpos = chunk_getpos(loadedchunks[ai]);
+	long3_t cpos = chunk_getpos(data[ci.x][ci.y][ci.z].chunk);
 	return shouldbequickloaded(cpos) && !memcmp(&cpos, &pos, sizeof(long3_t));
 }
 
 static void
 setworldcenter(vec3_t pos)
 {
-	worldcenter = getchunkspotof(pos.x, pos.y, pos.z);
+	worldcenter = getchunkofspot(pos.x, pos.y, pos.z);
 	worldscope.x = worldcenter.x - WORLDSIZE/2;
 	worldscope.y = worldcenter.y - WORLDSIZE/2;
 	worldscope.z = worldcenter.z - WORLDSIZE/2;
 }
 
+static int
+quickremeshachunk(int3_t *chunkpos)
+{
+	if(SDL_TryLockMutex(data[chunkpos->x][chunkpos->y][chunkpos->z].lock)!=0)
+	{
+		printf("Xzz: %i Yzz: %i Zzz: %i\n", chunkpos->x, chunkpos->y, chunkpos->z);
+		data[chunkpos->x][chunkpos->y][chunkpos->z].iscurrent=0;
+		return -1;
+	}
+
+	chunk_t *north=0;
+	chunk_t *south=0;
+	chunk_t *east=0;
+	chunk_t *west=0;
+	chunk_t *up=0;
+	chunk_t *down=0;
+
+	chunk_t *chunk = data[chunkpos->x][chunkpos->y][chunkpos->z].chunk;
+
+	int3_t tempchunkindex;
+	long3_t tempcpos = chunk_getpos(chunk);
+
+	tempcpos.x++;
+	if(isquickloaded(tempcpos, &tempchunkindex))
+	{
+		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x+1,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock))
+			east = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
+	}
+	tempcpos.x -= 2;
+	if(isquickloaded(tempcpos, &tempchunkindex))
+	{
+		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x-1,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock))
+			west = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
+	}
+	tempcpos.x++;
+
+	tempcpos.y++;
+	if(isquickloaded(tempcpos, &tempchunkindex))
+	{
+		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y+1,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock))
+			up = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
+	}
+	tempcpos.y -= 2;
+	if(isquickloaded(tempcpos, &tempchunkindex))
+	{
+		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y-1,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock))
+			down = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
+	}
+	tempcpos.y++;
+
+	tempcpos.z++;
+	if(isquickloaded(tempcpos, &tempchunkindex))
+	{
+		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z+1,WORLDSIZE)].lock))
+			south = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
+	}
+	tempcpos.z -= 2;
+	if(isquickloaded(tempcpos, &tempchunkindex))
+	{
+		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z-1,WORLDSIZE)].lock))
+			north = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
+	}
+
+
+	//make sure the other thread dosent do anything stupid
+	data[chunkpos->x][chunkpos->y][chunkpos->z].ismeshcurrent=1;
+
+	//re set up the buffers
+	data[chunkpos->x][chunkpos->y][chunkpos->z].mesh = chunk_getmesh(chunk, up,down,north,south,east,west);
+
+	data[chunkpos->x][chunkpos->y][chunkpos->z].iscurrent = 1;
+	data[chunkpos->x][chunkpos->y][chunkpos->z].ismeshcurrent=0;
+	data[chunkpos->x][chunkpos->y][chunkpos->z].points = data[chunkpos->x][chunkpos->y][chunkpos->z].mesh.ebosize;
+	data[chunkpos->x][chunkpos->y][chunkpos->z].termpoints = data[chunkpos->x][chunkpos->y][chunkpos->z].mesh.termscreensize / 5;
+	SDL_UnlockMutex(data[chunkpos->x][chunkpos->y][chunkpos->z].lock);
+
+	//TODO:optimize this and the locking above
+	if(north)
+		SDL_UnlockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z-1,WORLDSIZE)].lock);
+	if(south)
+		SDL_UnlockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z+1,WORLDSIZE)].lock);
+	if(east)
+		SDL_UnlockMutex(data[MODULO(chunkpos->x+1,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock);
+	if(west)
+		SDL_UnlockMutex(data[MODULO(chunkpos->x-1,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock);
+	if(up)
+		SDL_UnlockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y+1,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock);
+	if(down)
+		SDL_UnlockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y-1,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock);
+
+	return 0;
+}
+
+int
+world_threadentry(void *ptr)
+{
+	stopthread=0;
+	while(!stopthread)
+	{
+		long3_t cpos;
+		for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
+		{
+			if(stopthread)
+				break;
+			for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
+			{
+				if(stopthread)
+					break;
+				for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
+				{
+					if(stopthread)
+						break;
+					int3_t chunkindex;
+					if(!isquickloaded(cpos, &chunkindex))
+					{
+						if(stopthread)
+							break;
+						//the chunk should be loaded but its not. load it.
+						chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
+
+						SDL_UnlockMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock);
+						data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable = 0;
+						SDL_UnlockMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock);
+
+						chunk_reloadchunk(cpos, chunk);
+
+						data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable = 1;
+						data[chunkindex.x][chunkindex.y][chunkindex.z].iscurrent = 0;
+
+						data[chunkindex.x == WORLDSIZE-1 ? 0 : chunkindex.x+1][chunkindex.y][chunkindex.z].iscurrent = 0;
+						data[chunkindex.x == 0 ? WORLDSIZE-1 : chunkindex.x-1][chunkindex.y][chunkindex.z].iscurrent = 0;
+						data[chunkindex.x][chunkindex.y == WORLDSIZE-1 ? 0 : chunkindex.y+1][chunkindex.z].iscurrent = 0;
+						data[chunkindex.x][chunkindex.y == 0 ? WORLDSIZE-1 : chunkindex.y-1][chunkindex.z].iscurrent = 0;
+						data[chunkindex.x][chunkindex.y][chunkindex.z == WORLDSIZE-1 ? 0 : chunkindex.z+1].iscurrent = 0;
+						data[chunkindex.x][chunkindex.y][chunkindex.z == 0 ? WORLDSIZE-1 : chunkindex.z-1].iscurrent = 0;
+					}
+				}
+			}
+		}
+
+		int3_t i;
+		for(i.x = 0; i.x< WORLDSIZE; i.x++)
+		{
+			if(stopthread)
+				break;
+			for(i.y = 0; i.y< WORLDSIZE; i.y++)
+			{
+				if(stopthread)
+					break;
+				for(i.z = 0; i.z< WORLDSIZE; i.z++)
+				{
+					if(stopthread)
+						break;
+
+					if(!data[i.x][i.y][i.z].iscurrent)
+						quickremeshachunk(&i);
+
+					//upload terminal textures
+					if(data[i.x][i.y][i.z].mappedptr && !data[i.x][i.y][i.z].termpbohasnewdata)//god forbid this thread runs faster than the render thread
+					{
+						memcpy(data[i.x][i.y][i.z].mappedptr, termscreen, 128*128*3);
+						data[i.x][i.y][i.z].termpbohasnewdata=1;
+					}
+				}
+			}
+		}
+
+		if(!stopthread)
+			SDL_Delay(300);
+	}
+	return 0;
+}
+
 void
-world_initalload()
+world_init()
 {
 	int u, v;
 	for(u=0; u<128; u++)
@@ -113,47 +292,45 @@ world_initalload()
 
 	termscreen[7000] = 0;
 
-	int x, y, z;
-	for(x=0; x<WORLDSIZE; x++)
+	int3_t chunkindex;
+	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; chunkindex.x++)
 	{
-		for(y=0; y<WORLDSIZE; y++)
+		for(chunkindex.y=0; chunkindex.y<WORLDSIZE; chunkindex.y++)
 		{
-			for(z=0; z<WORLDSIZE; z++)
+			for(chunkindex.z=0; chunkindex.z<WORLDSIZE; chunkindex.z++)
 			{
-				glGenBuffers(1, &blockvbos[x][y][z].ebo);
-				glGenBuffers(1, &blockvbos[x][y][z].vbo);
-				glGenBuffers(1, &blockvbos[x][y][z].cbo);
-				glGenBuffers(1, &blockvbos[x][y][z].termbo);
-				glGenBuffers(1, &blockvbos[x][y][z].termpbo);
-				glGenTextures(1, &termtexture);//TODO: cleanup
+				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].ebo);
+				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].vbo);
+				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].cbo);
+				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].termbo);
+				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].termpbo);
+				glGenTextures(1, &termtexture);//TODO: term texture cleanup
 				glBindTexture(GL_TEXTURE_2D, termtexture);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-				blockvbos[x][y][z].mappedptr=0;
-				blockvbos[x][y][z].termpboloadnexttime=1;
-				blockvbos[x][y][z].termpbohasnewdata=0;
-				blockvbos[x][y][z].termcounter=0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].mappedptr=0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].termpboloadnexttime=1;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].termpbohasnewdata=0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].termcounter=0;
 
-				blockvbos[x][y][z].points = 0;
-				blockvbos[x][y][z].iscurrent = 0;
-				blockvbos[x][y][z].ismeshcurrent=1;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].points = 0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].iscurrent = 0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].ismeshcurrent=1;
 
-				blockvbos[x][y][z].mesh.vbodata=0;
-				blockvbos[x][y][z].mesh.ebodata=0;
-				blockvbos[x][y][z].mesh.colordata=0;
-				blockvbos[x][y][z].mesh.termscreendata=0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.vbodata=0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.ebodata=0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.colordata=0;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.termscreendata=0;
 
-				blockvbos[x][y][z].iswritable=1;
-				blockvbos[x][y][z].lock = SDL_CreateMutex();
+				data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable=1;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].lock = SDL_CreateMutex();
 
-				int spot = getchunkarrayspotof(x + worldscope.x, y + worldscope.y, z + worldscope.z);
-
-				long3_t cpos;
-				cpos.x = x + worldscope.x;
-				cpos.y = y + worldscope.y;
-				cpos.z = z + worldscope.z;
-				loadedchunks[spot] = chunk_loadchunk(cpos);
+				long3_t cchunkindex;
+				cchunkindex.x = chunkindex.x + worldscope.x;
+				cchunkindex.y = chunkindex.y + worldscope.y;
+				cchunkindex.z = chunkindex.z + worldscope.z;
+				data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_loadchunk(cchunkindex);
 			}
 		}
 	}
@@ -168,24 +345,24 @@ world_cleanup()
 	int ret;
 	SDL_WaitThread(thread, &ret);
 
-	int x, y, z;
-	for(x=0; x<WORLDSIZE; x++)
+	int3_t chunkindex;
+	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; chunkindex.x++)
 	{
-		for(y=0; y<WORLDSIZE; y++)
+		for(chunkindex.y=0; chunkindex.y<WORLDSIZE; chunkindex.y++)
 		{
-			for(z=0; z<WORLDSIZE; z++)
+			for(chunkindex.z=0; chunkindex.z<WORLDSIZE; chunkindex.z++)
 			{
-				glDeleteBuffers(1, &blockvbos[x][y][z].cbo);
-				glDeleteBuffers(1, &blockvbos[x][y][z].vbo);
-				glDeleteBuffers(1, &blockvbos[x][y][z].ebo);
-				glDeleteBuffers(1, &blockvbos[x][y][z].termbo);
-				SDL_DestroyMutex(blockvbos[x][y][z].lock);
-				chunk_freechunk(loadedchunks[x + y*WORLDSIZE + z*WORLDSIZE*WORLDSIZE]);
-				if(!blockvbos[x][y][z].ismeshcurrent)
+				glDeleteBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].cbo);
+				glDeleteBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].vbo);
+				glDeleteBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].ebo);
+				glDeleteBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].termbo);
+				SDL_DestroyMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock);
+				chunk_freechunk(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+				if(!data[chunkindex.x][chunkindex.y][chunkindex.z].ismeshcurrent)
 				{
-					free(blockvbos[x][y][z].mesh.ebodata);
-					free(blockvbos[x][y][z].mesh.vbodata);
-					free(blockvbos[x][y][z].mesh.colordata);
+					free(data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.ebodata);
+					free(data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.vbodata);
+					free(data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.colordata);
 				}
 			}
 		}
@@ -213,37 +390,37 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
-				if(!blockvbos[x][y][z].ismeshcurrent)
+				if(!data[x][y][z].ismeshcurrent)
 				{
 					//points buffer
-						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
-						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.vbosize * sizeof(GLfloat), blockvbos[x][y][z].mesh.vbodata, GL_STATIC_DRAW);
+						glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].vbo);
+						glBufferData(GL_ARRAY_BUFFER, data[x][y][z].mesh.vbosize * sizeof(GLfloat), data[x][y][z].mesh.vbodata, GL_STATIC_DRAW);
 
 					//element buffer
-						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].ebo);
-						glBufferData(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].mesh.ebosize * sizeof(GLuint), blockvbos[x][y][z].mesh.ebodata, GL_STATIC_DRAW);
+						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data[x][y][z].ebo);
+						glBufferData(GL_ELEMENT_ARRAY_BUFFER, data[x][y][z].mesh.ebosize * sizeof(GLuint), data[x][y][z].mesh.ebodata, GL_STATIC_DRAW);
 
 					//Color buffer
-						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
-						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.colorsize * sizeof(GLfloat), blockvbos[x][y][z].mesh.colordata, GL_STATIC_DRAW);
+						glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].cbo);
+						glBufferData(GL_ARRAY_BUFFER, data[x][y][z].mesh.colorsize * sizeof(GLfloat), data[x][y][z].mesh.colordata, GL_STATIC_DRAW);
 
 					//terminal buffer
-						glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].termbo);
-						glBufferData(GL_ARRAY_BUFFER, blockvbos[x][y][z].mesh.termscreensize * sizeof(GLfloat), blockvbos[x][y][z].mesh.termscreendata, GL_STATIC_DRAW);
+						glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].termbo);
+						glBufferData(GL_ARRAY_BUFFER, data[x][y][z].mesh.termscreensize * sizeof(GLfloat), data[x][y][z].mesh.termscreendata, GL_STATIC_DRAW);
 
-					if(blockvbos[x][y][z].mesh.ebodata)
-						free(blockvbos[x][y][z].mesh.ebodata);
-					if(blockvbos[x][y][z].mesh.vbodata)
-						free(blockvbos[x][y][z].mesh.vbodata);
-					if(blockvbos[x][y][z].mesh.colordata)
-						free(blockvbos[x][y][z].mesh.colordata);
-					if(blockvbos[x][y][z].mesh.termscreendata)
-						free(blockvbos[x][y][z].mesh.termscreendata);
-					blockvbos[x][y][z].ismeshcurrent=1;
+					if(data[x][y][z].mesh.ebodata)
+						free(data[x][y][z].mesh.ebodata);
+					if(data[x][y][z].mesh.vbodata)
+						free(data[x][y][z].mesh.vbodata);
+					if(data[x][y][z].mesh.colordata)
+						free(data[x][y][z].mesh.colordata);
+					if(data[x][y][z].mesh.termscreendata)
+						free(data[x][y][z].mesh.termscreendata);
+					data[x][y][z].ismeshcurrent=1;
 				}
 
 				//glUseProgram(drawprogram);
-				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].vbo);
+				glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].vbo);
 				glVertexAttribPointer(
 						0,
 						3,
@@ -252,7 +429,7 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 						0,
 						0);
 
-				glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].cbo);
+				glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].cbo);
 				glVertexAttribPointer(
 						1,
 						3,
@@ -261,8 +438,8 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 						0,
 						0);
 
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, blockvbos[x][y][z].ebo);
-				glDrawElements(GL_TRIANGLES, blockvbos[x][y][z].points, GL_UNSIGNED_INT, 0);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data[x][y][z].ebo);
+				glDrawElements(GL_TRIANGLES, data[x][y][z].points, GL_UNSIGNED_INT, 0);
 
 			}
 		}
@@ -277,7 +454,7 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 			{
 				long double dist;
 
-				long3_t chunkpos = chunk_getpos(loadedchunks[x+y*WORLDSIZE+z*WORLDSIZE*WORLDSIZE]);
+				long3_t chunkpos = chunk_getpos(data[x][y][z].chunk);
 				distlong3(&dist, &chunkpos, &worldcenter);
 
 				if(dist < TERMINALRENDERDIST)
@@ -285,40 +462,40 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 					glActiveTexture(GL_TEXTURE0);
 					glBindTexture(GL_TEXTURE_2D, termtexture);
 
-					if(blockvbos[x][y][z].termpboloadnexttime)
+					if(data[x][y][z].termpboloadnexttime)
 					{
-						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
+						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, data[x][y][z].termpbo);
 						glBufferData(GL_PIXEL_UNPACK_BUFFER, 128*128*3, 0, GL_STREAM_DRAW);
 
-						blockvbos[x][y][z].mappedptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+						data[x][y][z].mappedptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-						blockvbos[x][y][z].termpboloadnexttime=0;
+						data[x][y][z].termpboloadnexttime=0;
 					}
 
-					if(!blockvbos[x][y][z].mappedptr)
-						blockvbos[x][y][z].termpboloadnexttime=1;
+					if(!data[x][y][z].mappedptr)
+						data[x][y][z].termpboloadnexttime=1;
 
-					blockvbos[x][y][z].termcounter++;
-					if(blockvbos[x][y][z].termpbohasnewdata && (blockvbos[x][y][z].termcounter > 1000))
+					data[x][y][z].termcounter++;
+					if(data[x][y][z].termpbohasnewdata && (data[x][y][z].termcounter > 1000))
 					{
-						blockvbos[x][y][z].termcounter=0;
+						data[x][y][z].termcounter=0;
 
-						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, blockvbos[x][y][z].termpbo);
+						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, data[x][y][z].termpbo);
 
 						glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-						blockvbos[x][y][z].mappedptr=0;
+						data[x][y][z].mappedptr=0;
 
 						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
 						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-						blockvbos[x][y][z].termpbohasnewdata=0;
+						data[x][y][z].termpbohasnewdata=0;
 					}
 
 					//TODO: put this in a proper place
 					GLint uniform_mytexture = glGetUniformLocation(terminalscreensprogram, "myTextureSampler");
 					glUniform1i(uniform_mytexture, 0);
-					glBindBuffer(GL_ARRAY_BUFFER, blockvbos[x][y][z].termbo);
+					glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].termbo);
 					glVertexAttribPointer(
 							0,
 							3,
@@ -334,209 +511,24 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 							GL_FALSE,
 							5*sizeof(GLfloat),
 							(void *)(3*sizeof(GLfloat)));
-					glDrawArrays(GL_TRIANGLES, 0, blockvbos[x][y][z].termpoints);
+					glDrawArrays(GL_TRIANGLES, 0, data[x][y][z].termpoints);
 				}
 			}
 		}
 	}
 }
-
-static int
-quickremeshachunk(void *ptr)
-{
-	int3_t *i = (int3_t *)ptr;
-
-	long arrpos = getchunkarrayspotof(i->x, i->y, i->z);
-
-	if(SDL_TryLockMutex(blockvbos[i->x][i->y][i->z].lock)!=0)
-	{
-		printf("Xzz: %i Yzz: %i Zzz: %i\n", i->x, i->y, i->z);
-		blockvbos[i->x][i->y][i->z].iscurrent=0;
-		return -1;
-	}
-
-	chunk_t *north=0;
-	chunk_t *south=0;
-	chunk_t *east=0;
-	chunk_t *west=0;
-	chunk_t *up=0;
-	chunk_t *down=0;
-
-	long temparrpos;
-	long3_t tempcpos = chunk_getpos(loadedchunks[arrpos]);
-
-	tempcpos.x++;
-	if(isquickloaded(tempcpos, &temparrpos))
-	{
-		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x+1,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock))
-			east = loadedchunks[temparrpos];
-	}
-	tempcpos.x -= 2;
-	if(isquickloaded(tempcpos, &temparrpos))
-	{
-		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x-1,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock))
-			west = loadedchunks[temparrpos];
-	}
-	tempcpos.x++;
-
-	tempcpos.y++;
-	if(isquickloaded(tempcpos, &temparrpos))
-	{
-		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y+1,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock))
-			up = loadedchunks[temparrpos];
-	}
-	tempcpos.y -= 2;
-	if(isquickloaded(tempcpos, &temparrpos))
-	{
-		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y-1,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock))
-			down = loadedchunks[temparrpos];
-	}
-	tempcpos.y++;
-
-	tempcpos.z++;
-	if(isquickloaded(tempcpos, &temparrpos))
-	{
-		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z+1,WORLDSIZE)].lock))
-			south = loadedchunks[temparrpos];
-	}
-	tempcpos.z -= 2;
-	if(isquickloaded(tempcpos, &temparrpos))
-	{
-		if(!SDL_TryLockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z-1,WORLDSIZE)].lock))
-			north = loadedchunks[temparrpos];
-	}
-
-
-	//make sure the other thread dosent do anything stupid
-	blockvbos[i->x][i->y][i->z].ismeshcurrent=1;
-
-	//re set up the buffers
-	blockvbos[i->x][i->y][i->z].mesh = chunk_getmesh(loadedchunks[getchunkarrayspotof(i->x,i->y,i->z)], up,down,north,south,east,west);
-
-	blockvbos[i->x][i->y][i->z].iscurrent = 1;
-	blockvbos[i->x][i->y][i->z].ismeshcurrent=0;
-	blockvbos[i->x][i->y][i->z].points = blockvbos[i->x][i->y][i->z].mesh.ebosize;
-	blockvbos[i->x][i->y][i->z].termpoints = blockvbos[i->x][i->y][i->z].mesh.termscreensize / 5;
-	SDL_UnlockMutex(blockvbos[i->x][i->y][i->z].lock);
-
-	//TODO:optimize this and the locking above
-	if(north)
-		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z-1,WORLDSIZE)].lock);
-	if(south)
-		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z+1,WORLDSIZE)].lock);
-	if(east)
-		SDL_UnlockMutex(blockvbos[MODULO(i->x+1,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock);
-	if(west)
-		SDL_UnlockMutex(blockvbos[MODULO(i->x-1,WORLDSIZE)][MODULO(i->y,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock);
-	if(up)
-		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y+1,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock);
-	if(down)
-		SDL_UnlockMutex(blockvbos[MODULO(i->x,WORLDSIZE)][MODULO(i->y-1,WORLDSIZE)][MODULO(i->z,WORLDSIZE)].lock);
-
-	return 0;
-}
-
-int
-world_threadentry(void *ptr)
-{
-	stopthread=0;
-	while(!stopthread)
-	{
-
-		long3_t cpos;
-
-		for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
-		{
-			if(stopthread)
-				break;
-			for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
-			{
-				if(stopthread)
-					break;
-				for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
-				{
-					if(stopthread)
-						break;
-					long arrindex;
-					if(!isquickloaded(cpos, &arrindex))
-					{
-						if(stopthread)
-							break;
-						//the chunk should be loaded but its not. load it.
-						chunk_t *chunk = loadedchunks[arrindex];
-
-						int3_t bp;
-						bp.x = MODULO(cpos.x,WORLDSIZE);
-						bp.y = MODULO(cpos.y,WORLDSIZE);
-						bp.z = MODULO(cpos.z,WORLDSIZE);
-
-						SDL_UnlockMutex(blockvbos[bp.x][bp.y][bp.z].lock);
-						blockvbos[bp.x][bp.y][bp.z].iswritable = 0;
-						SDL_UnlockMutex(blockvbos[bp.x][bp.y][bp.z].lock);
-
-						chunk_reloadchunk(cpos, chunk);
-
-						blockvbos[bp.x][bp.y][bp.z].iswritable = 1;
-						blockvbos[bp.x][bp.y][bp.z].iscurrent = 0;
-
-						blockvbos[bp.x == WORLDSIZE-1 ? 0 : bp.x+1][bp.y][bp.z].iscurrent = 0;
-						blockvbos[bp.x == 0 ? WORLDSIZE-1 : bp.x-1][bp.y][bp.z].iscurrent = 0;
-						blockvbos[bp.x][bp.y == WORLDSIZE-1 ? 0 : bp.y+1][bp.z].iscurrent = 0;
-						blockvbos[bp.x][bp.y == 0 ? WORLDSIZE-1 : bp.y-1][bp.z].iscurrent = 0;
-						blockvbos[bp.x][bp.y][bp.z == WORLDSIZE-1 ? 0 : bp.z+1].iscurrent = 0;
-						blockvbos[bp.x][bp.y][bp.z == 0 ? WORLDSIZE-1 : bp.z-1].iscurrent = 0;
-					}
-				}
-			}
-		}
-
-		int3_t i;
-		for(i.x = 0; i.x< WORLDSIZE; i.x++)
-		{
-			if(stopthread)
-				break;
-			for(i.y = 0; i.y< WORLDSIZE; i.y++)
-			{
-				if(stopthread)
-					break;
-				for(i.z = 0; i.z< WORLDSIZE; i.z++)
-				{
-					if(stopthread)
-						break;
-					if(!blockvbos[i.x][i.y][i.z].iscurrent)
-					{
-						quickremeshachunk(&i);
-
-					}
-					//upload terminal textures
-					if(blockvbos[i.x][i.y][i.z].mappedptr && !blockvbos[i.x][i.y][i.z].termpbohasnewdata)//god forbid this thread runs faster than the render thread
-					{
-						memcpy(blockvbos[i.x][i.y][i.z].mappedptr, termscreen, 128*128*3);
-						blockvbos[i.x][i.y][i.z].termpbohasnewdata=1;
-					}
-				}
-			}
-		}
-
-		if(!stopthread)
-			SDL_Delay(300);
-	}
-	return 0;
-}
-
-
 
 //TODO: loadnew
 block_t
 world_getblock(long x, long y, long z, int loadnew)
 {
-	long3_t cpos = getchunkspotof(x, y, z);
-	long3_t internalpos = getinternalspotof(x,y,z);
+	long3_t cpos = getchunkofspot(x, y, z);
+	int3_t internalpos = getinternalspotofspot(x,y,z);
 
-	long arrindex;
+	int3_t icpo;
 
-	if(isquickloaded(cpos, &arrindex))
-		return chunk_getblock(loadedchunks[arrindex], internalpos.x, internalpos.y, internalpos.z);
+	if(isquickloaded(cpos, &icpo))
+		return chunk_getblock(data[icpo.x][icpo.y][icpo.z].chunk, internalpos.x, internalpos.y, internalpos.z);
 	block_t error;
 	error.id = 255;
 	return error;
@@ -546,33 +538,50 @@ world_getblock(long x, long y, long z, int loadnew)
 int
 world_setblock(long x, long y, long z, block_t block, int loadnew)
 {
-	long3_t cpos = getchunkspotof(x, y, z);
-	long3_t internalpos = getinternalspotof(x, y, z);
+	long3_t cpos = getchunkofspot(x, y, z);
+	int3_t internalpos = getinternalspotofspot(x, y, z);
 
-	int3_t bp;
-	bp.x = MODULO(cpos.x,WORLDSIZE);
-	bp.y = MODULO(cpos.y,WORLDSIZE);
-	bp.z = MODULO(cpos.z,WORLDSIZE);
-
-	long arrindex;
-	if(isquickloaded(cpos, &arrindex))
+	int3_t chunkindex;
+	if(isquickloaded(cpos, &chunkindex))
 	{
-		chunk_t *chunk = loadedchunks[arrindex];
-		if(!blockvbos[bp.x][bp.y][bp.z].iswritable)
+		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
+		if(!data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable)
 			return -2;
 
-		if(SDL_TryLockMutex(blockvbos[bp.x][bp.y][bp.z].lock)==0)
+		if(SDL_TryLockMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock)==0)
 		{
 			chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
-			SDL_UnlockMutex(blockvbos[bp.x][bp.y][bp.z].lock);
-			int3_t i;
-			i.x = MODULO(cpos.x, WORLDSIZE);
-			i.y = MODULO(cpos.y, WORLDSIZE);
-			i.z = MODULO(cpos.z, WORLDSIZE);
+			SDL_UnlockMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock);
 
-			quickremeshachunk(&i);
+			quickremeshachunk(&chunkindex);
 
-			//TODO: if a block is placed on a chunk boundry, update the chunk next door
+			cpos.x++;
+			if(internalpos.x == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+				quickremeshachunk(&chunkindex);
+
+			cpos.x -= 2;
+			if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
+				quickremeshachunk(&chunkindex);
+
+			cpos.x++;
+
+			cpos.y++;
+			if(internalpos.y == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+				quickremeshachunk(&chunkindex);
+
+			cpos.y -= 2;
+			if(internalpos.y == 0 && isquickloaded(cpos, &chunkindex))
+				quickremeshachunk(&chunkindex);
+			cpos.y++;
+
+			cpos.z++;
+			if(internalpos.z == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+				quickremeshachunk(&chunkindex);
+
+			cpos.z -= 2;
+			if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
+				quickremeshachunk(&chunkindex);
+
 			return 0;
 		}
 		return -3;

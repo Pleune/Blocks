@@ -1,21 +1,14 @@
 #include "state_game.h"
-
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
-
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
-
 #include "gl.h"
-
 #include "state.h"
 #include "custommath.h"
-
 #include "world.h"
-
-
-#include "state_game/blockpick.c"
+#include "blockpick.h"
 
 const struct block_term_t termdata = {
 	2,
@@ -122,7 +115,7 @@ state_game_init()
 	}
 
 	//load the world
-	world_initalload();
+	world_init();
 
 	pos.x = 0;
 	pos.y = 0;
@@ -217,11 +210,11 @@ state_game_run()
 				block_t b;
 				b.id = 2;
 				b.metadata.pointer = (void *)&termdata;
-				rayadd(pos, forwardcamera, b, 1);
+				game_rayadd(pos, forwardcamera, b, 1);
 			}
 			else if(e.button.button == SDL_BUTTON_RIGHT)
 			{
-				raydel(pos, forwardcamera);
+				game_raydel(pos, forwardcamera);
 			}
 		}
 		else if(e.type == SDL_WINDOWEVENT)

@@ -6,7 +6,7 @@
 #include "custommath.h"
 #include "block.h"
 
-void world_initalload();
+void world_init();
 void world_cleanup();
 
 void world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos);
