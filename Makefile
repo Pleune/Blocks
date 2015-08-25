@@ -17,18 +17,22 @@ SRC:=$(wildcard $(SRCDIR)*.c)
 _OBJS=$(patsubst $(SRCDIR)%.c,%.o,$(SRC))
 OBJS=$(patsubst %,$(BUILDDIR)%,$(_OBJS))
 
-NAME=run
+NAME=blocks
 
+all:	$(OUTPUTDIR)$(NAME)
 
-%.o:	$(SRCDIR)%.c
-	gcc $(CFLAGS) -I $(INCDIR) -c $(CFLAGS) $< -o $(BUILDDIR)$@
+-include $(OBJS:.o=.d)
 
-blocks: $(_OBJS)
-	gcc $(LFLAGS) -o $(OUTPUTDIR)blocks $(OBJS) $(LIBS)
+$(BUILDDIR)%.d:	$(SRCDIR)%.c
+	$(CC) -M -I $(INCDIR) $< |  sed 's,$*\.o[ :]*,\$(BUILDDIR)$*\.o : ,g' > $@
 
-all:	blocks
+$(BUILDDIR)%.o:	$(SRCDIR)%.c
+	gcc $(CFLAGS) -I $(INCDIR) -c $(CFLAGS) $< -o $@
+
+$(OUTPUTDIR)$(NAME): $(OBJS)
+	gcc $(LFLAGS) -o $(OUTPUTDIR)$(NAME) $(OBJS) $(LIBS)
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILDDIR)*.o $(OUTPUTDIR)blocks
+	rm -rf $(BUILDDIR)* $(OUTPUTDIR)blocks
 
