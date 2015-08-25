@@ -23,23 +23,6 @@ unsigned char termscreen[128*128*3] = { 0 };
 
 struct {
 	chunk_t *chunk;
-
-	GLuint vbo;
-	GLuint cbo;
-	GLuint ebo;
-	GLuint termbo;
-	int termpoints;
-
-	GLuint termpbo;
-	void *mappedptr;
-	int termpboloadnexttime;
-	int termpbohasnewdata;
-	int termcounter;
-
-	int iscurrent;
-	long points;
-	mesh_t mesh;
-	int ismeshcurrent;
 	SDL_mutex *lock;
 	int iswritable;
 } data[WORLDSIZE][WORLDSIZE][WORLDSIZE];
@@ -103,13 +86,38 @@ setworldcenter(vec3_t pos)
 	worldscope.z = worldcenter.z - WORLDSIZE/2;
 }
 
+void
+setnotwriteable(int3_t *chunkindex)
+{
+	SDL_LockMutex(data[chunkindex->x][chunkindex->y][chunkindex->z].lock);
+	data[chunkindex->x][chunkindex->y][chunkindex->z].iswritable = 0;
+	SDL_UnlockMutex(data[chunkindex->x][chunkindex->y][chunkindex->z].lock);
+}
+
+inline void
+setwriteable(int3_t *chunkindex)
+{
+	data[chunkindex->x][chunkindex->y][chunkindex->z].iswritable = 1;
+}
+
+inline void
+beginwrite(int3_t *chunkindex)
+{
+	SDL_LockMutex(data[chunkindex->x][chunkindex->y][chunkindex->z].lock);
+}
+
+inline void
+endwrite(int3_t *chunkindex)
+{
+	SDL_UnlockMutex(data[chunkindex->x][chunkindex->y][chunkindex->z].lock);
+}
+
 static int
 quickremeshachunk(int3_t *chunkpos)
 {
 	if(SDL_TryLockMutex(data[chunkpos->x][chunkpos->y][chunkpos->z].lock)!=0)
 	{
-		printf("Xzz: %i Yzz: %i Zzz: %i\n", chunkpos->x, chunkpos->y, chunkpos->z);
-		data[chunkpos->x][chunkpos->y][chunkpos->z].iscurrent=0;
+		chunk_setnotcurrent(data[chunkpos->x][chunkpos->y][chunkpos->z].chunk);
 		return -1;
 	}
 
@@ -167,16 +175,9 @@ quickremeshachunk(int3_t *chunkpos)
 	}
 
 
-	//make sure the other thread dosent do anything stupid
-	data[chunkpos->x][chunkpos->y][chunkpos->z].ismeshcurrent=1;
-
 	//re set up the buffers
-	data[chunkpos->x][chunkpos->y][chunkpos->z].mesh = chunk_getmesh(chunk, up,down,north,south,east,west);
+	chunk_remesh(chunk, up,down,north,south,east,west);
 
-	data[chunkpos->x][chunkpos->y][chunkpos->z].iscurrent = 1;
-	data[chunkpos->x][chunkpos->y][chunkpos->z].ismeshcurrent=0;
-	data[chunkpos->x][chunkpos->y][chunkpos->z].points = data[chunkpos->x][chunkpos->y][chunkpos->z].mesh.ebosize;
-	data[chunkpos->x][chunkpos->y][chunkpos->z].termpoints = data[chunkpos->x][chunkpos->y][chunkpos->z].mesh.termscreensize / 5;
 	SDL_UnlockMutex(data[chunkpos->x][chunkpos->y][chunkpos->z].lock);
 
 	//TODO:optimize this and the locking above
@@ -223,21 +224,18 @@ world_threadentry(void *ptr)
 						//the chunk should be loaded but its not. load it.
 						chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
-						SDL_UnlockMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock);
-						data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable = 0;
-						SDL_UnlockMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock);
+						setnotwriteable(&chunkindex);
 
 						chunk_reloadchunk(cpos, chunk);
 
-						data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable = 1;
-						data[chunkindex.x][chunkindex.y][chunkindex.z].iscurrent = 0;
+						setwriteable(&chunkindex);
 
-						data[chunkindex.x == WORLDSIZE-1 ? 0 : chunkindex.x+1][chunkindex.y][chunkindex.z].iscurrent = 0;
-						data[chunkindex.x == 0 ? WORLDSIZE-1 : chunkindex.x-1][chunkindex.y][chunkindex.z].iscurrent = 0;
-						data[chunkindex.x][chunkindex.y == WORLDSIZE-1 ? 0 : chunkindex.y+1][chunkindex.z].iscurrent = 0;
-						data[chunkindex.x][chunkindex.y == 0 ? WORLDSIZE-1 : chunkindex.y-1][chunkindex.z].iscurrent = 0;
-						data[chunkindex.x][chunkindex.y][chunkindex.z == WORLDSIZE-1 ? 0 : chunkindex.z+1].iscurrent = 0;
-						data[chunkindex.x][chunkindex.y][chunkindex.z == 0 ? WORLDSIZE-1 : chunkindex.z-1].iscurrent = 0;
+						chunk_setnotcurrent(data[chunkindex.x == WORLDSIZE-1 ? 0 : chunkindex.x+1][chunkindex.y][chunkindex.z].chunk);
+						chunk_setnotcurrent(data[chunkindex.x == 0 ? WORLDSIZE-1 : chunkindex.x-1][chunkindex.y][chunkindex.z].chunk);
+						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y == WORLDSIZE-1 ? 0 : chunkindex.y+1][chunkindex.z].chunk);
+						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y == 0 ? WORLDSIZE-1 : chunkindex.y-1][chunkindex.z].chunk);
+						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z == WORLDSIZE-1 ? 0 : chunkindex.z+1].chunk);
+						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z == 0 ? WORLDSIZE-1 : chunkindex.z-1].chunk);
 					}
 				}
 			}
@@ -257,15 +255,15 @@ world_threadentry(void *ptr)
 					if(stopthread)
 						break;
 
-					if(!data[i.x][i.y][i.z].iscurrent)
+					if(!chunk_iscurrent(data[i.x][i.y][i.z].chunk))
 						quickremeshachunk(&i);
 
 					//upload terminal textures
-					if(data[i.x][i.y][i.z].mappedptr && !data[i.x][i.y][i.z].termpbohasnewdata)//god forbid this thread runs faster than the render thread
-					{
-						memcpy(data[i.x][i.y][i.z].mappedptr, termscreen, 128*128*3);
-						data[i.x][i.y][i.z].termpbohasnewdata=1;
-					}
+//					if(data[i.x][i.y][i.z].mappedptr && !data[i.x][i.y][i.z].termpbohasnewdata)//god forbid this thread runs faster than the render thread
+//					{
+//						memcpy(data[i.x][i.y][i.z].mappedptr, termscreen, 128*128*3);
+//						data[i.x][i.y][i.z].termpbohasnewdata=1;
+//					}
 				}
 			}
 		}
@@ -279,19 +277,19 @@ world_threadentry(void *ptr)
 void
 world_init()
 {
-	int u, v;
-	for(u=0; u<128; u++)
-	{
-		for(v=0; v<128; v++)
-		{
-			termscreen[(u + 128*v) *3]=0;
-			termscreen[(u + 128*v) *3 + 1]=u;
-			termscreen[(u + 128*v) *3 + 2]=v;
-		}
-	}
-
-	termscreen[7000] = 0;
-
+//	int u, v;
+//	for(u=0; u<128; u++)
+//	{
+//		for(v=0; v<128; v++)
+//		{
+//			termscreen[(u + 128*v) *3]=0;
+//			termscreen[(u + 128*v) *3 + 1]=u*7 % 255;
+//			termscreen[(u + 128*v) *3 + 2]=v;
+//		}
+//	}
+//
+//	termscreen[7000] = 0;
+//
 	int3_t chunkindex;
 	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; chunkindex.x++)
 	{
@@ -299,30 +297,11 @@ world_init()
 		{
 			for(chunkindex.z=0; chunkindex.z<WORLDSIZE; chunkindex.z++)
 			{
-				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].ebo);
-				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].vbo);
-				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].cbo);
-				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].termbo);
-				glGenBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].termpbo);
-				glGenTextures(1, &termtexture);//TODO: term texture cleanup
-				glBindTexture(GL_TEXTURE_2D, termtexture);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-				data[chunkindex.x][chunkindex.y][chunkindex.z].mappedptr=0;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].termpboloadnexttime=1;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].termpbohasnewdata=0;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].termcounter=0;
-
-				data[chunkindex.x][chunkindex.y][chunkindex.z].points = 0;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].iscurrent = 0;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].ismeshcurrent=1;
-
-				data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.vbodata=0;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.ebodata=0;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.colordata=0;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.termscreendata=0;
-
+//				glGenTextures(1, &termtexture);//TODO: term texture cleanup
+//				glBindTexture(GL_TEXTURE_2D, termtexture);
+//				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//
 				data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable=1;
 				data[chunkindex.x][chunkindex.y][chunkindex.z].lock = SDL_CreateMutex();
 
@@ -352,18 +331,8 @@ world_cleanup()
 		{
 			for(chunkindex.z=0; chunkindex.z<WORLDSIZE; chunkindex.z++)
 			{
-				glDeleteBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].cbo);
-				glDeleteBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].vbo);
-				glDeleteBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].ebo);
-				glDeleteBuffers(1, &data[chunkindex.x][chunkindex.y][chunkindex.z].termbo);
 				SDL_DestroyMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock);
 				chunk_freechunk(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
-				if(!data[chunkindex.x][chunkindex.y][chunkindex.z].ismeshcurrent)
-				{
-					free(data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.ebodata);
-					free(data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.vbodata);
-					free(data[chunkindex.x][chunkindex.y][chunkindex.z].mesh.colordata);
-				}
 			}
 		}
 	}
@@ -390,132 +359,82 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 		{
 			for(z=0; z<WORLDSIZE; z++)
 			{
-				if(!data[x][y][z].ismeshcurrent)
-				{
-					//points buffer
-						glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].vbo);
-						glBufferData(GL_ARRAY_BUFFER, data[x][y][z].mesh.vbosize * sizeof(GLfloat), data[x][y][z].mesh.vbodata, GL_STATIC_DRAW);
-
-					//element buffer
-						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data[x][y][z].ebo);
-						glBufferData(GL_ELEMENT_ARRAY_BUFFER, data[x][y][z].mesh.ebosize * sizeof(GLuint), data[x][y][z].mesh.ebodata, GL_STATIC_DRAW);
-
-					//Color buffer
-						glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].cbo);
-						glBufferData(GL_ARRAY_BUFFER, data[x][y][z].mesh.colorsize * sizeof(GLfloat), data[x][y][z].mesh.colordata, GL_STATIC_DRAW);
-
-					//terminal buffer
-						glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].termbo);
-						glBufferData(GL_ARRAY_BUFFER, data[x][y][z].mesh.termscreensize * sizeof(GLfloat), data[x][y][z].mesh.termscreendata, GL_STATIC_DRAW);
-
-					if(data[x][y][z].mesh.ebodata)
-						free(data[x][y][z].mesh.ebodata);
-					if(data[x][y][z].mesh.vbodata)
-						free(data[x][y][z].mesh.vbodata);
-					if(data[x][y][z].mesh.colordata)
-						free(data[x][y][z].mesh.colordata);
-					if(data[x][y][z].mesh.termscreendata)
-						free(data[x][y][z].mesh.termscreendata);
-					data[x][y][z].ismeshcurrent=1;
-				}
-
-				//glUseProgram(drawprogram);
-				glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].vbo);
-				glVertexAttribPointer(
-						0,
-						3,
-						GL_FLOAT,
-						GL_FALSE,
-						0,
-						0);
-
-				glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].cbo);
-				glVertexAttribPointer(
-						1,
-						3,
-						GL_FLOAT,
-						GL_FALSE,
-						0,
-						0);
-
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data[x][y][z].ebo);
-				glDrawElements(GL_TRIANGLES, data[x][y][z].points, GL_UNSIGNED_INT, 0);
-
+				chunk_render(data[x][y][z].chunk);
 			}
 		}
 	}
 
-	glUseProgram(terminalscreensprogram);
-	for(x=0; x<WORLDSIZE; x++)
-	{
-		for(y=0; y<WORLDSIZE; y++)
-		{
-			for(z=0; z<WORLDSIZE; z++)
-			{
-				long double dist;
-
-				long3_t chunkpos = chunk_getpos(data[x][y][z].chunk);
-				distlong3(&dist, &chunkpos, &worldcenter);
-
-				if(dist < TERMINALRENDERDIST)
-				{
-					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, termtexture);
-
-					if(data[x][y][z].termpboloadnexttime)
-					{
-						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, data[x][y][z].termpbo);
-						glBufferData(GL_PIXEL_UNPACK_BUFFER, 128*128*3, 0, GL_STREAM_DRAW);
-
-						data[x][y][z].mappedptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
-						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-						data[x][y][z].termpboloadnexttime=0;
-					}
-
-					if(!data[x][y][z].mappedptr)
-						data[x][y][z].termpboloadnexttime=1;
-
-					data[x][y][z].termcounter++;
-					if(data[x][y][z].termpbohasnewdata && (data[x][y][z].termcounter > 1000))
-					{
-						data[x][y][z].termcounter=0;
-
-						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, data[x][y][z].termpbo);
-
-						glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-						data[x][y][z].mappedptr=0;
-
-						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
-						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-						data[x][y][z].termpbohasnewdata=0;
-					}
-
-					//TODO: put this in a proper place
-					GLint uniform_mytexture = glGetUniformLocation(terminalscreensprogram, "myTextureSampler");
-					glUniform1i(uniform_mytexture, 0);
-					glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].termbo);
-					glVertexAttribPointer(
-							0,
-							3,
-							GL_FLOAT,
-							GL_FALSE,
-							5 * sizeof(GLfloat),//*sizeof(GLfloat),
-							0);
-
-					glVertexAttribPointer(
-							1,
-							2,
-							GL_FLOAT,
-							GL_FALSE,
-							5*sizeof(GLfloat),
-							(void *)(3*sizeof(GLfloat)));
-					glDrawArrays(GL_TRIANGLES, 0, data[x][y][z].termpoints);
-				}
-			}
-		}
-	}
+//	glUseProgram(terminalscreensprogram);
+//	for(x=0; x<WORLDSIZE; x++)
+//	{
+//		for(y=0; y<WORLDSIZE; y++)
+//		{
+//			for(z=0; z<WORLDSIZE; z++)
+//			{
+//				long double dist;
+//
+//				long3_t chunkpos = chunk_getpos(data[x][y][z].chunk);
+//				distlong3(&dist, &chunkpos, &worldcenter);
+//
+//				if(dist < TERMINALRENDERDIST)
+//				{
+//					glActiveTexture(GL_TEXTURE0);
+//					glBindTexture(GL_TEXTURE_2D, termtexture);
+//
+//					if(data[x][y][z].termpboloadnexttime)
+//					{
+//						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, data[x][y][z].termpbo);
+//						glBufferData(GL_PIXEL_UNPACK_BUFFER, 128*128*3, 0, GL_STREAM_DRAW);
+//
+//						data[x][y][z].mappedptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+//						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+//
+//						data[x][y][z].termpboloadnexttime=0;
+//					}
+//
+//					if(!data[x][y][z].mappedptr)
+//						data[x][y][z].termpboloadnexttime=1;
+//
+//					data[x][y][z].termcounter++;
+//					if(data[x][y][z].termpbohasnewdata && (data[x][y][z].termcounter > 1000))
+//					{
+//						data[x][y][z].termcounter=0;
+//
+//						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, data[x][y][z].termpbo);
+//
+//						glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+//						data[x][y][z].mappedptr=0;
+//
+//						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
+//						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+//
+//						data[x][y][z].termpbohasnewdata=0;
+//					}
+//
+//					//TODO: put this in a proper place
+//					GLint uniform_mytexture = glGetUniformLocation(terminalscreensprogram, "myTextureSampler");
+//					glUniform1i(uniform_mytexture, 0);
+//					glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].termbo);
+//					glVertexAttribPointer(
+//							0,
+//							3,
+//							GL_FLOAT,
+//							GL_FALSE,
+//							5 * sizeof(GLfloat),//*sizeof(GLfloat),
+//							0);
+//
+//					glVertexAttribPointer(
+//							1,
+//							2,
+//							GL_FLOAT,
+//							GL_FALSE,
+//							5*sizeof(GLfloat),
+//							(void *)(3*sizeof(GLfloat)));
+//					glDrawArrays(GL_TRIANGLES, 0, data[x][y][z].termpoints);
+//				}
+//			}
+//		}
+//	}
 }
 
 //TODO: loadnew
@@ -536,7 +455,7 @@ world_getblock(long x, long y, long z, int loadnew)
 
 //TODO: loadnew
 int
-world_setblock(long x, long y, long z, block_t block, int loadnew)
+world_setblock(long x, long y, long z, block_t block, int loadnew, int instant)
 {
 	long3_t cpos = getchunkofspot(x, y, z);
 	int3_t internalpos = getinternalspotofspot(x, y, z);
@@ -548,11 +467,12 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 		if(!data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable)
 			return -2;
 
-		if(SDL_TryLockMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock)==0)
-		{
-			chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
-			SDL_UnlockMutex(data[chunkindex.x][chunkindex.y][chunkindex.z].lock);
+		beginwrite(&chunkindex);
+		chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
+		endwrite(&chunkindex);
 
+		if(instant)
+		{
 			quickremeshachunk(&chunkindex);
 
 			cpos.x++;
@@ -562,7 +482,6 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 			cpos.x -= 2;
 			if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
 				quickremeshachunk(&chunkindex);
-
 			cpos.x++;
 
 			cpos.y++;
@@ -581,10 +500,37 @@ world_setblock(long x, long y, long z, block_t block, int loadnew)
 			cpos.z -= 2;
 			if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
 				quickremeshachunk(&chunkindex);
+		} else {
+			chunk_setnotcurrent(chunk);
 
-			return 0;
-		}
-		return -3;
+			cpos.x++;
+			if(internalpos.x == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+
+			cpos.x -= 2;
+			if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
+				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+			cpos.x++;
+
+			cpos.y++;
+			if(internalpos.y == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+
+			cpos.y -= 2;
+			if(internalpos.y == 0 && isquickloaded(cpos, &chunkindex))
+				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+			cpos.y++;
+
+			cpos.z++;
+			if(internalpos.z == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+
+			cpos.z -= 2;
+			if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
+				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+			}
+
+		return 0;
 	}
 	return -1;
 }

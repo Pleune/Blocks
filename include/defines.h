@@ -1,8 +1,8 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-#define CHUNKSIZE 40
-#define WORLDSIZE 8
+#define CHUNKSIZE 20
+#define WORLDSIZE 20
 #define TERMINALRENDERDIST 3
 
 #endif //DEFINES_H

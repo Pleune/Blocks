@@ -92,7 +92,7 @@ game_rayadd(vec3_t start, vec3_t direction, block_t block, int before)
 		}
 	}
 	if(!block_issolid(world_getblock(p.x,p.y,p.z,0)) || !block.id)
-		world_setblock(p.x, p.y, p.z, block, 0);
+		world_setblock(p.x, p.y, p.z, block, 0, 1);
 }
 
 void
