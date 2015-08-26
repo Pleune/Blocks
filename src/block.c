@@ -12,25 +12,20 @@ block_getcolor(uint8_t id)
 	vec3_t c;
 	switch(id)
 	{
-		case 1:
+		case BLOCK_ID_STONE:
 			c.x = .4;
 			c.y = .4;
 			c.z = .4;
 		break;
-		case 2:
+		case BLOCK_ID_DIRT:
 			c.x = .08;
 			c.y = .5;
 			c.z = .16;
 		break;
-		case 3:
+		case BLOCK_ID_TERMINAL:
 			c.x = 0;
 			c.y = 1;
 			c.z = 0;
-		break;
-		case 4:
-			c.x = .8;
-			c.y = .5;
-			c.z = .16;
 		break;
 		default:
 			c.x = .6;

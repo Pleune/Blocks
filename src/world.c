@@ -113,11 +113,17 @@ endwrite(int3_t *chunkindex)
 }
 
 static int
-quickremeshachunk(int3_t *chunkpos)
+quickremeshachunk(int3_t *chunkindex, int instant)
 {
-	if(SDL_TryLockMutex(data[chunkpos->x][chunkpos->y][chunkpos->z].lock)!=0)
+	if(!instant)
 	{
-		chunk_setnotcurrent(data[chunkpos->x][chunkpos->y][chunkpos->z].chunk);
+		chunk_setnotcurrent(data[chunkindex->x][chunkindex->y][chunkindex->z].chunk);
+		return 0;
+	}
+
+	if(SDL_TryLockMutex(data[chunkindex->x][chunkindex->y][chunkindex->z].lock)!=0)
+	{
+		chunk_setnotcurrent(data[chunkindex->x][chunkindex->y][chunkindex->z].chunk);
 		return -1;
 	}
 
@@ -128,7 +134,7 @@ quickremeshachunk(int3_t *chunkpos)
 	chunk_t *up=0;
 	chunk_t *down=0;
 
-	chunk_t *chunk = data[chunkpos->x][chunkpos->y][chunkpos->z].chunk;
+	chunk_t *chunk = data[chunkindex->x][chunkindex->y][chunkindex->z].chunk;
 
 	int3_t tempchunkindex;
 	long3_t tempcpos = chunk_getpos(chunk);
@@ -136,13 +142,13 @@ quickremeshachunk(int3_t *chunkpos)
 	tempcpos.x++;
 	if(isquickloaded(tempcpos, &tempchunkindex))
 	{
-		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x+1,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock))
+		if(!SDL_TryLockMutex(data[MODULO(chunkindex->x+1,WORLDSIZE)][MODULO(chunkindex->y,WORLDSIZE)][MODULO(chunkindex->z,WORLDSIZE)].lock))
 			east = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
 	}
 	tempcpos.x -= 2;
 	if(isquickloaded(tempcpos, &tempchunkindex))
 	{
-		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x-1,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock))
+		if(!SDL_TryLockMutex(data[MODULO(chunkindex->x-1,WORLDSIZE)][MODULO(chunkindex->y,WORLDSIZE)][MODULO(chunkindex->z,WORLDSIZE)].lock))
 			west = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
 	}
 	tempcpos.x++;
@@ -150,13 +156,13 @@ quickremeshachunk(int3_t *chunkpos)
 	tempcpos.y++;
 	if(isquickloaded(tempcpos, &tempchunkindex))
 	{
-		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y+1,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock))
+		if(!SDL_TryLockMutex(data[MODULO(chunkindex->x,WORLDSIZE)][MODULO(chunkindex->y+1,WORLDSIZE)][MODULO(chunkindex->z,WORLDSIZE)].lock))
 			up = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
 	}
 	tempcpos.y -= 2;
 	if(isquickloaded(tempcpos, &tempchunkindex))
 	{
-		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y-1,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock))
+		if(!SDL_TryLockMutex(data[MODULO(chunkindex->x,WORLDSIZE)][MODULO(chunkindex->y-1,WORLDSIZE)][MODULO(chunkindex->z,WORLDSIZE)].lock))
 			down = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
 	}
 	tempcpos.y++;
@@ -164,13 +170,13 @@ quickremeshachunk(int3_t *chunkpos)
 	tempcpos.z++;
 	if(isquickloaded(tempcpos, &tempchunkindex))
 	{
-		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z+1,WORLDSIZE)].lock))
+		if(!SDL_TryLockMutex(data[MODULO(chunkindex->x,WORLDSIZE)][MODULO(chunkindex->y,WORLDSIZE)][MODULO(chunkindex->z+1,WORLDSIZE)].lock))
 			south = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
 	}
 	tempcpos.z -= 2;
 	if(isquickloaded(tempcpos, &tempchunkindex))
 	{
-		if(!SDL_TryLockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z-1,WORLDSIZE)].lock))
+		if(!SDL_TryLockMutex(data[MODULO(chunkindex->x,WORLDSIZE)][MODULO(chunkindex->y,WORLDSIZE)][MODULO(chunkindex->z-1,WORLDSIZE)].lock))
 			north = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
 	}
 
@@ -178,21 +184,21 @@ quickremeshachunk(int3_t *chunkpos)
 	//re set up the buffers
 	chunk_remesh(chunk, up,down,north,south,east,west);
 
-	SDL_UnlockMutex(data[chunkpos->x][chunkpos->y][chunkpos->z].lock);
+	SDL_UnlockMutex(data[chunkindex->x][chunkindex->y][chunkindex->z].lock);
 
 	//TODO:optimize this and the locking above
 	if(north)
-		SDL_UnlockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z-1,WORLDSIZE)].lock);
+		SDL_UnlockMutex(data[MODULO(chunkindex->x,WORLDSIZE)][MODULO(chunkindex->y,WORLDSIZE)][MODULO(chunkindex->z-1,WORLDSIZE)].lock);
 	if(south)
-		SDL_UnlockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z+1,WORLDSIZE)].lock);
+		SDL_UnlockMutex(data[MODULO(chunkindex->x,WORLDSIZE)][MODULO(chunkindex->y,WORLDSIZE)][MODULO(chunkindex->z+1,WORLDSIZE)].lock);
 	if(east)
-		SDL_UnlockMutex(data[MODULO(chunkpos->x+1,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock);
+		SDL_UnlockMutex(data[MODULO(chunkindex->x+1,WORLDSIZE)][MODULO(chunkindex->y,WORLDSIZE)][MODULO(chunkindex->z,WORLDSIZE)].lock);
 	if(west)
-		SDL_UnlockMutex(data[MODULO(chunkpos->x-1,WORLDSIZE)][MODULO(chunkpos->y,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock);
+		SDL_UnlockMutex(data[MODULO(chunkindex->x-1,WORLDSIZE)][MODULO(chunkindex->y,WORLDSIZE)][MODULO(chunkindex->z,WORLDSIZE)].lock);
 	if(up)
-		SDL_UnlockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y+1,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock);
+		SDL_UnlockMutex(data[MODULO(chunkindex->x,WORLDSIZE)][MODULO(chunkindex->y+1,WORLDSIZE)][MODULO(chunkindex->z,WORLDSIZE)].lock);
 	if(down)
-		SDL_UnlockMutex(data[MODULO(chunkpos->x,WORLDSIZE)][MODULO(chunkpos->y-1,WORLDSIZE)][MODULO(chunkpos->z,WORLDSIZE)].lock);
+		SDL_UnlockMutex(data[MODULO(chunkindex->x,WORLDSIZE)][MODULO(chunkindex->y-1,WORLDSIZE)][MODULO(chunkindex->z,WORLDSIZE)].lock);
 
 	return 0;
 }
@@ -256,7 +262,7 @@ world_threadentry(void *ptr)
 						break;
 
 					if(!chunk_iscurrent(data[i.x][i.y][i.z].chunk))
-						quickremeshachunk(&i);
+						quickremeshachunk(&i, 1);
 
 					//upload terminal textures
 //					if(data[i.x][i.y][i.z].mappedptr && !data[i.x][i.y][i.z].termpbohasnewdata)//god forbid this thread runs faster than the render thread
@@ -269,7 +275,7 @@ world_threadentry(void *ptr)
 		}
 
 		if(!stopthread)
-			SDL_Delay(300);
+			SDL_Delay(80);
 	}
 	return 0;
 }
@@ -277,19 +283,6 @@ world_threadentry(void *ptr)
 void
 world_init()
 {
-//	int u, v;
-//	for(u=0; u<128; u++)
-//	{
-//		for(v=0; v<128; v++)
-//		{
-//			termscreen[(u + 128*v) *3]=0;
-//			termscreen[(u + 128*v) *3 + 1]=u*7 % 255;
-//			termscreen[(u + 128*v) *3 + 2]=v;
-//		}
-//	}
-//
-//	termscreen[7000] = 0;
-//
 	int3_t chunkindex;
 	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; chunkindex.x++)
 	{
@@ -471,64 +464,33 @@ world_setblock(long x, long y, long z, block_t block, int loadnew, int instant)
 		chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
 		endwrite(&chunkindex);
 
-		if(instant)
-		{
-			quickremeshachunk(&chunkindex);
+		quickremeshachunk(&chunkindex, instant);
 
-			cpos.x++;
-			if(internalpos.x == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-				quickremeshachunk(&chunkindex);
+		cpos.x++;
+		if(internalpos.x == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
 
-			cpos.x -= 2;
-			if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
-				quickremeshachunk(&chunkindex);
-			cpos.x++;
+		cpos.x -= 2;
+		if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
+		cpos.x++;
 
-			cpos.y++;
-			if(internalpos.y == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-				quickremeshachunk(&chunkindex);
+		cpos.y++;
+		if(internalpos.y == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
 
-			cpos.y -= 2;
-			if(internalpos.y == 0 && isquickloaded(cpos, &chunkindex))
-				quickremeshachunk(&chunkindex);
-			cpos.y++;
+		cpos.y -= 2;
+		if(internalpos.y == 0 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
+		cpos.y++;
 
-			cpos.z++;
-			if(internalpos.z == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-				quickremeshachunk(&chunkindex);
+		cpos.z++;
+		if(internalpos.z == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
 
-			cpos.z -= 2;
-			if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
-				quickremeshachunk(&chunkindex);
-		} else {
-			chunk_setnotcurrent(chunk);
-
-			cpos.x++;
-			if(internalpos.x == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
-
-			cpos.x -= 2;
-			if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
-				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
-			cpos.x++;
-
-			cpos.y++;
-			if(internalpos.y == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
-
-			cpos.y -= 2;
-			if(internalpos.y == 0 && isquickloaded(cpos, &chunkindex))
-				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
-			cpos.y++;
-
-			cpos.z++;
-			if(internalpos.z == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
-
-			cpos.z -= 2;
-			if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
-				chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
-			}
+		cpos.z -= 2;
+		if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
 
 		return 0;
 	}

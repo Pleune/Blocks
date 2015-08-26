@@ -17,11 +17,13 @@ int chunk_iscurrent(chunk_t *chunk);
 void chunk_render(chunk_t *chunk);
 
 block_t chunk_getblock(chunk_t *c, int x, int y, int z);
+blockid_t chunk_getblockid(chunk_t *c, int x, int y, int z);
 void chunk_setblock(chunk_t *c, int x, int y, int z, block_t b);
+void chunk_setblockid(chunk_t *c, int x, int y, int z, blockid_t id);
+void chunk_setair(chunk_t *c, int x, int y, int z);
 
 long3_t chunk_getpos(chunk_t *chunk);
 
-//loads compleatly new chunks -- basically malloc
 chunk_t * chunk_loadchunk(long3_t pos);
 chunk_t * chunk_loademptychunk(long3_t pos);
 void chunk_freechunk(chunk_t *chunk);

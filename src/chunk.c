@@ -8,6 +8,8 @@
 
 #include "minmax.h"
 
+#include "worldgen.h"
+
 enum buffer {vbo, cbo, ebo, termbo, termpbo, BUFFERS_MAX};
 
 struct mesh_s {
@@ -94,14 +96,14 @@ const static GLfloat faces[] = {
 0,0,0
 };
 
-GLfloat terminaltexcoords[] = {
+GLfloat uvcoords[] = {
 	0,0,
 	1,0,
 	1,1,
 	0,1
 };
 
-int terminaltexcoordsabstraction[] = {
+int uvcoordsabstraction[] = {
 	0,
 	3,
 	1,
@@ -109,6 +111,60 @@ int terminaltexcoordsabstraction[] = {
 	1,
 	3
 };
+
+void
+init(chunk_t *chunk)
+{
+	glGenBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
+	chunk->mesh.uploadnext = 0;
+	chunk->iscurrent = 0;
+}
+
+void
+chunk_freechunk(chunk_t *chunk)
+{
+	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
+	free(chunk->data);
+	free(chunk);
+}
+
+chunk_t *
+chunk_loademptychunk(long3_t pos)
+{
+	chunk_t *chunk = malloc(sizeof(chunk_t));
+
+	chunk->pos = pos;
+	chunk->data = calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
+
+	init(chunk);
+
+	return chunk;
+}
+
+chunk_t *
+chunk_loadchunk(long3_t pos)
+{
+	chunk_t *chunk = chunk_loademptychunk(pos);
+
+	worldgen_genchunk(chunk);
+
+	return chunk;//never laods from disk.
+}
+
+int
+chunk_reloadchunk(long3_t pos, chunk_t *chunk)
+{
+	chunk->pos = pos;
+	worldgen_genchunk(chunk);
+	chunk->iscurrent = 0;
+	return 0;//never loads from disk
+}
+
+void
+chunk_zerochunk(chunk_t *chunk)
+{
+	memset(chunk->data, 0, sizeof(block_t));
+}
 
 int
 chunk_iscurrent(chunk_t *chunk)
@@ -122,51 +178,61 @@ chunk_setnotcurrent(chunk_t *chunk)
 	chunk->iscurrent = 0;
 }
 
-void
-chunk_render(chunk_t *chunk)
+long3_t
+chunk_getpos(chunk_t *chunk)
 {
-	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
-	glVertexAttribPointer(
-			0,
-			3,
-			GL_FLOAT,
-			GL_FALSE,
-			0,
-			0);
+	return chunk->pos;
+}
 
-	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
-	glVertexAttribPointer(
-			1,
-			3,
-			GL_FLOAT,
-			GL_FALSE,
-			0,
-			0);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
-	glDrawElements(GL_TRIANGLES, chunk->mesh.points, GL_UNSIGNED_INT, 0);
-
-	if(chunk->mesh.uploadnext)
+block_t
+chunk_getblock(chunk_t *c, int x, int y, int z)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
 	{
-		//TODO: mutex this somehow
-		chunk->mesh.uploadnext = 0;
-
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
-		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.vbodatasize * sizeof(GLfloat), chunk->mesh.vbodata, GL_STATIC_DRAW);
-		free(chunk->mesh.vbodata);
-
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
-		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.ebodatasize * sizeof(GLfloat), chunk->mesh.ebodata, GL_STATIC_DRAW);
-		free(chunk->mesh.ebodata);
-
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
-		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.cbodatasize * sizeof(GLfloat), chunk->mesh.cbodata, GL_STATIC_DRAW);
-		free(chunk->mesh.cbodata);
-
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[termbo]);
-		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.termbodatasize * sizeof(GLfloat), chunk->mesh.termbodata, GL_STATIC_DRAW);
-		free(chunk->mesh.termbodata);
+		block_t ret;
+		ret.id = 255;
+		return ret;
 	}
+
+	return c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+}
+
+blockid_t
+chunk_getblockid(chunk_t *c, int x, int y, int z)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
+	{
+		return BLOCK_ID_ERROR;
+	}
+
+	return c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id;
+}
+
+void
+chunk_setblock(chunk_t *c, int x, int y, int z, block_t b)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
+		return;
+
+	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
+}
+
+void
+chunk_setblockid(chunk_t *c, int x, int y, int z, blockid_t id)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
+		return;
+
+	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id = id;
+}
+
+void
+chunk_setair(chunk_t *c, int x, int y, int z)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
+		return;
+
+	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id = BLOCK_ID_AIR;
 }
 
 static inline void
@@ -346,14 +412,19 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					vec3_t blockcolor = block_getcolor(block.id);
 
 					int U[6] = {
-						top, bottom, south, north, east, west
+						top,
+						bottom,
+						south,
+						north,
+						east,
+						west
 					};
 					int q=0;
 					int t;
 
 					switch(block.id)
 					{
-					case 2:
+					case BLOCK_ID_TERMINAL:
 					{
 						for(t=0;t<6;t++)
 						{
@@ -371,8 +442,8 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 										termbodata[termi++] = faces[q++] + z + chunk->pos.z*CHUNKSIZE;
 
 										//texcoord data
-										termbodata[termi++] = terminaltexcoords[terminaltexcoordsabstraction[texcount]*2];
-										termbodata[termi++] = terminaltexcoords[terminaltexcoordsabstraction[texcount++]*2+1];
+										termbodata[termi++] = uvcoords[uvcoordsabstraction[texcount]*2];
+										termbodata[termi++] = uvcoords[uvcoordsabstraction[texcount++]*2+1];
 									}
 								} else {
 									int Q=q+18;
@@ -463,112 +534,52 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	chunk->mesh.termbodatasize = termi;
 
 	chunk->mesh.uploadnext = 1;
+	chunk->iscurrent = 1;
 }
 
 void
-worldgen_genchunk(chunk_t *chunk)
+chunk_render(chunk_t *chunk)
 {
-	int x, y, z;
-	for(x=0; x<CHUNKSIZE; x++)
+	if(chunk->mesh.uploadnext)
 	{
-		for(y=0; y<CHUNKSIZE; y++)
-		{
-			for(z=0; z<CHUNKSIZE; z++)
-			{
-				int i = 0;
-				if(x==0 || x==CHUNKSIZE-1)
-					i++;
-				if(y==0 || y==CHUNKSIZE-1)
-					i++;
-				if(z==0 || z==CHUNKSIZE-1)
-					i++;
-				if(i>1)
-					chunk->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id=1;
-				else
-					chunk->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id=0;
-			}
-		}
-	}
-}
+		//TODO: mutex this somehow
+		chunk->mesh.uploadnext = 0;
 
-void
-init(chunk_t *chunk)
-{
-	glGenBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
-	chunk->mesh.uploadnext = 0;
-	chunk->iscurrent = 0;
-}
+		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
+		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.vbodatasize * sizeof(GLfloat), chunk->mesh.vbodata, GL_STATIC_DRAW);
+		free(chunk->mesh.vbodata);
 
-void
-chunk_freechunk(chunk_t *chunk)
-{
-	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
-	free(chunk->data);
-	free(chunk);
-}
+		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
+		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.ebodatasize * sizeof(GLfloat), chunk->mesh.ebodata, GL_STATIC_DRAW);
+		free(chunk->mesh.ebodata);
 
-chunk_t *
-chunk_loademptychunk(long3_t pos)
-{
-	chunk_t *chunk = malloc(sizeof(chunk_t));
+		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
+		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.cbodatasize * sizeof(GLfloat), chunk->mesh.cbodata, GL_STATIC_DRAW);
+		free(chunk->mesh.cbodata);
 
-	chunk->pos = pos;
-	chunk->data = calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
-
-	init(chunk);
-
-	return chunk;
-}
-
-chunk_t *
-chunk_loadchunk(long3_t pos)
-{
-	chunk_t *chunk = chunk_loademptychunk(pos);
-
-	worldgen_genchunk(chunk);
-
-	return chunk;//never laods from disk.
-}
-
-int
-chunk_reloadchunk(long3_t pos, chunk_t *chunk)
-{
-	chunk->pos = pos;
-	worldgen_genchunk(chunk);
-	chunk->iscurrent = 0;
-	return 0;//never loads from disk
-}
-
-void
-chunk_zerochunk(chunk_t *chunk)
-{
-	memset(chunk->data, 0, sizeof(block_t));
-}
-
-block_t
-chunk_getblock(chunk_t *c, int x, int y, int z)
-{
-	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
-	{
-		block_t ret;
-		ret.id = 255;
-		return ret;
+		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[termbo]);
+		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.termbodatasize * sizeof(GLfloat), chunk->mesh.termbodata, GL_STATIC_DRAW);
+		free(chunk->mesh.termbodata);
 	}
 
-	return c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
-}
+	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
+	glVertexAttribPointer(
+			0,
+			3,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			0);
 
-void
-chunk_setblock(chunk_t *c, int x, int y, int z, block_t b)
-{
-	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
-		return;
+	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
+	glVertexAttribPointer(
+			1,
+			3,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			0);
 
-	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
-}
-
-long3_t
-chunk_getpos(chunk_t *chunk)
-{
-	return chunk->pos;
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
+	glDrawElements(GL_TRIANGLES, chunk->mesh.points, GL_UNSIGNED_INT, 0);
 }
