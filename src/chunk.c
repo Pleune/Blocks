@@ -283,19 +283,20 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	int c = 0;
 	uint16_t i = 0;
 
+	ebos[0] = (GLuint *)malloc(sizeof(GLuint) * 9999);
+
 	GLfloat *vbos[256];
+	GLfloat *cbos[256];
+
 	int v = 0;
 	uint16_t o = 0;
 
-	GLfloat *cbos[256];
+	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
+	cbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 
 	//TODO: prevent overflow
 	GLfloat *termbodata = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
 	uint16_t termi= 0;
-
-	ebos[0] = (GLuint *)malloc(sizeof(GLuint) * 9999);
-	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
-	cbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 
 	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * 256);
 
@@ -509,7 +510,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	{
 		memcpy(&finalvbodata[(long)w*9999], vbos[w], (long)9999 * sizeof(GLfloat));
 		free(vbos[w]);
-		memcpy(&finalcbodata[(long)w*9999], ebos[w], (long)9999 * sizeof(GLfloat));
+		memcpy(&finalcbodata[(long)w*9999], cbos[w], (long)9999 * sizeof(GLfloat));
 		free(cbos[w]);
 	}
 	memcpy(&finalvbodata[(long)v*9999], vbos[v], o*sizeof(GLfloat));
