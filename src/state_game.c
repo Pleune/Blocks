@@ -239,7 +239,7 @@ state_game_run()
 			}
 		}
 	}
-#define SPEED 10
+#define SPEED 50
 	if(keyboard[SDL_SCANCODE_W])
 	{
 		pos.x += SPEED * forwardmovement.x * (deltatime / 1000);
