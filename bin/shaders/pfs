@@ -56,7 +56,7 @@ void main()
 	else
 		fSumY = 1.0;
 
-	float fTotalSum = (fSumX + fSumY) * 6.0;
+	float fTotalSum = sqrt((fSumX + fSumY) * 9.0);
 
 	color = texture2D(tex, Texcoord).rgb * vec3(1.0 - fTotalSum);
 

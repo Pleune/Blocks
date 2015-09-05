@@ -22,6 +22,6 @@ void main(){
 
 	float o = min( min(max(offset.x, offset.y), max(offset.y, offset.z)), max(offset.z, offset.x));
 
-	color = colors * vec3(min(o + 0.5, 1.0));
+	color = colors;// * vec3(min(o + 0.5, 1.0));
 
 }

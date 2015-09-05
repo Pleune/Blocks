@@ -9,8 +9,7 @@
 
 #include "defines.h"
 #include "chunk.h"
-
-#define MODULO(a, b) (((a) % (b) + (b)) % (b))
+#include "modulo.h"
 
 long3_t worldscope = {0, 0, 0};
 long3_t worldcenter = {0, 0, 0};
@@ -214,11 +213,11 @@ world_threadentry(void *ptr)
 		{
 			if(stopthread)
 				break;
-			for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
+			for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
 			{
 				if(stopthread)
 					break;
-				for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
+				for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
 				{
 					if(stopthread)
 						break;
@@ -286,9 +285,9 @@ world_init()
 	int3_t chunkindex;
 	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; chunkindex.x++)
 	{
-		for(chunkindex.y=0; chunkindex.y<WORLDSIZE; chunkindex.y++)
+		for(chunkindex.z=0; chunkindex.z<WORLDSIZE; chunkindex.z++)
 		{
-			for(chunkindex.z=0; chunkindex.z<WORLDSIZE; chunkindex.z++)
+			for(chunkindex.y=0; chunkindex.y<WORLDSIZE; chunkindex.y++)
 			{
 //				glGenTextures(1, &termtexture);//TODO: term texture cleanup
 //				glBindTexture(GL_TEXTURE_2D, termtexture);

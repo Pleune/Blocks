@@ -5,8 +5,10 @@
 
 #include "defines.h"
 #include "custommath.h"
-
 #include "block.h"
+#include "cat.h"
+
+#define CHUNKSIZE (int) CAT(0x1p, CHUNKLEVELS)
 
 typedef struct chunk_s chunk_t;
 
