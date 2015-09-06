@@ -280,31 +280,29 @@ world_threadentry(void *ptr)
 }
 
 void
-world_init()
+world_init(vec3_t pos)
 {
-	int3_t chunkindex;
-	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; chunkindex.x++)
-	{
-		for(chunkindex.z=0; chunkindex.z<WORLDSIZE; chunkindex.z++)
-		{
-			for(chunkindex.y=0; chunkindex.y<WORLDSIZE; chunkindex.y++)
-			{
+	setworldcenter(pos);
 //				glGenTextures(1, &termtexture);//TODO: term texture cleanup
 //				glBindTexture(GL_TEXTURE_2D, termtexture);
 //				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 //				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 //
+	long3_t cpos;
+	for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
+	{
+		for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
+		{
+			for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
+			{
+				int3_t chunkindex = getchunkindexofchunk(cpos);
 				data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable=1;
 				data[chunkindex.x][chunkindex.y][chunkindex.z].lock = SDL_CreateMutex();
-
-				long3_t cchunkindex;
-				cchunkindex.x = chunkindex.x + worldscope.x;
-				cchunkindex.y = chunkindex.y + worldscope.y;
-				cchunkindex.z = chunkindex.z + worldscope.z;
-				data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_loadchunk(cchunkindex);
+				data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_loadchunk(cpos);
 			}
 		}
 	}
+
 	thread = SDL_CreateThread(world_threadentry, "world", 0);
 }
 

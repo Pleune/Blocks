@@ -53,7 +53,7 @@ pound(double *data, size_t size, int step, long3_t pos, uint32_t seed, int scale
 	{
 		for(x=d_; x<size; x+=d)
 		{
-			int four = 0;//(z-d_>=0) && (z+d_ <size);
+			int four = (z-d_>=0) && (z+d_ <size);
 			data[x + z*size] = (data[x-d_ + z*size] + data[x+d_ + z*size]);
 			data[z + x*size] = (data[z + (x-d_)*size] + data[z + (x+d_)*size]);
 			if(four)
@@ -74,6 +74,8 @@ pound(double *data, size_t size, int step, long3_t pos, uint32_t seed, int scale
 void
 worldgen_genchunk(chunk_t *chunk)
 {
+	int i;
+
 	static long3_t lastchunkblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
 	long3_t cpos = chunk_getpos(chunk);
 	long3_t newchunkblockpos = chunk_getpos(chunk);
@@ -87,43 +89,48 @@ worldgen_genchunk(chunk_t *chunk)
 	{
 		lastchunkblockpos = newchunkblockpos;
 
-		double metaheightmap[(DIAMONDSQUARESIZE+1)*(DIAMONDSQUARESIZE+1)];
+		static double metaheightmap[(DIAMONDSQUARESIZE+1)*(DIAMONDSQUARESIZE+1)];
 
-		long3_t diasquareblockpos = {
+		static long3_t lastdiasquareblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
+		long3_t newdiasquareblockpos = {
 			floor((double)cpos.x / (double)DIAMONDSQUARESIZE) * DIAMONDSQUARESIZE * CHUNKSIZE,
 			floor((double)cpos.y / (double)DIAMONDSQUARESIZE) * DIAMONDSQUARESIZE * CHUNKSIZE,
 			floor((double)cpos.z / (double)DIAMONDSQUARESIZE) * DIAMONDSQUARESIZE * CHUNKSIZE
 		};
 
-		metaheightmap[0									] =
-			(noise(diasquareblockpos.x					, diasquareblockpos.z					,1)%(DIAMONDSQUARESIZE*10*BUMPYNESS)) / 10.0;
-		metaheightmap[DIAMONDSQUARESIZE							] =
-			(noise(diasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE	, diasquareblockpos.z					,1)%(DIAMONDSQUARESIZE*10*BUMPYNESS)) / 10.0;
-		metaheightmap[				(DIAMONDSQUARESIZE+1)*DIAMONDSQUARESIZE	] =
-			(noise(diasquareblockpos.x					, diasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE	,1)%(DIAMONDSQUARESIZE*10*BUMPYNESS)) / 10.0;
-		metaheightmap[DIAMONDSQUARESIZE + 	(DIAMONDSQUARESIZE+1)*DIAMONDSQUARESIZE	] =
-			(noise(diasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE	, diasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE	,1)%(DIAMONDSQUARESIZE*10*BUMPYNESS)) / 10.0;
-
-		int i;
-		for(i = DIAMONDSQUARELEVELS-1; i>=0; i--)
+		if(lastdiasquareblockpos.x != newdiasquareblockpos.x || lastdiasquareblockpos.z != newdiasquareblockpos.z || (lastdiasquareblockpos.x == LONG_MAX || lastdiasquareblockpos.z == LONG_MAX))
 		{
-			pound(metaheightmap, DIAMONDSQUARESIZE+1, i, diasquareblockpos, 1, CHUNKSIZE);
+			lastdiasquareblockpos = newdiasquareblockpos;
+
+			metaheightmap[0									] =
+				(noise(newdiasquareblockpos.x					, newdiasquareblockpos.z				,1)%(DIAMONDSQUARESIZE*10*BUMPYNESS)) / 10.0;
+			metaheightmap[DIAMONDSQUARESIZE							] =
+				(noise(newdiasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE	, newdiasquareblockpos.z				,1)%(DIAMONDSQUARESIZE*10*BUMPYNESS)) / 10.0;
+			metaheightmap[				(DIAMONDSQUARESIZE+1)*DIAMONDSQUARESIZE	] =
+				(noise(newdiasquareblockpos.x					, newdiasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE	,1)%(DIAMONDSQUARESIZE*10*BUMPYNESS)) / 10.0;
+			metaheightmap[DIAMONDSQUARESIZE + 	(DIAMONDSQUARESIZE+1)*DIAMONDSQUARESIZE	] =
+				(noise(newdiasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE	, newdiasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE	,1)%(DIAMONDSQUARESIZE*10*BUMPYNESS)) / 10.0;
+
+			for(i = DIAMONDSQUARELEVELS-1; i>=0; i--)
+			{
+				pound(metaheightmap, DIAMONDSQUARESIZE+1, i, newdiasquareblockpos, 2350834, CHUNKSIZE);
+			}
 		}
 
-		long3_t idiasquareblockpos = {
+		long3_t inewdiasquareblockpos = {
 			MODULO(cpos.x, DIAMONDSQUARESIZE),
 			MODULO(cpos.y, DIAMONDSQUARESIZE),
 			MODULO(cpos.z, DIAMONDSQUARESIZE)
 		};
 
-		heightmap[0					] = metaheightmap[idiasquareblockpos.x + 		idiasquareblockpos.z*(DIAMONDSQUARESIZE+1)];
-		heightmap[CHUNKSIZE				] = metaheightmap[(idiasquareblockpos.x+1) + 	idiasquareblockpos.z*(DIAMONDSQUARESIZE+1)];
-		heightmap[		CHUNKSIZE*(CHUNKSIZE+1)	] = metaheightmap[idiasquareblockpos.x + 		(idiasquareblockpos.z+1)*(DIAMONDSQUARESIZE+1)];
-		heightmap[CHUNKSIZE + 	CHUNKSIZE*(CHUNKSIZE+1)	] = metaheightmap[(idiasquareblockpos.x+1) + 	(idiasquareblockpos.z+1)*(DIAMONDSQUARESIZE+1)];
+		heightmap[0					] = metaheightmap[inewdiasquareblockpos.x + 		inewdiasquareblockpos.z*(DIAMONDSQUARESIZE+1)];
+		heightmap[CHUNKSIZE				] = metaheightmap[(inewdiasquareblockpos.x+1) + 	inewdiasquareblockpos.z*(DIAMONDSQUARESIZE+1)];
+		heightmap[		CHUNKSIZE*(CHUNKSIZE+1)	] = metaheightmap[inewdiasquareblockpos.x + 		(inewdiasquareblockpos.z+1)*(DIAMONDSQUARESIZE+1)];
+		heightmap[CHUNKSIZE + 	CHUNKSIZE*(CHUNKSIZE+1)	] = metaheightmap[(inewdiasquareblockpos.x+1) + 	(inewdiasquareblockpos.z+1)*(DIAMONDSQUARESIZE+1)];
 
 		for(i = CHUNKLEVELS-1; i>=0; i--)
 		{
-			pound(heightmap, CHUNKSIZE+1, i, newchunkblockpos, 1, 1);
+			pound(heightmap, CHUNKSIZE+1, i, newchunkblockpos, 2350834, 1);
 		}
 	}
 
@@ -140,8 +147,6 @@ worldgen_genchunk(chunk_t *chunk)
 						heightmap[x+1 + (z+1)*(CHUNKSIZE+1)] +
 						heightmap[x + (z+1)*(CHUNKSIZE+1)]) / 4.0)
 					chunk_setblockid(chunk, x, y, z, BLOCK_ID_STONE);
-				else
-					chunk_setair(chunk, x, y, z);
 			}
 		}
 	}

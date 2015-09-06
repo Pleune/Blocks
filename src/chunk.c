@@ -7,8 +7,8 @@
 #include <GL/glew.h>
 
 #include "minmax.h"
-
 #include "worldgen.h"
+#include "octree.h"
 
 enum buffer {vbo, cbo, ebo, termbo, termpbo, BUFFERS_MAX};
 
@@ -34,7 +34,7 @@ struct mesh_s {
 
 struct chunk_s {
 	long3_t pos;
-	block_t *data;
+	octree_t *data;
 
 	struct mesh_s mesh;
 	int iscurrent;
@@ -124,7 +124,7 @@ void
 chunk_freechunk(chunk_t *chunk)
 {
 	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
-	free(chunk->data);
+	octree_destroy(chunk->data);
 	free(chunk);
 }
 
@@ -134,7 +134,7 @@ chunk_loademptychunk(long3_t pos)
 	chunk_t *chunk = malloc(sizeof(chunk_t));
 
 	chunk->pos = pos;
-	chunk->data = calloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE, sizeof(block_t));
+	chunk->data = octree_create();
 
 	init(chunk);
 
@@ -155,6 +155,7 @@ int
 chunk_reloadchunk(long3_t pos, chunk_t *chunk)
 {
 	chunk->pos = pos;
+	octree_zero(chunk->data);
 	worldgen_genchunk(chunk);
 	chunk->iscurrent = 0;
 	return 0;//never loads from disk
@@ -194,7 +195,9 @@ chunk_getblock(chunk_t *c, int x, int y, int z)
 		return ret;
 	}
 
-	return c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+	block_t ret = octree_get(x, y, z, c->data);
+
+	return ret;
 }
 
 blockid_t
@@ -202,10 +205,12 @@ chunk_getblockid(chunk_t *c, int x, int y, int z)
 {
 	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
 	{
-		return BLOCK_ID_ERROR;
+		return BLOCK_ID_INVALID;
 	}
 
-	return c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id;
+	block_t ret = octree_get(x, y, z, c->data);
+
+	return ret.id;
 }
 
 void
@@ -214,25 +219,21 @@ chunk_setblock(chunk_t *c, int x, int y, int z, block_t b)
 	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
 		return;
 
-	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
+	octree_set(x, y, z, c->data, &b);
 }
 
 void
 chunk_setblockid(chunk_t *c, int x, int y, int z, blockid_t id)
 {
-	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
-		return;
-
-	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id = id;
+	block_t b;
+	b.id = id;
+	chunk_setblock(c, x, y, z, b);
 }
 
 void
 chunk_setair(chunk_t *c, int x, int y, int z)
 {
-	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
-		return;
-
-	c->data[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].id = BLOCK_ID_AIR;
+	chunk_setblockid(c, x, y, z, BLOCK_ID_AIR);
 }
 
 static inline void
@@ -307,8 +308,8 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		{
 			for(z=0; z<CHUNKSIZE; z++)
 			{
-				long index = x+CHUNKSIZE*y+CHUNKSIZE*CHUNKSIZE*z;
-				if(chunk->data[index].id)
+		//		long index = x+CHUNKSIZE*y+CHUNKSIZE*CHUNKSIZE*z;
+				if(chunk_getblockid(chunk, x, y, z))
 				{
 					int top, bottom, south, north, east, west;
 

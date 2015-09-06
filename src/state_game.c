@@ -115,13 +115,13 @@ state_game_init()
 	}
 
 	//load the world
-	world_init();
 
 	pos.x = 0;
 	pos.y = 0;
 	pos.z = 3;
 	rotx = 0;
 	roty = 0;
+	world_init(pos);
 
 	centermouse();
 	SDL_ShowCursor(0);
