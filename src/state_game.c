@@ -46,6 +46,7 @@ float rotx, roty;
 
 int lines = 0;
 int pp = 1;
+int takeinput = 1;
 
 void
 state_game_init()
@@ -149,22 +150,27 @@ state_game_run()
 
 	SDL_PumpEvents();
 
-	const uint8_t *keyboard = SDL_GetKeyboardState(0);
-	int mousex, mousey;
-	SDL_GetMouseState(&mousex, &mousey);
-	centermouse();
-	double deltamousex = mousex - windoww/2;
-	double deltamousey = mousey - windowh/2;
 
-	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 1000, .1);
+	const uint8_t *keyboard = SDL_GetKeyboardState(0);
+
+	if(takeinput)
+	{
+		int mousex, mousey;
+		SDL_GetMouseState(&mousex, &mousey);
+		centermouse();
+		double deltamousex = mousex - windoww/2;
+		double deltamousey = mousey - windowh/2;
+
+		rotx += deltamousex/800;
+		roty -= deltamousey/800;
+	}
+
+	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 3000, .1);
 
 	vec3_t up;
 	up.x = 0;
 	up.y = 1;
 	up.z = 0;
-
-	rotx += deltamousex/800;
-	roty -= deltamousey/800;
 
 	vec3_t forwardcamera;
 	forwardcamera.x = sin(rotx) * cos(roty);
@@ -190,6 +196,9 @@ state_game_run()
 				break;
 				case SDLK_v:
 					lines = !lines;
+				break;
+				case SDLK_m:
+					takeinput = !takeinput;
 				break;
 				case SDLK_p:
 					pp = !pp;

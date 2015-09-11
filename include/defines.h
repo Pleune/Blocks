@@ -2,10 +2,10 @@
 #define DEFINES_H
 
 #define CHUNKLEVELS 5
-#define WORLDSIZE 16
+#define WORLDSIZE 13
 #define TERMINALRENDERDIST 3
 
-#define BUMPYNESS 2
+#define BUMPYNESS 1
 
 #define DIAMONDSQUARELEVELS 4
 

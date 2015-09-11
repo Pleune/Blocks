@@ -288,6 +288,7 @@ world_init(vec3_t pos)
 //				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 //				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 //
+	long chunkno = 0;
 	long3_t cpos;
 	for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
 	{
@@ -295,6 +296,9 @@ world_init(vec3_t pos)
 		{
 			for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
 			{
+				printf("LOADING... %f%%\r", (float)(chunkno * 100.0f)/(WORLDSIZE*WORLDSIZE*WORLDSIZE));
+				fflush(stdout);
+				chunkno++;
 				int3_t chunkindex = getchunkindexofchunk(cpos);
 				data[chunkindex.x][chunkindex.y][chunkindex.z].iswritable=1;
 				data[chunkindex.x][chunkindex.y][chunkindex.z].lock = SDL_CreateMutex();
