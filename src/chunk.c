@@ -10,7 +10,7 @@
 #include "worldgen.h"
 #include "octree.h"
 
-enum buffer {vbo, cbo, ebo, termbo, termpbo, BUFFERS_MAX};
+enum buffer {vbo, cbo, ebo, BUFFERS_MAX};
 
 struct mesh_s {
 	GLuint bufferobjs[BUFFERS_MAX];
@@ -23,9 +23,6 @@ struct mesh_s {
 
 	GLfloat *cbodata;
 	long cbodatasize;
-
-	GLfloat *termbodata;
-	long termbodatasize;
 
 	long points;
 
@@ -277,7 +274,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		free(chunk->mesh.vbodata);
 		free(chunk->mesh.ebodata);
 		free(chunk->mesh.cbodata);
-		free(chunk->mesh.termbodata);
 	}
 
 	GLuint *ebos[256];
@@ -294,10 +290,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 
 	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 	cbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
-
-	//TODO: prevent overflow
-	GLfloat *termbodata = (GLfloat *)malloc(sizeof(GLfloat) * 65536);
-	uint16_t termi= 0;
 
 	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * 256);
 
@@ -424,66 +416,30 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					int q=0;
 					int t;
 
-					switch(block.id)
+					/*
+					//point data
+					termbodata[termi++] = faces[q++] + x + chunk->pos.x*CHUNKSIZE;
+					termbodata[termi++] = faces[q++] + y + chunk->pos.y*CHUNKSIZE;
+					termbodata[termi++] = faces[q++] + z + chunk->pos.z*CHUNKSIZE;
+					//texcoord data
+					termbodata[termi++] = uvcoords[uvcoordsabstraction[texcount]*2];
+					termbodata[termi++] = uvcoords[uvcoordsabstraction[texcount++]*2+1];
+					*/
+					for(t=0;t<6;t++)
 					{
-					case BLOCK_ID_TERMINAL:
-					{
-						for(t=0;t<6;t++)
+						if(U[t])
 						{
-							if(U[t])
+							int Q=q+18;
+							while(q<Q)
 							{
-								if(t == ((struct block_term_t *)(block.metadata.pointer))->face)
-								{
-									int Q=q+18;
-									int texcount = 0;
-									while(q<Q)
-									{
-										//point data
-										termbodata[termi++] = faces[q++] + x + chunk->pos.x*CHUNKSIZE;
-										termbodata[termi++] = faces[q++] + y + chunk->pos.y*CHUNKSIZE;
-										termbodata[termi++] = faces[q++] + z + chunk->pos.z*CHUNKSIZE;
-
-										//texcoord data
-										termbodata[termi++] = uvcoords[uvcoordsabstraction[texcount]*2];
-										termbodata[termi++] = uvcoords[uvcoordsabstraction[texcount++]*2+1];
-									}
-								} else {
-									int Q=q+18;
-									while(q<Q)
-									{
-										GLfloat x_ = faces[q++] + x;
-										GLfloat y_ = faces[q++] + y;
-										GLfloat z_ = faces[q++] + z;
-										addpoint(chunk, &c,&i,ebos,&v,&o,vbos,cbos,ebc,x_,y_,z_,blockcolor,block.id);
-									}
-								}
-							} else {
-								q+=18;
+								GLfloat x_ = faces[q++] + x;
+								GLfloat y_ = faces[q++] + y;
+								GLfloat z_ = faces[q++] + z;
+								addpoint(chunk, &c,&i,ebos,&v,&o,vbos,cbos,ebc,x_,y_,z_,blockcolor,block.id);
 							}
+						} else {
+							q+=18;
 						}
-						break;
-					}
-
-					default:
-					{
-						for(t=0;t<6;t++)
-						{
-							if(U[t])
-							{
-								int Q=q+18;
-								while(q<Q)
-								{
-									GLfloat x_ = faces[q++] + x;
-									GLfloat y_ = faces[q++] + y;
-									GLfloat z_ = faces[q++] + z;
-									addpoint(chunk, &c,&i,ebos,&v,&o,vbos,cbos,ebc,x_,y_,z_,blockcolor,block.id);
-								}
-							} else {
-								q+=18;
-							}
-						}
-						break;
-					}
 					}
 				}
 			}
@@ -528,12 +484,10 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	chunk->mesh.vbodata = finalvbodata;
 	chunk->mesh.ebodata = finalebodata;
 	chunk->mesh.cbodata = finalcbodata;
-	chunk->mesh.termbodata = termbodata;
 
 	chunk->mesh.vbodatasize = vbosize;
 	chunk->mesh.ebodatasize = ebosize;
 	chunk->mesh.cbodatasize = cbosize;
-	chunk->mesh.termbodatasize = termi;
 
 	chunk->mesh.uploadnext = 1;
 	chunk->iscurrent = 1;
@@ -558,10 +512,6 @@ chunk_render(chunk_t *chunk)
 		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
 		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.cbodatasize * sizeof(GLfloat), chunk->mesh.cbodata, GL_STATIC_DRAW);
 		free(chunk->mesh.cbodata);
-
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[termbo]);
-		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.termbodatasize * sizeof(GLfloat), chunk->mesh.termbodata, GL_STATIC_DRAW);
-		free(chunk->mesh.termbodata);
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);

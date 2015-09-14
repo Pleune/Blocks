@@ -17,9 +17,6 @@ long3_t worldcenter = {0, 0, 0};
 int stopthread;
 SDL_Thread *thread;
 
-GLuint termtexture;
-unsigned char termscreen[128*128*3] = { 0 };
-
 struct {
 	chunk_t *chunk;
 	SDL_mutex *lock;
@@ -262,13 +259,6 @@ world_threadentry(void *ptr)
 
 					if(!chunk_iscurrent(data[i.x][i.y][i.z].chunk))
 						quickremeshachunk(&i, 1);
-
-					//upload terminal textures
-//					if(data[i.x][i.y][i.z].mappedptr && !data[i.x][i.y][i.z].termpbohasnewdata)//god forbid this thread runs faster than the render thread
-//					{
-//						memcpy(data[i.x][i.y][i.z].mappedptr, termscreen, 128*128*3);
-//						data[i.x][i.y][i.z].termpbohasnewdata=1;
-//					}
 				}
 			}
 		}
@@ -283,12 +273,8 @@ void
 world_init(vec3_t pos)
 {
 	setworldcenter(pos);
-//				glGenTextures(1, &termtexture);//TODO: term texture cleanup
-//				glBindTexture(GL_TEXTURE_2D, termtexture);
-//				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//
-	long chunkno = 0;
+
+	long chunkno = 1;
 	long3_t cpos;
 	for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
 	{
@@ -306,6 +292,7 @@ world_init(vec3_t pos)
 			}
 		}
 	}
+	putchar('\n');
 
 	thread = SDL_CreateThread(world_threadentry, "world", 0);
 }
@@ -333,7 +320,7 @@ world_cleanup()
 }
 
 void
-world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
+world_render(vec3_t pos)
 {
 	setworldcenter(pos);
 	glEnable(GL_DEPTH_TEST);
@@ -345,8 +332,6 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 
-	glUseProgram(drawprogram);
-
 	for(x=0; x<WORLDSIZE; x++)
 	{
 		for(y=0; y<WORLDSIZE; y++)
@@ -357,78 +342,6 @@ world_render(GLuint drawprogram, GLuint terminalscreensprogram, vec3_t pos)
 			}
 		}
 	}
-
-//	glUseProgram(terminalscreensprogram);
-//	for(x=0; x<WORLDSIZE; x++)
-//	{
-//		for(y=0; y<WORLDSIZE; y++)
-//		{
-//			for(z=0; z<WORLDSIZE; z++)
-//			{
-//				long double dist;
-//
-//				long3_t chunkpos = chunk_getpos(data[x][y][z].chunk);
-//				distlong3(&dist, &chunkpos, &worldcenter);
-//
-//				if(dist < TERMINALRENDERDIST)
-//				{
-//					glActiveTexture(GL_TEXTURE0);
-//					glBindTexture(GL_TEXTURE_2D, termtexture);
-//
-//					if(data[x][y][z].termpboloadnexttime)
-//					{
-//						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, data[x][y][z].termpbo);
-//						glBufferData(GL_PIXEL_UNPACK_BUFFER, 128*128*3, 0, GL_STREAM_DRAW);
-//
-//						data[x][y][z].mappedptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
-//						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-//
-//						data[x][y][z].termpboloadnexttime=0;
-//					}
-//
-//					if(!data[x][y][z].mappedptr)
-//						data[x][y][z].termpboloadnexttime=1;
-//
-//					data[x][y][z].termcounter++;
-//					if(data[x][y][z].termpbohasnewdata && (data[x][y][z].termcounter > 1000))
-//					{
-//						data[x][y][z].termcounter=0;
-//
-//						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, data[x][y][z].termpbo);
-//
-//						glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-//						data[x][y][z].mappedptr=0;
-//
-//						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0,  GL_RGB, GL_UNSIGNED_BYTE, 0);
-//						glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-//
-//						data[x][y][z].termpbohasnewdata=0;
-//					}
-//
-//					//TODO: put this in a proper place
-//					GLint uniform_mytexture = glGetUniformLocation(terminalscreensprogram, "myTextureSampler");
-//					glUniform1i(uniform_mytexture, 0);
-//					glBindBuffer(GL_ARRAY_BUFFER, data[x][y][z].termbo);
-//					glVertexAttribPointer(
-//							0,
-//							3,
-//							GL_FLOAT,
-//							GL_FALSE,
-//							5 * sizeof(GLfloat),//*sizeof(GLfloat),
-//							0);
-//
-//					glVertexAttribPointer(
-//							1,
-//							2,
-//							GL_FLOAT,
-//							GL_FALSE,
-//							5*sizeof(GLfloat),
-//							(void *)(3*sizeof(GLfloat)));
-//					glDrawArrays(GL_TRIANGLES, 0, data[x][y][z].termpoints);
-//				}
-//			}
-//		}
-//	}
 }
 
 //TODO: loadnew

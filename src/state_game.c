@@ -9,22 +9,14 @@
 #include "custommath.h"
 #include "world.h"
 #include "blockpick.h"
-
-const struct block_term_t termdata = {
-	2,
-};
-
-uint32_t ticks = 0;
+#include "debug.h"
 
 int windoww, windowh;
 
 GLuint drawprogram;
 GLuint drawprogrammatrixinput;
-GLuint terminalscreensprogram;
-GLuint terminalscreensprogrammatrixinput;
+
 GLuint ppprogram;
-
-
 GLuint pppointbuffer;
 GLuint pppointbufferid;
 
@@ -37,6 +29,10 @@ struct {
 	GLuint colorbufferid;
 	GLuint depthbufferid;
 } renderbuffer;
+
+vec3_t forwardcamera;
+
+const static vec3_t up = {0,1,0};
 
 int fpscap = 1;
 const int fpsmax = 120;
@@ -56,10 +52,8 @@ state_game_init()
 	//load shaders 'n stuff
 	gl_loadprogram(&drawprogram, "shaders/vs", "shaders/fs");
 	gl_loadprogram(&ppprogram, "shaders/pvs", "shaders/pfs");
-	gl_loadprogram(&terminalscreensprogram, "shaders/termvs", "shaders/termfs");
 
 	drawprogrammatrixinput = glGetUniformLocation(drawprogram, "MVP");
-	terminalscreensprogrammatrixinput = glGetUniformLocation(drawprogram, "MVP");
 	pppointbufferid = glGetUniformLocation(ppprogram, "tex");
 
 	//generate the post processing framebuffer
@@ -109,13 +103,7 @@ state_game_init()
 	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), data, GL_STATIC_DRAW);
 
 	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-	{
-		printf("fail\n");
-		//the above failed
-		//TODO: fix the framebuffer, dont use it,
-	}
-
-	//load the world
+		fail("Bad Framebuffer");
 
 	pos.x = 0;
 	pos.y = 0;
@@ -126,30 +114,18 @@ state_game_init()
 
 	centermouse();
 	SDL_ShowCursor(0);
-
-	ticks = SDL_GetTicks();
-
 }
 
 void
-state_game_run()
+update(uint32_t dt)
 {
-	int newticks = SDL_GetTicks();
-	double deltatime = newticks - ticks;
-	ticks = newticks;
+}
 
-	static uint32_t lastcheck = 0;
-	static int frame = 0;
-	frame++;
-	if(newticks - lastcheck >= 1000)
-	{
-		lastcheck = newticks;
-		printf("FPS: %i pp? %i\n", frame, pp);
-		frame=0;
-	}
+void
+input(uint32_t dt)
+{
 
 	SDL_PumpEvents();
-
 
 	const uint8_t *keyboard = SDL_GetKeyboardState(0);
 
@@ -165,14 +141,6 @@ state_game_run()
 		roty -= deltamousey/800;
 	}
 
-	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 3000, .1);
-
-	vec3_t up;
-	up.x = 0;
-	up.y = 1;
-	up.z = 0;
-
-	vec3_t forwardcamera;
 	forwardcamera.x = sin(rotx) * cos(roty);
 	forwardcamera.y = sin(roty) + 0.4f;
 	forwardcamera.z = -cos(rotx) * cos(roty);
@@ -218,7 +186,6 @@ state_game_run()
 			{
 				block_t b;
 				b.id = 2;
-				b.metadata.pointer = (void *)&termdata;
 				game_rayadd(pos, forwardcamera, b, 1);
 			}
 			else if(e.button.button == SDL_BUTTON_RIGHT)
@@ -251,37 +218,55 @@ state_game_run()
 #define SPEED 50
 	if(keyboard[SDL_SCANCODE_W])
 	{
-		pos.x += SPEED * forwardmovement.x * (deltatime / 1000);
-		pos.z += SPEED * forwardmovement.y * (deltatime / 1000);
+		pos.x += SPEED * forwardmovement.x * (dt / 1000.0);
+		pos.z += SPEED * forwardmovement.y * (dt / 1000.0);
 	}
 	if(keyboard[SDL_SCANCODE_A])
 	{
-		pos.x += SPEED * forwardmovement.y * (deltatime / 1000);
-		pos.z -= SPEED * forwardmovement.x * (deltatime / 1000);
+		pos.x += SPEED * forwardmovement.y * (dt / 1000.0);
+		pos.z -= SPEED * forwardmovement.x * (dt / 1000.0);
 	}
 	if(keyboard[SDL_SCANCODE_S])
 	{
-		pos.x -= SPEED * forwardmovement.x * (deltatime / 1000);
-		pos.z -= SPEED * forwardmovement.y * (deltatime / 1000);
+		pos.x -= SPEED * forwardmovement.x * (dt / 1000.0);
+		pos.z -= SPEED * forwardmovement.y * (dt / 1000.0);
 	}
 	if(keyboard[SDL_SCANCODE_D])
 	{
-		pos.x -= SPEED * forwardmovement.y * (deltatime / 1000);
-		pos.z += SPEED * forwardmovement.x * (deltatime / 1000);
+		pos.x -= SPEED * forwardmovement.y * (dt / 1000.0);
+		pos.z += SPEED * forwardmovement.x * (dt / 1000.0);
 	}
 	if(keyboard[SDL_SCANCODE_LSHIFT])
 	{
-		pos.y -= SPEED * (deltatime / 1000);
+		pos.y -= SPEED * (dt / 1000.0);
 	}
 	if(keyboard[SDL_SCANCODE_SPACE])
 	{
-		pos.y += SPEED * (deltatime / 1000);
+		pos.y += SPEED * (dt / 1000.0);
 	}
 
 	forwardcamera.x += pos.x;
 	forwardcamera.y += pos.y;
 	forwardcamera.z += pos.z;
+}
 
+void
+render(uint32_t dt)
+{
+	static uint32_t oneseccond = 0;
+	oneseccond += dt;
+	static int frame = 0;
+	frame++;
+	if(oneseccond >= 1000)
+	{
+		oneseccond -= 1000;
+		info("FPS: %i", frame);
+		frame=0;
+	}
+
+	input(dt);
+
+	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 3000, .1);
 	mat4_t view = getviewmatrix(pos, forwardcamera, up);
 
 	mat4_t mvp;
@@ -295,13 +280,9 @@ state_game_run()
 	if(lines)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-	glUseProgram(terminalscreensprogram);
-	glUniformMatrix4fv(terminalscreensprogrammatrixinput, 1, GL_FALSE, mvp.mat);
-
 	glUseProgram(drawprogram);
 	glUniformMatrix4fv(drawprogrammatrixinput, 1, GL_FALSE, mvp.mat);
-
-	world_render(drawprogram, terminalscreensprogram, pos);
+	world_render(pos);
 
 	if(lines)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -328,6 +309,24 @@ state_game_run()
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
 	swapwindow();
+}
+
+void
+state_game_run()
+{
+	static uint32_t ticks = 0;
+	uint32_t newticks = SDL_GetTicks();
+	uint32_t deltatime = ticks ? newticks - ticks : 0;
+	ticks = newticks;
+
+	static uint32_t updatebuild = 0;
+	updatebuild += deltatime;
+	if(updatebuild >= 500)
+	{
+		updatebuild -= 500;
+		update(500);
+	}
+	render(deltatime);
 
 	if(fpscap)
 	{

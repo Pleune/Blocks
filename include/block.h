@@ -7,7 +7,6 @@
 #define BLOCK_ID_AIR 0
 #define BLOCK_ID_STONE 1
 #define BLOCK_ID_DIRT 2
-#define BLOCK_ID_TERMINAL 3
 #define BLOCK_ID_INVALID 255
 
 typedef uint8_t blockid_t;

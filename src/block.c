@@ -22,11 +22,6 @@ block_getcolor(uint8_t id)
 			c.y = .5;
 			c.z = .16;
 		break;
-		case BLOCK_ID_TERMINAL:
-			c.x = 0;
-			c.y = 1;
-			c.z = 0;
-		break;
 		default:
 			c.x = .6;
 			c.y = .45;
