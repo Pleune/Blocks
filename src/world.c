@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <time.h>
 
 #include <SDL2/SDL_timer.h>
 
@@ -13,6 +14,8 @@
 
 long3_t worldscope = {0, 0, 0};
 long3_t worldcenter = {0, 0, 0};
+
+uint32_t seed;
 
 int stopthread;
 SDL_Thread *thread;
@@ -272,6 +275,9 @@ world_threadentry(void *ptr)
 void
 world_init(vec3_t pos)
 {
+	time_t t;
+	srand((unsigned) time(&t));
+	seed = rand();
 	setworldcenter(pos);
 
 	long chunkno = 1;
@@ -409,4 +415,10 @@ world_setblock(long x, long y, long z, block_t block, int loadnew, int instant)
 		return 0;
 	}
 	return -1;
+}
+
+uint32_t
+world_getseed()
+{
+	return seed;
 }

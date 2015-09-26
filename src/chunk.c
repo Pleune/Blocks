@@ -230,7 +230,7 @@ chunk_setblockid(chunk_t *c, int x, int y, int z, blockid_t id)
 void
 chunk_setair(chunk_t *c, int x, int y, int z)
 {
-	chunk_setblockid(c, x, y, z, BLOCK_ID_AIR);
+	chunk_setblockid(c, x, y, z, AIR);
 }
 
 static inline void

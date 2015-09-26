@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <limits.h>
+#include "world.h"
 #include "custommath.h"
 #include "defines.h"
 #include "modulo.h"
@@ -22,6 +23,22 @@ uint32_t hash( uint32_t a)
 uint32_t noise(uint32_t x, uint32_t y, uint32_t seed)
 {
 	return hash(seed+hash(x+hash(y)));
+}
+
+void
+bias(double *data, size_t size)
+{
+	int x, z;
+	for(x=0; x<size; x++)
+	{
+		for(z=0; z<size; z++)
+		{
+			int index = x + z*size;
+			double h = data[index];
+
+				data[index] = (h*h*h*h*h)/(h*h*h*h+300*h*h);
+		}
+	}
 }
 
 void
@@ -76,6 +93,8 @@ worldgen_genchunk(chunk_t *chunk)
 {
 	int i;
 
+	uint32_t seed = world_getseed();
+
 	static long3_t lastchunkblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
 	long3_t cpos = chunk_getpos(chunk);
 	long3_t newchunkblockpos = chunk_getpos(chunk);
@@ -113,7 +132,7 @@ worldgen_genchunk(chunk_t *chunk)
 
 			for(i = DIAMONDSQUARELEVELS-1; i>=0; i--)
 			{
-				pound(metaheightmap, DIAMONDSQUARESIZE+1, i, newdiasquareblockpos, 2350834, CHUNKSIZE);
+				pound(metaheightmap, DIAMONDSQUARESIZE+1, i, newdiasquareblockpos, seed, CHUNKSIZE);
 			}
 		}
 
@@ -130,23 +149,34 @@ worldgen_genchunk(chunk_t *chunk)
 
 		for(i = CHUNKLEVELS-1; i>=0; i--)
 		{
-			pound(heightmap, CHUNKSIZE+1, i, newchunkblockpos, 2350834, 1);
+			pound(heightmap, CHUNKSIZE+1, i, newchunkblockpos, seed, 1);
 		}
+		bias(heightmap, CHUNKSIZE+1);
 	}
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; x++)
 	{
-		for(y=0; y<CHUNKSIZE; y++)
+		for(z=0; z<CHUNKSIZE; z++)
 		{
-			for(z=0; z<CHUNKSIZE; z++)
+			for(y=0; y<CHUNKSIZE; y++)
 			{
-				if(y+newchunkblockpos.y < (
-						heightmap[x+1 + z*(CHUNKSIZE+1)] +
+				double height = (heightmap[x+1 + z*(CHUNKSIZE+1)] +
 						heightmap[x + z*(CHUNKSIZE+1)] +
 						heightmap[x+1 + (z+1)*(CHUNKSIZE+1)] +
-						heightmap[x + (z+1)*(CHUNKSIZE+1)]) / 4.0)
-					chunk_setblockid(chunk, x, y, z, BLOCK_ID_STONE);
+						heightmap[x + (z+1)*(CHUNKSIZE+1)]) / 4.0;
+				int32_t blockheight = y + newchunkblockpos.y;
+				if(blockheight < height - 3)
+					chunk_setblockid(chunk, x, y, z, STONE);
+				else if(blockheight < height)
+					if(height < .55)
+						chunk_setblockid(chunk, x, y, z, SAND);
+					else
+						chunk_setblockid(chunk, x, y, z, GRASS);
+				else if(blockheight < 0)
+					chunk_setblockid(chunk, x, y, z, WATER);
+				else
+					break;
 			}
 		}
 	}

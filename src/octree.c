@@ -16,7 +16,7 @@ octree_t
 {
 	octree_t *tree = malloc(sizeof(octree_t));
 	tree->isleaf = 1;
-	tree->data.block.id = BLOCK_ID_AIR;
+	tree->data.block.id = AIR;
 	return tree;
 }
 
@@ -40,7 +40,7 @@ octree_zero(octree_t *tree)
 		for(i=0; i<8; i++)
 			octree_destroy(tree->data.children[i]);
 	tree->isleaf = 1;
-	tree->data.block.id = BLOCK_ID_AIR;
+	tree->data.block.id = AIR;
 }
 
 block_t

@@ -3,13 +3,13 @@
 
 #include <stdint.h>
 #include "custommath.h"
+#include "directions.h"
 
-#define BLOCK_ID_AIR 0
-#define BLOCK_ID_STONE 1
-#define BLOCK_ID_DIRT 2
+enum block_id {AIR = 0, STONE, DIRT, GRASS, SAND, WATER, ERR};
+
 #define BLOCK_ID_INVALID 255
 
-typedef uint8_t blockid_t;
+typedef enum block_id blockid_t;
 
 typedef struct {
 	blockid_t id;
@@ -24,6 +24,6 @@ struct block_term_t {
 };
 
 int block_issolid(block_t b);
-vec3_t block_getcolor(uint8_t id);
+vec3_t block_getcolor(blockid_t);
 
 #endif //BLOCK_H

@@ -1,9 +1,8 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-#define CHUNKLEVELS 5
-#define WORLDSIZE 13
-#define TERMINALRENDERDIST 3
+#define CHUNKLEVELS 6
+#define WORLDSIZE 20
 
 #define BUMPYNESS 1
 
