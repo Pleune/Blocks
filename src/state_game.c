@@ -139,6 +139,12 @@ input(uint32_t dt)
 
 		rotx += deltamousex/800;
 		roty -= deltamousey/800;
+
+		roty = roty > M_PI/2-.005 ? M_PI/2-.005 : roty;
+		roty = roty < -M_PI/2+.005 ? -M_PI/2+.005 : roty;
+
+		rotx = rotx > M_PI*2 ? rotx - M_PI*2: rotx;
+		rotx = rotx < -M_PI*2 ? rotx + M_PI*2: rotx;
 	}
 
 	forwardcamera.x = sin(rotx) * cos(roty);
