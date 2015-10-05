@@ -10,6 +10,7 @@
 #include "world.h"
 #include "blockpick.h"
 #include "debug.h"
+#include "defines.h"
 
 int windoww, windowh;
 
@@ -89,7 +90,7 @@ state_game_init()
 	glUniform1i(depth, 1);
 
 	//generate the post processing mesh
-	GLfloat data[] = {
+	GLfloat mesh[] = {
 		-1.0f, 1.0f,
 		-1.0f, -1.0f,
 		1.0f, -1.0f,
@@ -100,7 +101,7 @@ state_game_init()
 
 	glGenBuffers(1, &pppointbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, pppointbuffer);
-	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(mesh) * sizeof(GLfloat), mesh, GL_STATIC_DRAW);
 
 	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		fail("Bad Framebuffer");
@@ -221,7 +222,6 @@ input(uint32_t dt)
 			}
 		}
 	}
-#define SPEED 50
 	if(keyboard[SDL_SCANCODE_W])
 	{
 		pos.x += SPEED * forwardmovement.x * (dt / 1000.0);
