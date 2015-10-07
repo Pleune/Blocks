@@ -2,16 +2,17 @@
 #define ENTITY_H
 
 #include "custommath.h"
+#include "directions.h"
 
 typedef struct entity_s entity_t;
 
-void setsize();
+void entity_setsize(entity_t *entity, double width, double hight);
 
-void setpos(entity_t *entity, vec3_t pos);
-vec3_t getpos(entity_t *entity);
+void entity_setpos(entity_t *entity, vec3_t pos);
+vec3_t entity_getpos(entity_t *entity);
+const vec3_t *entity_getposptr(entity_t *entity);
 
-void setforces(entity_t *entity, vec3_t forces);
-
-void update(entity_t *entity, double dt);
+void entity_move(entity_t *entity, vec3_t *delta);
+void entity_update(entity_t *entity, vec3_t *forces, double dt);
 
 #endif
