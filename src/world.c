@@ -362,7 +362,7 @@ world_getblock(long x, long y, long z, int loadnew)
 	if(isquickloaded(cpos, &icpo))
 		return chunk_getblock(data[icpo.x][icpo.y][icpo.z].chunk, internalpos.x, internalpos.y, internalpos.z);
 	block_t error;
-	error.id = 255;
+	error.id = ERR;
 	return error;
 }
 
