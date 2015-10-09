@@ -11,6 +11,7 @@
 #include "blockpick.h"
 #include "debug.h"
 #include "defines.h"
+#include "entity.h"
 
 int windoww, windowh;
 
@@ -38,7 +39,8 @@ const static vec3_t up = {0,1,0};
 int fpscap = 1;
 const int fpsmax = 120;
 
-vec3_t pos;
+entity_t *pos;
+const vec3_t *posptr;
 float rotx, roty;
 
 int lines = 0;
@@ -106,12 +108,11 @@ state_game_init()
 	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		fail("Bad Framebuffer");
 
-	pos.x = 0;
-	pos.y = 0;
-	pos.z = 3;
+	pos = entity_create(0, 0 , 0, .8, 1.9);
+	posptr = entity_getposptr(pos);
 	rotx = 0;
 	roty = 0;
-	world_init(pos);
+	world_init(entity_getpos(pos));
 
 	centermouse();
 	SDL_ShowCursor(0);
@@ -193,11 +194,11 @@ input(uint32_t dt)
 			{
 				block_t b;
 				b.id = 2;
-				game_rayadd(pos, forwardcamera, b, 1);
+				game_rayadd(posptr, &forwardcamera, b, 1);
 			}
 			else if(e.button.button == SDL_BUTTON_RIGHT)
 			{
-				game_raydel(pos, forwardcamera);
+				game_raydel(posptr, &forwardcamera);
 			}
 		}
 		else if(e.type == SDL_WINDOWEVENT)
@@ -222,38 +223,51 @@ input(uint32_t dt)
 			}
 		}
 	}
+
+	vec3_t delta = {0,0,0};
 	if(keyboard[SDL_SCANCODE_W])
 	{
-		pos.x += SPEED * forwardmovement.x * (dt / 1000.0);
-		pos.z += SPEED * forwardmovement.y * (dt / 1000.0);
+		delta.x = SPEED * forwardmovement.x * (dt / 1000.0);
+		delta.z = SPEED * forwardmovement.y * (dt / 1000.0);
+		entity_move(pos, &delta);
 	}
 	if(keyboard[SDL_SCANCODE_A])
 	{
-		pos.x += SPEED * forwardmovement.y * (dt / 1000.0);
-		pos.z -= SPEED * forwardmovement.x * (dt / 1000.0);
+		delta.x = SPEED * forwardmovement.y * (dt / 1000.0);
+		delta.z = -SPEED * forwardmovement.x * (dt / 1000.0);
+		entity_move(pos, &delta);
 	}
 	if(keyboard[SDL_SCANCODE_S])
 	{
-		pos.x -= SPEED * forwardmovement.x * (dt / 1000.0);
-		pos.z -= SPEED * forwardmovement.y * (dt / 1000.0);
+		delta.x = -SPEED * forwardmovement.x * (dt / 1000.0);
+		delta.z = -SPEED * forwardmovement.y * (dt / 1000.0);
+		entity_move(pos, &delta);
 	}
 	if(keyboard[SDL_SCANCODE_D])
 	{
-		pos.x -= SPEED * forwardmovement.y * (dt / 1000.0);
-		pos.z += SPEED * forwardmovement.x * (dt / 1000.0);
+		delta.x = -SPEED * forwardmovement.y * (dt / 1000.0);
+		delta.z = +SPEED * forwardmovement.x * (dt / 1000.0);
+		entity_move(pos, &delta);
 	}
 	if(keyboard[SDL_SCANCODE_LSHIFT])
 	{
-		pos.y -= SPEED * (dt / 1000.0);
+		delta.x = 0;
+		delta.y = -SPEED * (dt / 1000.0);
+		delta.z = 0;
+		entity_move(pos, &delta);
 	}
 	if(keyboard[SDL_SCANCODE_SPACE])
 	{
-		pos.y += SPEED * (dt / 1000.0);
+		delta.x = 0;
+		delta.y = SPEED * (dt / 1000.0);
+		delta.z = 0;
+		entity_move(pos, &delta);
 	}
 
-	forwardcamera.x += pos.x;
-	forwardcamera.y += pos.y;
-	forwardcamera.z += pos.z;
+	//TODO: recalculate insstead of add
+	forwardcamera.x += posptr->x;
+	forwardcamera.y += posptr->y;
+	forwardcamera.z += posptr->z;
 }
 
 void
@@ -273,7 +287,7 @@ render(uint32_t dt)
 	input(dt);
 
 	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 3000, .1);
-	mat4_t view = getviewmatrix(pos, forwardcamera, up);
+	mat4_t view = getviewmatrix(*posptr, forwardcamera, up);
 
 	mat4_t mvp;
 	dotmat4mat4(&mvp, &projection, &view);
@@ -288,7 +302,7 @@ render(uint32_t dt)
 
 	glUseProgram(drawprogram);
 	glUniformMatrix4fv(drawprogrammatrixinput, 1, GL_FALSE, mvp.mat);
-	world_render(pos);
+	world_render(*posptr);
 
 	if(lines)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

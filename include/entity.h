@@ -6,6 +6,9 @@
 
 typedef struct entity_s entity_t;
 
+entity_t *entity_create(double x, double y, double z, double w, double h);
+void entity_destroy(entity_t *entity);
+
 void entity_setsize(entity_t *entity, double width, double hight);
 
 void entity_setpos(entity_t *entity, vec3_t pos);

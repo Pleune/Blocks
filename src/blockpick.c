@@ -5,53 +5,53 @@
 #include "world.h"
 
 void
-game_rayadd(vec3_t start, vec3_t direction, block_t block, int before)
+game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int before)
 {
 	long3_t p;
-	p.x = floorf(start.x);
-	p.y = floorf(start.y);
-	p.z = floorf(start.z);
+	p.x = floorf(start->x);
+	p.y = floorf(start->y);
+	p.z = floorf(start->z);
 
 	vec3_t b;
-	b.x = start.x - p.x;
-	b.y = start.y - p.y;
-	b.z = start.z - p.z;
+	b.x = start->x - p.x;
+	b.y = start->y - p.y;
+	b.z = start->z - p.z;
 
-	int dirx = direction.x > 0 ? 1 : -1;
-	int diry = direction.y > 0 ? 1 : -1;
-	int dirz = direction.z > 0 ? 1 : -1;
+	int dirx = direction->x > 0 ? 1 : -1;
+	int diry = direction->y > 0 ? 1 : -1;
+	int dirz = direction->z > 0 ? 1 : -1;
 
 	int3_t iszero = {
-		direction.x == 0,
-		direction.y == 0,
-		direction.z == 0
+		direction->x == 0,
+		direction->y == 0,
+		direction->z == 0
 	};
 
 	vec3_t rt;
 	vec3_t delta = {0};
 	if(!iszero.x)
 	{
-		rt.y = direction.y / direction.x;
-		rt.z = direction.z / direction.x;
+		rt.y = direction->y / direction->x;
+		rt.z = direction->z / direction->x;
 		delta.x = sqrtf(1 + rt.y*rt.y + rt.z*rt.z);
 	}
 	if(!iszero.y)
 	{
-		rt.x = direction.x / direction.y;
-		rt.z = direction.z / direction.y;
+		rt.x = direction->x / direction->y;
+		rt.z = direction->z / direction->y;
 		delta.y = sqrtf(rt.x*rt.x + 1 + rt.z*rt.z);
 	}
 	if(!iszero.z)
 	{
-		rt.x = direction.x / direction.z;
-		rt.y = direction.y / direction.z;
+		rt.x = direction->x / direction->z;
+		rt.y = direction->y / direction->z;
 		delta.z = sqrtf(rt.x*rt.x + rt.y*rt.y + 1);
 	}
 
 	vec3_t max = {
-		delta.x * (direction.x > 0 ? (1 - b.x) : b.x),
-		delta.y * (direction.y > 0 ? (1 - b.y) : b.y),
-		delta.z * (direction.z > 0 ? (1 - b.z) : b.z)
+		delta.x * (direction->x > 0 ? (1 - b.x) : b.x),
+		delta.y * (direction->y > 0 ? (1 - b.y) : b.y),
+		delta.z * (direction->z > 0 ? (1 - b.z) : b.z)
 	};
 
 	int i;
@@ -96,7 +96,7 @@ game_rayadd(vec3_t start, vec3_t direction, block_t block, int before)
 }
 
 void
-game_raydel(vec3_t start, vec3_t direction)
+game_raydel(const vec3_t* start, const vec3_t *direction)
 {
 	block_t b;
 	b.id = 0;
