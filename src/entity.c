@@ -86,6 +86,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 				if(block_issolid(world_getblock(b, y, z, 0)))
 				{
 					entity->pos.x = b - halfw -.01;
+					entity->velocities.x = 0;
 					break;
 				}
 			}
@@ -105,6 +106,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 				if(block_issolid(world_getblock(b, y, z, 0)))
 				{
 					entity->pos.x = b + 1 + halfw + .01;
+					entity->velocities.x = 0;
 					break;
 				}
 			}
@@ -125,6 +127,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 				if(block_issolid(world_getblock(x, b, z, 0)))
 				{
 					entity->pos.y = b - entity->h - .01;
+					entity->velocities.y = 0;
 					break;
 				}
 			}
@@ -143,6 +146,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 				if(block_issolid(world_getblock(x, b, z, 0)))
 				{
 					entity->pos.y = b + 1;
+					entity->velocities.y = 0;
 					break;
 				}
 			}
@@ -163,6 +167,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 				if(block_issolid(world_getblock(x, y, b, 0)))
 				{
 					entity->pos.z = b - halfw - .01;
+					entity->velocities.z = 0;
 					break;
 				}
 			}
@@ -181,6 +186,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 				if(block_issolid(world_getblock(x, y, b, 0)))
 				{
 					entity->pos.z = b + 1 + halfw + .01;
+					entity->velocities.z = 0;
 					break;
 				}
 			}
