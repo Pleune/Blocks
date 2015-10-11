@@ -69,14 +69,12 @@ void
 entity_move(entity_t *entity, vec3_t *delta)
 {
 	vec3_t startpos = entity->pos;
+	double halfw = entity->w / 2.0;
+	long a, b;
+
 	entity->pos.x += delta->x;
-	entity->pos.y += delta->y;
-	entity->pos.z += delta->z;
-
-	double halfw = entity->w / 2;
-
-	long a = floor(startpos.x + halfw);
-	long b = floor(entity->pos.x + halfw);
+	a = floor(startpos.x + halfw);
+	b = floor(entity->pos.x + halfw);
 	if(a < b)
 	{
 //		printf("x inc\n");
@@ -113,6 +111,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		}
 	}
 
+	entity->pos.y += delta->y;
 	a = floor(startpos.y + entity->h);
 	b = floor(entity->pos.y + entity->h);
 	if(a < b)
@@ -150,6 +149,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		}
 	}
 
+	entity->pos.z += delta->z;
 	a = floor(startpos.z + halfw);
 	b = floor(entity->pos.z + halfw);
 	if(a < b)
