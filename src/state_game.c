@@ -33,6 +33,7 @@ struct {
 } renderbuffer;
 
 vec3_t forwardcamera;
+vec3_t headpos;
 
 const static vec3_t up = {0,1,0};
 
@@ -150,79 +151,12 @@ input(uint32_t dt)
 	}
 
 	forwardcamera.x = sin(rotx) * cos(roty);
-	forwardcamera.y = sin(roty) + 0.4f;
+	forwardcamera.y = sin(roty);
 	forwardcamera.z = -cos(rotx) * cos(roty);
 
 	vec2_t forwardmovement;
 	forwardmovement.x = sin(rotx);
 	forwardmovement.y = -cos(rotx);
-
-	SDL_Event e;
-	while(SDL_PollEvent(&e))
-	{
-		if(e.type == SDL_QUIT)
-			state_changeto(CLOSING);
-
-		if(e.type == SDL_KEYDOWN)
-		{
-			switch(e.key.keysym.sym)
-			{
-				case SDLK_ESCAPE:
-					state_changeto(CLOSING);
-				break;
-				case SDLK_v:
-					lines = !lines;
-				break;
-				case SDLK_m:
-					takeinput = !takeinput;
-				break;
-				case SDLK_p:
-					pp = !pp;
-					if(!pp)
-					{
-						glBindFramebuffer(GL_FRAMEBUFFER, 0);
-						glEnable(GL_DEPTH_TEST);
-						glUseProgram(drawprogram);
-					}
-				break;
-
-			}
-		}
-		else if(e.type == SDL_MOUSEBUTTONDOWN)
-		{
-			if(e.button.button == SDL_BUTTON_LEFT)
-			{
-				block_t b;
-				b.id = 2;
-				game_rayadd(posptr, &forwardcamera, b, 1);
-			}
-			else if(e.button.button == SDL_BUTTON_RIGHT)
-			{
-				game_raydel(posptr, &forwardcamera);
-			}
-		}
-		else if(e.type == SDL_WINDOWEVENT)
-		{
-			if(e.window.event == SDL_WINDOWEVENT_RESIZED)
-			{
-				updatewindowbounds(e.window.data1, e.window.data2);
-				windoww = e.window.data1;
-				windowh = e.window.data2;
-				centermouse();
-
-				glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
-
-				glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_FLOAT, 0);
-
-				glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-
-				if(!pp)
-					glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			}
-		}
-	}
 
 	vec3_t delta = {0,0,0};
 	if(keyboard[SDL_SCANCODE_W])
@@ -264,10 +198,82 @@ input(uint32_t dt)
 		entity_move(pos, &delta);
 	}
 
-	//TODO: recalculate insstead of add
-	forwardcamera.x += posptr->x;
-	forwardcamera.y += posptr->y;
-	forwardcamera.z += posptr->z;
+	headpos = *posptr;
+	headpos.y += 1.8;
+
+	SDL_Event e;
+	while(SDL_PollEvent(&e))
+	{
+		if(e.type == SDL_QUIT)
+			state_changeto(CLOSING);
+
+		if(e.type == SDL_KEYDOWN)
+		{
+			switch(e.key.keysym.sym)
+			{
+				case SDLK_ESCAPE:
+					state_changeto(CLOSING);
+				break;
+				case SDLK_v:
+					lines = !lines;
+				break;
+				case SDLK_m:
+					takeinput = !takeinput;
+				break;
+				case SDLK_c:
+					printf("Coords x: %f y: %f z: %f \n", posptr->x, posptr->y, posptr->z);
+				break;
+				case SDLK_p:
+					pp = !pp;
+					if(!pp)
+					{
+						glBindFramebuffer(GL_FRAMEBUFFER, 0);
+						glEnable(GL_DEPTH_TEST);
+						glUseProgram(drawprogram);
+					}
+				break;
+
+			}
+		}
+		else if(e.type == SDL_MOUSEBUTTONDOWN)
+		{
+			if(e.button.button == SDL_BUTTON_LEFT)
+			{
+				block_t b;
+				b.id = 2;
+				game_rayadd(&headpos, &forwardcamera, b, 1);
+			}
+			else if(e.button.button == SDL_BUTTON_RIGHT)
+			{
+				game_raydel(&headpos, &forwardcamera);
+			}
+		}
+		else if(e.type == SDL_WINDOWEVENT)
+		{
+			if(e.window.event == SDL_WINDOWEVENT_RESIZED)
+			{
+				updatewindowbounds(e.window.data1, e.window.data2);
+				windoww = e.window.data1;
+				windowh = e.window.data2;
+				centermouse();
+
+				glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
+
+				glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_FLOAT, 0);
+
+				glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+
+				if(!pp)
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+		}
+	}
+
+	forwardcamera.x += headpos.x;
+	forwardcamera.y += headpos.y;
+	forwardcamera.z += headpos.z;
 }
 
 void
@@ -287,7 +293,7 @@ render(uint32_t dt)
 	input(dt);
 
 	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 3000, .1);
-	mat4_t view = getviewmatrix(*posptr, forwardcamera, up);
+	mat4_t view = getviewmatrix(headpos, forwardcamera, up);
 
 	mat4_t mvp;
 	dotmat4mat4(&mvp, &projection, &view);

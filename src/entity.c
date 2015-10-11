@@ -4,6 +4,9 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "block.h"
+#include "world.h"
+
 struct entity_s {
 	vec3_t pos;
 	double w;
@@ -56,6 +59,12 @@ entity_getposptr(entity_t *entity)
 	return &(entity->pos);
 }
 
+int
+iscolliding(entity_t *entity)
+{
+	return 0;
+}
+
 void
 entity_move(entity_t *entity, vec3_t *delta)
 {
@@ -64,34 +73,118 @@ entity_move(entity_t *entity, vec3_t *delta)
 	entity->pos.y += delta->y;
 	entity->pos.z += delta->z;
 
-	double a = floor(startpos.x);
-	double b = floor(entity->pos.x);
+	double halfw = entity->w / 2;
+
+	long a = floor(startpos.x + halfw);
+	long b = floor(entity->pos.x + halfw);
 	if(a < b)
 	{
-		printf("x inc\n");
-	} else if(b < a)
+//		printf("x inc\n");
+		long y, z;
+		for(y = floor(entity->pos.y); y < entity->pos.y + entity->h; y++)
+		{
+			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
+			{
+				if(block_issolid(world_getblock(b, y, z, 0)))
+				{
+					entity->pos.x = b - halfw -.01;
+					break;
+				}
+			}
+		}
+
+	}
+	a = floor(startpos.x - halfw);
+	b = floor(entity->pos.x - halfw);
+	if(b < a)
 	{
-		printf("x dec\n");
+//		printf("x dec\n");
+		long y, z;
+		for(y = floor(entity->pos.y); y < entity->pos.y + entity->h; y++)
+		{
+			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
+			{
+				if(block_issolid(world_getblock(b, y, z, 0)))
+				{
+					entity->pos.x = b + 1 + halfw + .01;
+					break;
+				}
+			}
+		}
 	}
 
+	a = floor(startpos.y + entity->h);
+	b = floor(entity->pos.y + entity->h);
+	if(a < b)
+	{
+//		printf("y inc\n");
+		long x, z;
+		for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
+		{
+			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
+			{
+				if(block_issolid(world_getblock(x, b, z, 0)))
+				{
+					entity->pos.y = b - entity->h - .01;
+					break;
+				}
+			}
+		}
+	}
 	a = floor(startpos.y);
 	b = floor(entity->pos.y);
-	if(a < b)
+	if(b < a)
 	{
-		printf("y inc\n");
-	} else if(b < a)
-	{
-		printf("y dec\n");
+//		printf("y dec\n");
+		long x, z;
+		for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
+		{
+			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
+			{
+				if(block_issolid(world_getblock(x, b, z, 0)))
+				{
+					entity->pos.y = b + 1;
+					break;
+				}
+			}
+		}
 	}
 
-	a = floor(startpos.z);
-	b = floor(entity->pos.z);
+	a = floor(startpos.z + halfw);
+	b = floor(entity->pos.z + halfw);
 	if(a < b)
 	{
-		printf("z inc\n");
-	} else if(b < a)
+//		printf("z inc\n");
+		long x, y;
+		for(y = floor(entity->pos.y); y < entity->pos.y + entity->h; y++)
+		{
+			for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
+			{
+				if(block_issolid(world_getblock(x, y, b, 0)))
+				{
+					entity->pos.z = b - halfw - .01;
+					break;
+				}
+			}
+		}
+	}
+	a = floor(startpos.z - halfw);
+	b = floor(entity->pos.z - halfw);
+	if(b < a)
 	{
-		printf("z dec\n");
+//		printf("z dec\n");
+		long x, y;
+		for(y = floor(entity->pos.y); y < entity->pos.y + entity->h; y++)
+		{
+			for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
+			{
+				if(block_issolid(world_getblock(x, y, b, 0)))
+				{
+					entity->pos.z = b + 1 + halfw + .01;
+					break;
+				}
+			}
+		}
 	}
 }
 
