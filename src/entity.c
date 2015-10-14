@@ -13,6 +13,7 @@ struct entity_s {
 	double h;
 
 	vec3_t velocities;
+	vec3_t friction;
 };
 
 entity_t *
@@ -21,6 +22,7 @@ entity_create(double x, double y, double z, double w, double h)
 	entity_t *entity = malloc(sizeof(entity_t));
 
 	vec3_t pos = {x,y,z};
+
 	entity->pos = pos;
 	entity->w = w;
 	entity->h = h;
@@ -39,6 +41,12 @@ entity_setsize(entity_t *entity, double width, double height)
 {
 	entity->w = width;
 	entity->h = height;
+}
+
+void
+entity_setfriction(entity_t *entity, vec3_t f)
+{
+	entity->friction = f;
 }
 
 void
@@ -65,12 +73,14 @@ iscolliding(entity_t *entity)
 	return 0;
 }
 
-void
-entity_move(entity_t *entity, vec3_t *delta)
+vec3_t
+move(entity_t *entity, vec3_t *delta)
 {
 	vec3_t startpos = entity->pos;
 	double halfw = entity->w / 2.0;
 	long a, b;
+
+	vec3_t friction = {0,0,0};
 
 	entity->pos.x += delta->x;
 	a = floor(startpos.x + halfw);
@@ -87,6 +97,8 @@ entity_move(entity_t *entity, vec3_t *delta)
 				{
 					entity->pos.x = b - halfw -.01;
 					entity->velocities.x = 0;
+					friction.y += entity->friction.y;
+					friction.z += entity->friction.z;
 					break;
 				}
 			}
@@ -107,6 +119,8 @@ entity_move(entity_t *entity, vec3_t *delta)
 				{
 					entity->pos.x = b + 1 + halfw + .01;
 					entity->velocities.x = 0;
+					friction.y += entity->friction.y;
+					friction.z += entity->friction.z;
 					break;
 				}
 			}
@@ -128,6 +142,8 @@ entity_move(entity_t *entity, vec3_t *delta)
 				{
 					entity->pos.y = b - entity->h - .01;
 					entity->velocities.y = 0;
+					friction.x += entity->friction.x;
+					friction.z += entity->friction.z;
 					break;
 				}
 			}
@@ -147,6 +163,8 @@ entity_move(entity_t *entity, vec3_t *delta)
 				{
 					entity->pos.y = b + 1;
 					entity->velocities.y = 0;
+					friction.x += entity->friction.x;
+					friction.z += entity->friction.z;
 					break;
 				}
 			}
@@ -168,6 +186,8 @@ entity_move(entity_t *entity, vec3_t *delta)
 				{
 					entity->pos.z = b - halfw - .01;
 					entity->velocities.z = 0;
+					friction.x += entity->friction.x;
+					friction.z += entity->friction.y;
 					break;
 				}
 			}
@@ -187,11 +207,21 @@ entity_move(entity_t *entity, vec3_t *delta)
 				{
 					entity->pos.z = b + 1 + halfw + .01;
 					entity->velocities.z = 0;
+					friction.x += entity->friction.x;
+					friction.z += entity->friction.y;
 					break;
 				}
 			}
 		}
 	}
+
+	return friction;
+}
+
+void
+entity_move(entity_t *entity, vec3_t *delta)
+{
+	move(entity, delta);
 }
 
 void
