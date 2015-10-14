@@ -109,12 +109,18 @@ state_game_init()
 	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		fail("Bad Framebuffer");
 
-	pos = entity_create(0, 0 , 0, .8, 1.9);
-	posptr = entity_getposptr(pos);
+	
 	rotx = 0;
 	roty = 0;
-	world_init(entity_getpos(pos));
-
+	vec3_t zero = {0, 0, 0};
+	world_init(zero);
+	int spawnheight;
+	for(spawnheight = 0; block_issolid(world_getblock(0, spawnheight, 0, 0)); spawnheight++)
+	{
+		printf("%i\n", spawnheight);
+	}
+	pos = entity_create(0, spawnheight, 0, .8, 1.9);
+	posptr = entity_getposptr(pos);
 	centermouse();
 	SDL_ShowCursor(0);
 }
