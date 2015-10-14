@@ -11,13 +11,14 @@ struct entity_s {
 	vec3_t pos;
 	double w;
 	double h;
-
-	vec3_t velocities;
+	vec3_t velocity;
 	vec3_t friction;
+	vec3_t workingfrict;
+	double m;
 };
 
 entity_t *
-entity_create(double x, double y, double z, double w, double h)
+entity_create(double x, double y, double z, double w, double h, double m)
 {
 	entity_t *entity = malloc(sizeof(entity_t));
 
@@ -26,6 +27,7 @@ entity_create(double x, double y, double z, double w, double h)
 	entity->pos = pos;
 	entity->w = w;
 	entity->h = h;
+	entity->m = 1;
 
 	return entity;
 }
@@ -89,19 +91,24 @@ move(entity_t *entity, vec3_t *delta)
 	{
 //		printf("x inc\n");
 		long y, z;
+		int flag = 0;
 		for(y = floor(entity->pos.y); y < entity->pos.y + entity->h; y++)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
 				if(block_issolid(world_getblock(b, y, z, 0)))
 				{
-					entity->pos.x = b - halfw -.01;
-					entity->velocities.x = 0;
-					friction.y += entity->friction.y;
-					friction.z += entity->friction.z;
+					entity->pos.x = b - halfw -.0001;
+					entity->velocity.x = 0;
+					flag = 1;
 					break;
 				}
 			}
+		}
+		if(flag)
+		{
+			friction.y += 1;
+			friction.z += 1;
 		}
 
 	}
@@ -111,19 +118,25 @@ move(entity_t *entity, vec3_t *delta)
 	{
 //		printf("x dec\n");
 		long y, z;
+		
+		int flag = 0;
 		for(y = floor(entity->pos.y); y < entity->pos.y + entity->h; y++)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
 				if(block_issolid(world_getblock(b, y, z, 0)))
 				{
-					entity->pos.x = b + 1 + halfw + .01;
-					entity->velocities.x = 0;
-					friction.y += entity->friction.y;
-					friction.z += entity->friction.z;
+					entity->pos.x = b + 1 + halfw + .0001;
+					entity->velocity.x = 0;
+					flag = 1;
 					break;
 				}
 			}
+		}
+		if(flag)
+		{
+			friction.y += 1;
+			friction.z += 1;
 		}
 	}
 
@@ -134,19 +147,24 @@ move(entity_t *entity, vec3_t *delta)
 	{
 //		printf("y inc\n");
 		long x, z;
+		int flag = 0;
 		for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
 				if(block_issolid(world_getblock(x, b, z, 0)))
 				{
-					entity->pos.y = b - entity->h - .01;
-					entity->velocities.y = 0;
-					friction.x += entity->friction.x;
-					friction.z += entity->friction.z;
+					entity->pos.y = b - entity->h - .0001;
+					entity->velocity.y = 0;
+					flag = 1;
 					break;
 				}
 			}
+		}
+		if(flag)
+		{
+			friction.x += 1;
+			friction.z += 1;
 		}
 	}
 	a = floor(startpos.y);
@@ -155,6 +173,8 @@ move(entity_t *entity, vec3_t *delta)
 	{
 //		printf("y dec\n");
 		long x, z;
+		
+		int flag = 0;
 		for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
@@ -162,12 +182,16 @@ move(entity_t *entity, vec3_t *delta)
 				if(block_issolid(world_getblock(x, b, z, 0)))
 				{
 					entity->pos.y = b + 1;
-					entity->velocities.y = 0;
-					friction.x += entity->friction.x;
-					friction.z += entity->friction.z;
+					entity->velocity.y = 0;
+					flag = 1;
 					break;
 				}
 			}
+		}
+		if(flag)
+		{
+			friction.x += 1;
+			friction.z += 1;
 		}
 	}
 
@@ -178,19 +202,25 @@ move(entity_t *entity, vec3_t *delta)
 	{
 //		printf("z inc\n");
 		long x, y;
+		
+		int flag = 0;
 		for(y = floor(entity->pos.y); y < entity->pos.y + entity->h; y++)
 		{
 			for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
 			{
 				if(block_issolid(world_getblock(x, y, b, 0)))
 				{
-					entity->pos.z = b - halfw - .01;
-					entity->velocities.z = 0;
-					friction.x += entity->friction.x;
-					friction.z += entity->friction.y;
+					entity->pos.z = b - halfw - .0001;
+					entity->velocity.z = 0;
+					flag = 1;
 					break;
 				}
 			}
+		}
+		if(flag)
+		{
+			friction.x += 1;
+			friction.y += 1;
 		}
 	}
 	a = floor(startpos.z - halfw);
@@ -199,20 +229,35 @@ move(entity_t *entity, vec3_t *delta)
 	{
 //		printf("z dec\n");
 		long x, y;
+		
+		int flag = 0;
 		for(y = floor(entity->pos.y); y < entity->pos.y + entity->h; y++)
 		{
 			for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
 			{
 				if(block_issolid(world_getblock(x, y, b, 0)))
 				{
-					entity->pos.z = b + 1 + halfw + .01;
-					entity->velocities.z = 0;
-					friction.x += entity->friction.x;
-					friction.z += entity->friction.y;
+					entity->pos.z = b + 1 + halfw + .0001;
+					entity->velocity.z = 0;
+					flag = 1;
 					break;
 				}
 			}
 		}
+		if(flag)
+		{
+			friction.x += 1;
+			friction.y += 1;
+		}
+	}
+	
+	double mag = sqrt(friction.x*friction.x + friction.y*friction.y + friction.z*friction.z);
+	
+	if(mag)
+	{
+		friction.x *= entity->friction.x/mag;
+		friction.y *= entity->friction.y/mag;
+		friction.z *= entity->friction.z/mag;
 	}
 
 	return friction;
@@ -227,4 +272,47 @@ entity_move(entity_t *entity, vec3_t *delta)
 void
 entity_update(entity_t *entity, vec3_t *forces, double dt)
 {
+	entity->velocity.x += forces->x*dt/entity->m;
+	entity->velocity.y += (forces->y/entity->m-9.8)*dt;
+	entity->velocity.z += forces->z*dt/entity->m;
+	
+	vec3_t delta;
+	delta.x = entity->velocity.x*dt;
+	delta.y = entity->velocity.y*dt;
+	delta.z = entity->velocity.z*dt;
+	
+	if(entity->velocity.x > 0)
+	{
+		entity->velocity.x -= entity->workingfrict.x*dt;
+		entity->velocity.x = entity->velocity.x < 0 ? 0 : entity->velocity.x;
+	}
+	if(entity->velocity.x < 0)
+	{
+		entity->velocity.x += entity->workingfrict.x*dt;
+		entity->velocity.x = entity->velocity.x > 0 ? 0 : entity->velocity.x;
+	}
+	
+	if(entity->velocity.y > 0)
+	{
+		entity->velocity.y -= entity->workingfrict.y*dt;
+		entity->velocity.y = entity->velocity.y < 0 ? 0 : entity->velocity.y;
+	}
+	if(entity->velocity.y < 0)
+	{
+		entity->velocity.y += entity->workingfrict.y*dt;
+		entity->velocity.y = entity->velocity.y > 0 ? 0 : entity->velocity.y;
+	}
+	
+	if(entity->velocity.z > 0)
+	{
+		entity->velocity.z -= entity->workingfrict.z*dt;
+		entity->velocity.z = entity->velocity.z < 0 ? 0 : entity->velocity.z;
+	}
+	if(entity->velocity.z < 0)
+	{
+		entity->velocity.z += entity->workingfrict.z*dt;
+		entity->velocity.z = entity->velocity.z > 0 ? 0 : entity->velocity.z;
+	}
+	
+	entity->workingfrict = move(entity, &delta);
 }

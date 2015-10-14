@@ -9,5 +9,6 @@
 #define DIAMONDSQUARELEVELS 4
 
 #define SPEED 6
+#define FORCE 30
 
 #endif //DEFINES_H

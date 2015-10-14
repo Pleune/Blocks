@@ -12,6 +12,7 @@
 #include "debug.h"
 #include "defines.h"
 #include "entity.h"
+#include "worldgen.h"
 
 int windoww, windowh;
 
@@ -47,6 +48,7 @@ float rotx, roty;
 int lines = 0;
 int pp = 1;
 int takeinput = 1;
+int flying = 1;
 
 void
 state_game_init()
@@ -114,13 +116,11 @@ state_game_init()
 	roty = 0;
 	vec3_t zero = {0, 0, 0};
 	world_init(zero);
-	int spawnheight;
-	for(spawnheight = 0; block_issolid(world_getblock(0, spawnheight, 0, 0)); spawnheight++)
-	{
-		printf("%i\n", spawnheight);
-	}
-	pos = entity_create(0, spawnheight, 0, .8, 1.9);
+	int spawnheight = worldgen_getheightfrompos(0, 0)+1;
+	pos = entity_create(0, spawnheight, 0, .8, 1.9, 30);
 	posptr = entity_getposptr(pos);
+	vec3_t friction = {27, 27, 27};
+	entity_setfriction(pos, friction);
 	centermouse();
 	SDL_ShowCursor(0);
 }
@@ -165,45 +165,90 @@ input(uint32_t dt)
 	forwardmovement.y = -cos(rotx);
 
 	vec3_t delta = {0,0,0};
-	if(keyboard[SDL_SCANCODE_W])
+	if(keyboard[SDL_SCANCODE_F])
 	{
-		delta.x = SPEED * forwardmovement.x * (dt / 1000.0);
-		delta.z = SPEED * forwardmovement.y * (dt / 1000.0);
-		entity_move(pos, &delta);
+		flying = !flying;
 	}
-	if(keyboard[SDL_SCANCODE_A])
+	if(keyboard[SDL_SCANCODE_T])
 	{
-		delta.x = SPEED * forwardmovement.y * (dt / 1000.0);
-		delta.z = -SPEED * forwardmovement.x * (dt / 1000.0);
-		entity_move(pos, &delta);
+		vec3_t top = *posptr;
+		top.y = worldgen_getheightfrompos(posptr->x, posptr->z)+1;
+		entity_setpos(pos, top);
 	}
-	if(keyboard[SDL_SCANCODE_S])
+	
+	if(flying)
 	{
-		delta.x = -SPEED * forwardmovement.x * (dt / 1000.0);
-		delta.z = -SPEED * forwardmovement.y * (dt / 1000.0);
-		entity_move(pos, &delta);
+		if(keyboard[SDL_SCANCODE_W])
+		{
+			delta.x = SPEED * forwardmovement.x * (dt / 1000.0);
+			delta.z = SPEED * forwardmovement.y * (dt / 1000.0);
+			entity_move(pos, &delta);
+		}
+		if(keyboard[SDL_SCANCODE_A])
+		{
+			delta.x = SPEED * forwardmovement.y * (dt / 1000.0);
+			delta.z = -SPEED * forwardmovement.x * (dt / 1000.0);
+			entity_move(pos, &delta);
+		}
+		if(keyboard[SDL_SCANCODE_S])
+		{
+			delta.x = -SPEED * forwardmovement.x * (dt / 1000.0);
+			delta.z = -SPEED * forwardmovement.y * (dt / 1000.0);
+			entity_move(pos, &delta);
+		}
+		if(keyboard[SDL_SCANCODE_D])
+		{
+			delta.x = -SPEED * forwardmovement.y * (dt / 1000.0);
+			delta.z = +SPEED * forwardmovement.x * (dt / 1000.0);
+			entity_move(pos, &delta);
+		}
+		if(keyboard[SDL_SCANCODE_LSHIFT])
+		{
+			delta.x = 0;
+			delta.y = -SPEED * (dt / 1000.0);
+			delta.z = 0;
+			entity_move(pos, &delta);
+		}
+		if(keyboard[SDL_SCANCODE_SPACE])
+		{
+			delta.x = 0;
+			delta.y = SPEED * (dt / 1000.0);
+			delta.z = 0;
+			entity_move(pos, &delta);
+		}
 	}
-	if(keyboard[SDL_SCANCODE_D])
+	else
 	{
-		delta.x = -SPEED * forwardmovement.y * (dt / 1000.0);
-		delta.z = +SPEED * forwardmovement.x * (dt / 1000.0);
-		entity_move(pos, &delta);
+		vec3_t forces = {0, 0, 0};
+		if(keyboard[SDL_SCANCODE_W])
+		{
+			forces.x += FORCE * forwardmovement.x;
+			forces.z += FORCE * forwardmovement.y;
+		}
+		if(keyboard[SDL_SCANCODE_A])
+		{
+			forces.x += FORCE * forwardmovement.y;
+			forces.z += -FORCE * forwardmovement.x;
+		}
+		if(keyboard[SDL_SCANCODE_S])
+		{
+			forces.x += -SPEED * forwardmovement.x;
+			forces.z += -SPEED * forwardmovement.y;
+		}
+		if(keyboard[SDL_SCANCODE_D])
+		{
+			forces.x += -FORCE * forwardmovement.y;
+			forces.z += +FORCE * forwardmovement.x;
+		}
+		if(keyboard[SDL_SCANCODE_SPACE])
+		{
+			forces.y += 13;
+		}
+		entity_update(pos, &forces, dt/1000.0);
 	}
-	if(keyboard[SDL_SCANCODE_LSHIFT])
-	{
-		delta.x = 0;
-		delta.y = -SPEED * (dt / 1000.0);
-		delta.z = 0;
-		entity_move(pos, &delta);
-	}
-	if(keyboard[SDL_SCANCODE_SPACE])
-	{
-		delta.x = 0;
-		delta.y = SPEED * (dt / 1000.0);
-		delta.z = 0;
-		entity_move(pos, &delta);
-	}
+	
 
+	
 	headpos = *posptr;
 	headpos.y += 1.8;
 
