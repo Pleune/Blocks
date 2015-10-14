@@ -7,6 +7,7 @@
 #include "custommath.h"
 #include "block.h"
 #include "cat.h"
+#include "modulo.h"
 
 #define CHUNKSIZE (int) CAT(0x1p, CHUNKLEVELS)
 
@@ -32,5 +33,25 @@ void chunk_freechunk(chunk_t *chunk);
 
 int chunk_reloadchunk(long3_t pos, chunk_t *chunk);
 void chunk_zerochunk(chunk_t *chunk);
+
+static inline long3_t
+chunk_getchunkofspot(long x, long y, long z)
+{
+	long3_t chunkpos;
+	chunkpos.x = floor((double)x / CHUNKSIZE);
+	chunkpos.y = floor((double)y / CHUNKSIZE);
+	chunkpos.z = floor((double)z / CHUNKSIZE);
+	return chunkpos;
+}
+
+static inline int3_t
+chunk_getinternalspotofspot(long x, long y, long z)
+{
+	int3_t blockpos;
+	blockpos.x = MODULO(x, CHUNKSIZE);
+	blockpos.y = MODULO(y, CHUNKSIZE);
+	blockpos.z = MODULO(z, CHUNKSIZE);
+	return blockpos;
+}
 
 #endif //CHUNK_H

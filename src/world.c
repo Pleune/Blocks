@@ -27,26 +27,6 @@ struct {
 } data[WORLDSIZE][WORLDSIZE][WORLDSIZE];
 
 static inline int3_t
-getinternalspotofspot(long x, long y, long z)
-{
-	int3_t blockpos;
-	blockpos.x = MODULO(x, CHUNKSIZE);
-	blockpos.y = MODULO(y, CHUNKSIZE);
-	blockpos.z = MODULO(z, CHUNKSIZE);
-	return blockpos;
-}
-
-static inline long3_t
-getchunkofspot(long x, long y, long z)
-{
-	long3_t chunkpos;
-	chunkpos.x = floor((double)x / CHUNKSIZE);
-	chunkpos.y = floor((double)y / CHUNKSIZE);
-	chunkpos.z = floor((double)z / CHUNKSIZE);
-	return chunkpos;
-}
-
-static inline int3_t
 getchunkindexofchunk(long3_t pos)
 {
 	int3_t icpo = {
@@ -79,7 +59,7 @@ isquickloaded(long3_t pos, int3_t *chunkindex)
 static void
 setworldcenter(vec3_t pos)
 {
-	worldcenter = getchunkofspot(pos.x, pos.y, pos.z);
+	worldcenter = chunk_getchunkofspot(pos.x, pos.y, pos.z);
 	worldscope.x = worldcenter.x - WORLDSIZE/2;
 	worldscope.y = worldcenter.y - WORLDSIZE/2;
 	worldscope.z = worldcenter.z - WORLDSIZE/2;
@@ -354,8 +334,8 @@ world_render(vec3_t pos)
 block_t
 world_getblock(long x, long y, long z, int loadnew)
 {
-	long3_t cpos = getchunkofspot(x, y, z);
-	int3_t internalpos = getinternalspotofspot(x,y,z);
+	long3_t cpos = chunk_getchunkofspot(x, y, z);
+	int3_t internalpos = chunk_getinternalspotofspot(x,y,z);
 
 	int3_t icpo;
 
@@ -370,8 +350,8 @@ world_getblock(long x, long y, long z, int loadnew)
 int
 world_setblock(long x, long y, long z, block_t block, int loadnew, int instant)
 {
-	long3_t cpos = getchunkofspot(x, y, z);
-	int3_t internalpos = getinternalspotofspot(x, y, z);
+	long3_t cpos = chunk_getchunkofspot(x, y, z);
+	int3_t internalpos = chunk_getinternalspotofspot(x, y, z);
 
 	int3_t chunkindex;
 	if(isquickloaded(cpos, &chunkindex))

@@ -9,6 +9,11 @@
 
 #define DIAMONDSQUARESIZE (int) CAT(0x1p, DIAMONDSQUARELEVELS)
 
+long3_t lastchunkblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
+long3_t lastdiasquareblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
+double heightmap[(CHUNKSIZE+1)*(CHUNKSIZE+1)];
+double metaheightmap[(DIAMONDSQUARESIZE+1)*(DIAMONDSQUARESIZE+1)];
+
 uint32_t hash( uint32_t a)
 {
 	a = (a+0x7ed55d16) + (a<<12);
@@ -99,27 +104,19 @@ pound(double *data, size_t size, long3_t pos, uint32_t seed, int scale, int leve
 	}
 }
 
-	void
-worldgen_genchunk(chunk_t *chunk)
+long3_t
+setheightmapfromcpos(long3_t cpos)
 {
 	uint32_t seed = world_getseed();
 
-	static long3_t lastchunkblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
-	long3_t cpos = chunk_getpos(chunk);
-	long3_t newchunkblockpos = chunk_getpos(chunk);
+	long3_t newchunkblockpos = cpos;
 	newchunkblockpos.x = cpos.x * CHUNKSIZE;
 	newchunkblockpos.y = cpos.y * CHUNKSIZE;
 	newchunkblockpos.z = cpos.z * CHUNKSIZE;
 
-	static double heightmap[(CHUNKSIZE+1)*(CHUNKSIZE+1)];
-
 	if(lastchunkblockpos.x != newchunkblockpos.x || lastchunkblockpos.z != newchunkblockpos.z || (lastchunkblockpos.x == LONG_MAX || lastchunkblockpos.z == LONG_MAX))
 	{
 		lastchunkblockpos = newchunkblockpos;
-
-		static double metaheightmap[(DIAMONDSQUARESIZE+1)*(DIAMONDSQUARESIZE+1)];
-
-		static long3_t lastdiasquareblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
 		long3_t newdiasquareblockpos = {
 			floor((double)cpos.x / (double)DIAMONDSQUARESIZE) * DIAMONDSQUARESIZE * CHUNKSIZE,
 			floor((double)cpos.y / (double)DIAMONDSQUARESIZE) * DIAMONDSQUARESIZE * CHUNKSIZE,
@@ -156,6 +153,22 @@ worldgen_genchunk(chunk_t *chunk)
 		pound(heightmap, CHUNKSIZE+1, newchunkblockpos, seed, 1, CHUNKLEVELS);
 		bias(heightmap);
 	}
+	return newchunkblockpos;
+}
+
+double
+getheightval(long x, long z)
+{
+	return (heightmap[x+1 + z*(CHUNKSIZE+1)] +
+						heightmap[x + z*(CHUNKSIZE+1)] +
+						heightmap[x+1 + (z+1)*(CHUNKSIZE+1)] +
+						heightmap[x + (z+1)*(CHUNKSIZE+1)]) / 4.0;
+}
+
+void
+worldgen_genchunk(chunk_t *chunk)
+{
+	long3_t newchunkblockpos = setheightmapfromcpos(chunk_getpos(chunk));
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; x++)
@@ -164,10 +177,7 @@ worldgen_genchunk(chunk_t *chunk)
 		{
 			for(y=0; y<CHUNKSIZE; y++)
 			{
-				double height = (heightmap[x+1 + z*(CHUNKSIZE+1)] +
-						heightmap[x + z*(CHUNKSIZE+1)] +
-						heightmap[x+1 + (z+1)*(CHUNKSIZE+1)] +
-						heightmap[x + (z+1)*(CHUNKSIZE+1)]) / 4.0;
+				double height = getheightval(x,z);
 				int32_t blockheight = y + newchunkblockpos.y;
 				if(blockheight < height - 3)
 					chunk_setblockid(chunk, x, y, z, STONE);
@@ -185,3 +195,10 @@ worldgen_genchunk(chunk_t *chunk)
 	}
 }
 
+long
+worldgen_getheightfrompos(long x, long z)
+{
+	setheightmapfromcpos(chunk_getchunkofspot(x,0,z));
+	int3_t internalpos = chunk_getinternalspotofspot(x,0,z);
+	return floor(getheightval(internalpos.x, internalpos.z));
+}
