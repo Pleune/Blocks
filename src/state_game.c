@@ -111,7 +111,7 @@ state_game_init()
 	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		fail("Bad Framebuffer");
 
-	
+
 	rotx = 0;
 	roty = 0;
 	vec3_t zero = {0, 0, 0};
@@ -165,7 +165,7 @@ input(uint32_t dt)
 	forwardmovement.y = -cos(rotx);
 
 	vec3_t delta = {0,0,0};
-	
+
 	if(flying)
 	{
 		if(keyboard[SDL_SCANCODE_W])
@@ -232,9 +232,9 @@ input(uint32_t dt)
 		}
 		entity_update(pos, &forces, dt/1000.0);
 	}
-	
 
-	
+
+
 	headpos = *posptr;
 	headpos.y += 1.8;
 
@@ -252,7 +252,7 @@ input(uint32_t dt)
 					state_changeto(CLOSING);
 				break;
 				case SDLK_SPACE:
-					entity_jump(pos, 10);
+					entity_jump(pos, JUMPSPEED);
 				break;
 				case SDLK_v:
 					lines = !lines;

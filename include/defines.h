@@ -10,6 +10,8 @@
 
 #define SPEED 6
 #define FORCE 50
+#define GRAVITY 20
+#define JUMPSPEED 7
 #define MOUSE_SENSITIVITY 3.0
 
 #endif //DEFINES_H

@@ -15,6 +15,7 @@ struct entity_s {
 	vec3_t velocity;
 	vec3_t friction;
 	double m;
+	uint8_t hasjumped;
 };
 
 entity_t *
@@ -28,6 +29,7 @@ entity_create(double x, double y, double z, double w, double h, double m)
 	entity->w = w;
 	entity->h = h;
 	entity->m = 1;
+	entity->hasjumped=0;
 
 	return entity;
 }
@@ -78,7 +80,10 @@ iscolliding(entity_t *entity)
 void
 entity_jump(entity_t *entity, double y)
 {
+	if(entity->hasjumped)
+		return;
 	entity->velocity.y = y;
+	entity->hasjumped=1;
 }
 
 void
@@ -159,6 +164,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 				{
 					entity->pos.y = b + 1;
 					entity->velocity.y = 0;
+					entity->hasjumped=0;
 					break;
 				}
 			}
@@ -208,7 +214,7 @@ void
 entity_update(entity_t *entity, vec3_t *forces, double dt)
 {
 	entity->velocity.x += forces->x*dt/entity->m - entity->friction.x*entity->velocity.x;
-	entity->velocity.y += (forces->y/entity->m-25)*dt;
+	entity->velocity.y += (forces->y/entity->m-GRAVITY)*dt;
 	entity->velocity.z += forces->z*dt/entity->m - entity->friction.z*entity->velocity.z;
 	double mag = sqrt(entity->velocity.x*entity->velocity.x + entity->velocity.z*entity->velocity.z);
 	if(mag > SPEED)
@@ -216,9 +222,9 @@ entity_update(entity_t *entity, vec3_t *forces, double dt)
 		entity->velocity.x *= SPEED/mag;
 		entity->velocity.z *= SPEED/mag;
 	}
-	
-	
-	
+
+
+
 	vec3_t delta;
 	delta.x = entity->velocity.x*dt;
 	delta.y = entity->velocity.y*dt;
