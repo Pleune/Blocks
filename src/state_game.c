@@ -48,7 +48,7 @@ float rotx, roty;
 int lines = 0;
 int pp = 1;
 int takeinput = 1;
-int flying = 1;
+int flying = 0;
 
 void
 state_game_init()
@@ -264,10 +264,12 @@ input(uint32_t dt)
 					printf("Coords x: %f y: %f z: %f \n", posptr->x, posptr->y, posptr->z);
 				break;
 				case SDLK_t:
-					//vec3_t top = *posptr;
-					//top.y = worldgen_getheightfrompos(posptr->x, posptr->z)+1;
-					//entity_setpos(pos, top);
+				{
+					vec3_t top = *posptr;
+					top.y = worldgen_getheightfrompos(posptr->x, posptr->z)+1;
+					entity_setpos(pos, top);
 				break;
+				}
 				case SDLK_f:
 					flying = !flying;
 				break;
