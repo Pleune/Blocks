@@ -9,6 +9,7 @@
 #define DIAMONDSQUARELEVELS 4
 
 #define SPEED 6
-#define FORCE 30
+#define FORCE 50
+#define MOUSE_SENSITIVITY 3.0
 
 #endif //DEFINES_H

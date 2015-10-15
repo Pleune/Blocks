@@ -119,7 +119,7 @@ state_game_init()
 	int spawnheight = worldgen_getheightfrompos(0, 0)+1;
 	pos = entity_create(0, spawnheight, 0, .8, 1.9, 30);
 	posptr = entity_getposptr(pos);
-	vec3_t friction = {27, 27, 27};
+	vec3_t friction = {1.0/6.0, 1.0/6.0, 1.0/6.0};
 	entity_setfriction(pos, friction);
 	centermouse();
 	SDL_ShowCursor(0);
@@ -146,8 +146,8 @@ input(uint32_t dt)
 		double deltamousex = mousex - windoww/2;
 		double deltamousey = mousey - windowh/2;
 
-		rotx += deltamousex/800;
-		roty -= deltamousey/800;
+		rotx += MOUSE_SENSITIVITY*deltamousex/800;
+		roty -= MOUSE_SENSITIVITY*deltamousey/800;
 
 		roty = roty > M_PI/2-.005 ? M_PI/2-.005 : roty;
 		roty = roty < -M_PI/2+.005 ? -M_PI/2+.005 : roty;
@@ -165,16 +165,6 @@ input(uint32_t dt)
 	forwardmovement.y = -cos(rotx);
 
 	vec3_t delta = {0,0,0};
-	if(keyboard[SDL_SCANCODE_F])
-	{
-		flying = !flying;
-	}
-	if(keyboard[SDL_SCANCODE_T])
-	{
-		vec3_t top = *posptr;
-		top.y = worldgen_getheightfrompos(posptr->x, posptr->z)+1;
-		entity_setpos(pos, top);
-	}
 	
 	if(flying)
 	{
@@ -232,17 +222,13 @@ input(uint32_t dt)
 		}
 		if(keyboard[SDL_SCANCODE_S])
 		{
-			forces.x += -SPEED * forwardmovement.x;
-			forces.z += -SPEED * forwardmovement.y;
+			forces.x += -FORCE * forwardmovement.x;
+			forces.z += -FORCE * forwardmovement.y;
 		}
 		if(keyboard[SDL_SCANCODE_D])
 		{
 			forces.x += -FORCE * forwardmovement.y;
 			forces.z += +FORCE * forwardmovement.x;
-		}
-		if(keyboard[SDL_SCANCODE_SPACE])
-		{
-			forces.y += 13;
 		}
 		entity_update(pos, &forces, dt/1000.0);
 	}
@@ -265,6 +251,9 @@ input(uint32_t dt)
 				case SDLK_ESCAPE:
 					state_changeto(CLOSING);
 				break;
+				case SDLK_SPACE:
+					entity_jump(pos, 10);
+				break;
 				case SDLK_v:
 					lines = !lines;
 				break;
@@ -273,6 +262,14 @@ input(uint32_t dt)
 				break;
 				case SDLK_c:
 					printf("Coords x: %f y: %f z: %f \n", posptr->x, posptr->y, posptr->z);
+				break;
+				case SDLK_t:
+					//vec3_t top = *posptr;
+					//top.y = worldgen_getheightfrompos(posptr->x, posptr->z)+1;
+					//entity_setpos(pos, top);
+				break;
+				case SDLK_f:
+					flying = !flying;
 				break;
 				case SDLK_p:
 					pp = !pp;

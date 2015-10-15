@@ -18,5 +18,6 @@ const vec3_t *entity_getposptr(entity_t *entity);
 
 void entity_move(entity_t *entity, vec3_t *delta);
 void entity_update(entity_t *entity, vec3_t *forces, double dt);
+void entity_jump(entity_t *entity, double y);
 
 #endif
