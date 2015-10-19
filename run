@@ -1,2 +1,2 @@
-make &&
-bin/blocks
+nix-shell --run make &&
+nix-shell --run 'gdb -ex run -ex quit bin/blocks'

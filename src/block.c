@@ -3,7 +3,7 @@
 int
 block_issolid(block_t b)
 {
-	return b.id != AIR && b.id != ERR;
+	return b.id != AIR;// && b.id != ERR;
 }
 
 vec3_t

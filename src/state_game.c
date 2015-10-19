@@ -36,6 +36,8 @@ struct {
 vec3_t forwardcamera;
 vec3_t headpos;
 
+static uint32_t ticks = 0;
+
 const static vec3_t up = {0,1,0};
 
 int fpscap = 1;
@@ -114,15 +116,19 @@ state_game_init()
 
 	rotx = 0;
 	roty = 0;
-	vec3_t zero = {0, 0, 0};
-	world_init(zero);
-	int spawnheight = worldgen_getheightfrompos(0, 0)+1;
-	pos = entity_create(0, spawnheight, 0, .8, 1.9, 30);
+	world_genseed();
+	long spawnheight = worldgen_getheightfrompos(0, 0)+1.1;
+	printf("h: %li\n", spawnheight);
+	vec3_t spawn = {0.5, spawnheight, 0.5};
+	world_init(spawn);
+	pos = entity_create(spawn.x, spawn.y, spawn.z, .8, 1.9, 30);
 	posptr = entity_getposptr(pos);
-	vec3_t friction = {1.0/6.0, 1.0/6.0, 1.0/6.0};
+	vec3_t friction = {PLAYER_FRICTION,PLAYER_FRICTION,PLAYER_FRICTION};
 	entity_setfriction(pos, friction);
 	centermouse();
 	SDL_ShowCursor(0);
+
+	ticks = SDL_GetTicks();
 }
 
 void
@@ -230,9 +236,20 @@ input(uint32_t dt)
 			forces.x += -FORCE * forwardmovement.y;
 			forces.z += +FORCE * forwardmovement.x;
 		}
-		entity_update(pos, &forces, dt/1000.0);
+		if(dt < 500)
+			entity_update(pos, &forces, dt/1000.0);
 	}
 
+	if(keyboard[SDL_SCANCODE_R])
+	{
+		block_t b;
+		b.id = 2;
+		game_rayadd(&headpos, &forwardcamera, b, 1);
+	}
+	if(keyboard[SDL_SCANCODE_E])
+	{
+		game_raydel(&headpos, &forwardcamera);
+	}
 
 
 	headpos = *posptr;
@@ -390,19 +407,18 @@ render(uint32_t dt)
 void
 state_game_run()
 {
-	static uint32_t ticks = 0;
 	uint32_t newticks = SDL_GetTicks();
-	uint32_t deltatime = ticks ? newticks - ticks : 0;
+	uint32_t dt = ticks ? newticks - ticks : 0;
 	ticks = newticks;
 
 	static uint32_t updatebuild = 0;
-	updatebuild += deltatime;
+	updatebuild += dt;
 	if(updatebuild >= 500)
 	{
 		updatebuild -= 500;
 		update(500);
 	}
-	render(deltatime);
+	render(dt);
 
 	if(fpscap)
 	{
