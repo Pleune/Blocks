@@ -534,8 +534,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	if(chunkwest)
 		unlockRead(chunkwest);
 
-	lockWrite(chunk);
-
 	int w;
 
 	GLuint *finalebodata = (GLuint *)malloc(sizeof(GLuint) * ((long)9999*c + i));
@@ -579,31 +577,30 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 
 	chunk->mesh.uploadnext = 1;
 	chunk->iscurrent = 1;
-
-	unlockWrite(chunk);
 }
 
 void
 chunk_render(chunk_t *chunk)
 {
-	lockWrite(chunk);
 	if(chunk->mesh.uploadnext)
 	{
-		chunk->mesh.uploadnext = 0;
+		if(chunk->mesh.uploadnext)
+		{
+			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
+			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.vbodatasize * sizeof(GLfloat), chunk->mesh.vbodata, GL_STATIC_DRAW);
+			free(chunk->mesh.vbodata);
 
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
-		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.vbodatasize * sizeof(GLfloat), chunk->mesh.vbodata, GL_STATIC_DRAW);
-		free(chunk->mesh.vbodata);
+			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
+			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.ebodatasize * sizeof(GLfloat), chunk->mesh.ebodata, GL_STATIC_DRAW);
+			free(chunk->mesh.ebodata);
 
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
-		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.ebodatasize * sizeof(GLfloat), chunk->mesh.ebodata, GL_STATIC_DRAW);
-		free(chunk->mesh.ebodata);
+			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
+			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.cbodatasize * sizeof(GLfloat), chunk->mesh.cbodata, GL_STATIC_DRAW);
+			free(chunk->mesh.cbodata);
 
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
-		glBufferData(GL_ARRAY_BUFFER, chunk->mesh.cbodatasize * sizeof(GLfloat), chunk->mesh.cbodata, GL_STATIC_DRAW);
-		free(chunk->mesh.cbodata);
+			chunk->mesh.uploadnext = 0;
+		}
 	}
-	unlockWrite(chunk);
 
 	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
 	glVertexAttribPointer(

@@ -2,17 +2,22 @@
 #define DEFINES_H
 
 #define CHUNKLEVELS 4
-#define WORLDSIZE 4
+#define WORLDSIZE 20
 
-#define BUMPYNESS 1
+#define BUMPYNESS 1.3
 
-#define DIAMONDSQUARELEVELS 6
+#define DIAMONDSQUARELEVELS 10
 
 #define SPEED 55
-#define PLAYER_FRICTION (1.0/6.0)
+#define PLAYER_FRICTION 20.0
 #define FORCE 150
 #define GRAVITY 20
 #define JUMPSPEED 7
 #define MOUSE_SENSITIVITY 3.0
+
+#define PLAYER_HEIGHT 3.7
+#define PLAYER_EYEHEIGHT 3.4
+#define PLAYER_MASS 30
+#define PLAYER_WIDTH 1.8
 
 #endif //DEFINES_H

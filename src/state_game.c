@@ -121,7 +121,7 @@ state_game_init()
 	printf("h: %li\n", spawnheight);
 	vec3_t spawn = {0.5, spawnheight, 0.5};
 	world_init(spawn);
-	pos = entity_create(spawn.x, spawn.y, spawn.z, .8, 1.9, 30);
+	pos = entity_create(spawn.x, spawn.y, spawn.z, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MASS);
 	posptr = entity_getposptr(pos);
 	vec3_t friction = {PLAYER_FRICTION,PLAYER_FRICTION,PLAYER_FRICTION};
 	entity_setfriction(pos, friction);
@@ -139,7 +139,6 @@ update(uint32_t dt)
 void
 input(uint32_t dt)
 {
-
 	SDL_PumpEvents();
 
 	const uint8_t *keyboard = SDL_GetKeyboardState(0);
@@ -253,7 +252,7 @@ input(uint32_t dt)
 
 
 	headpos = *posptr;
-	headpos.y += 1.8;
+	headpos.y += PLAYER_EYEHEIGHT;
 
 	SDL_Event e;
 	while(SDL_PollEvent(&e))

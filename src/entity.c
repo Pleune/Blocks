@@ -213,9 +213,9 @@ entity_move(entity_t *entity, vec3_t *delta)
 void
 entity_update(entity_t *entity, vec3_t *forces, double dt)
 {
-	entity->velocity.x += forces->x*dt/entity->m - entity->friction.x*entity->velocity.x;
+	entity->velocity.x += forces->x*dt/entity->m - entity->friction.x*entity->velocity.x*dt;
 	entity->velocity.y += (forces->y/entity->m-GRAVITY)*dt;
-	entity->velocity.z += forces->z*dt/entity->m - entity->friction.z*entity->velocity.z;
+	entity->velocity.z += forces->z*dt/entity->m - entity->friction.z*entity->velocity.z*dt;
 	double mag = sqrt(entity->velocity.x*entity->velocity.x + entity->velocity.z*entity->velocity.z);
 	if(mag > SPEED)
 	{
