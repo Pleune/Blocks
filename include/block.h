@@ -5,9 +5,7 @@
 #include "custommath.h"
 #include "directions.h"
 
-enum block_id {AIR = 0, STONE, DIRT, GRASS, SAND, WATER, ERR};
-
-#define BLOCK_ID_INVALID 255
+enum block_id {AIR = 0, STONE, DIRT, GRASS, SAND, BEDROCK, WATER, ERR};
 
 typedef enum block_id blockid_t;
 
@@ -19,11 +17,14 @@ typedef struct {
 	} metadata;
 } block_t;
 
-struct block_term_t {
-	uint8_t face;
-};
+typedef struct {
+	uint8_t issolid;
+	vec3_t color;
+	char *name;
+} blockdata_t;
 
 int block_issolid(block_t b);
 vec3_t block_getcolor(blockid_t);
+
 
 #endif //BLOCK_H

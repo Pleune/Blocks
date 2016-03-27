@@ -5,7 +5,7 @@
 #include "world.h"
 
 void
-game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int before)
+game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int update, int before)
 {
 	long3_t p;
 	p.x = floorf(start->x);
@@ -92,13 +92,13 @@ game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int bef
 		}
 	}
 	if(!block_issolid(world_getblock(p.x,p.y,p.z,0)) || !block.id)
-		world_setblock(p.x, p.y, p.z, block, 0, 1);
+		world_setblock(p.x, p.y, p.z, block, update, 0, 1);
 }
 
 void
-game_raydel(const vec3_t* start, const vec3_t *direction)
+game_raydel(const vec3_t* start, const vec3_t *direction, int update)
 {
 	block_t b;
 	b.id = 0;
-	game_rayadd(start, direction, b, 0);
+	game_rayadd(start, direction, b, update, 0);
 }

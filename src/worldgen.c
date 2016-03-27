@@ -27,8 +27,7 @@ uint32_t hash( uint32_t a)
 
 uint32_t noise(uint32_t x, uint32_t y, uint32_t seed)
 {
-	return hash(hash(x) ^ hash(y) + seed);
-	//return hash(x + seed) + hash(y + seed + 1073741823);
+	return hash((hash(x) ^ hash(y)) + seed);
 }
 
 /**
@@ -204,8 +203,12 @@ worldgen_genchunk(chunk_t *chunk)
 			{
 				double height = getheightval(x,z);
 				int32_t blockheight = y + newchunkblockpos.y;
-				if(blockheight < height - 3)
+				if(blockheight < height - 100)
+					chunk_setblockid(chunk, x, y, z, BEDROCK);
+				else if(blockheight < height - 20)
 					chunk_setblockid(chunk, x, y, z, STONE);
+				else if(blockheight < height - 3)
+					chunk_setblockid(chunk, x, y, z, DIRT);
 				else if(blockheight < height)
 					if(height < .55)
 						chunk_setblockid(chunk, x, y, z, SAND);
@@ -223,7 +226,7 @@ worldgen_genchunk(chunk_t *chunk)
 long
 worldgen_getheightfrompos(long x, long z)
 {
-	setheightmapfromcpos(chunk_getchunkofspot(x+11,0,z+11));
+	setheightmapfromcpos(chunk_getchunkofspot(x,0,z));
 	int3_t internalpos = chunk_getinternalspotofspot(x,0,z);
 	return floor(getheightval(internalpos.x, internalpos.z));
 }

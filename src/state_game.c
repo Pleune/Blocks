@@ -151,8 +151,8 @@ input(uint32_t dt)
 		double deltamousex = mousex - windoww/2;
 		double deltamousey = mousey - windowh/2;
 
-		rotx += MOUSE_SENSITIVITY*deltamousex/800;
-		roty -= MOUSE_SENSITIVITY*deltamousey/800;
+		rotx += MOUSE_SENSITIVITY*deltamousex;
+		roty -= MOUSE_SENSITIVITY*deltamousey;
 
 		roty = roty > M_PI/2-.005 ? M_PI/2-.005 : roty;
 		roty = roty < -M_PI/2+.005 ? -M_PI/2+.005 : roty;
@@ -243,11 +243,11 @@ input(uint32_t dt)
 	{
 		block_t b;
 		b.id = 2;
-		game_rayadd(&headpos, &forwardcamera, b, 1);
+		game_rayadd(&headpos, &forwardcamera, b, 1, 1);
 	}
 	if(keyboard[SDL_SCANCODE_E])
 	{
-		game_raydel(&headpos, &forwardcamera);
+		game_raydel(&headpos, &forwardcamera, 1);
 	}
 
 
@@ -307,11 +307,11 @@ input(uint32_t dt)
 			{
 				block_t b;
 				b.id = 2;
-				game_rayadd(&headpos, &forwardcamera, b, 1);
+				game_rayadd(&headpos, &forwardcamera, b, 1, 1);
 			}
 			else if(e.button.button == SDL_BUTTON_RIGHT)
 			{
-				game_raydel(&headpos, &forwardcamera);
+				game_raydel(&headpos, &forwardcamera, 1);
 			}
 		}
 		else if(e.type == SDL_WINDOWEVENT)

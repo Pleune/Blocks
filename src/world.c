@@ -290,7 +290,7 @@ world_getblock(long x, long y, long z, int loadnew)
 
 //TODO: loadnew
 int
-world_setblock(long x, long y, long z, block_t block, int loadnew, int instant)
+world_setblock(long x, long y, long z, block_t block, int update, int loadnew, int instant)
 {
 	long3_t cpos = chunk_getchunkofspot(x, y, z);
 	int3_t internalpos = chunk_getinternalspotofspot(x, y, z);
