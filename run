@@ -1,2 +1,11 @@
-nix-shell --run make &&
-nix-shell --run 'gdb -ex run -ex quit bin/blocks'
+if command -v nix-shell; then
+  nix-shell --run make &&
+  nix-shell --run 'gdb -ex run -ex quit bin/blocks'
+else
+  make &&
+  if command -v gdb; then
+    gdb -ex run -ex quit bin/blocks
+  else
+    ./run
+  fi
+fi
