@@ -168,124 +168,48 @@ init(chunk_t *chunk)
 }
 
 void
-chunk_freechunk(chunk_t *chunk)
+chunk_render(chunk_t *chunk)
 {
-	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
-	octree_destroy(chunk->data);
-	SDL_DestroyMutex(chunk->mutex_read);
-	SDL_DestroySemaphore(chunk->sem_write);
-	free(chunk);
-}
-
-chunk_t *
-chunk_loademptychunk(long3_t pos)
-{
-	chunk_t *chunk = malloc(sizeof(chunk_t));
-
-	chunk->pos = pos;
-	chunk->data = octree_create();
-
-	init(chunk);
-
-	return chunk;
-}
-
-chunk_t *
-chunk_loadchunk(long3_t pos)
-{
-	chunk_t *chunk = chunk_loademptychunk(pos);
-
-	worldgen_genchunk(chunk);
-
-	return chunk;//never laods from disk.
-}
-
-int
-chunk_reloadchunk(long3_t pos, chunk_t *chunk)
-{
-	lockWrite(chunk);
-	chunk->pos = pos;
-	octree_zero(chunk->data);
-	unlockWrite(chunk);
-	worldgen_genchunk(chunk);
-	lockWrite(chunk);
-	chunk->iscurrent = 0;
-	unlockWrite(chunk);
-	return 0;//never loads from disk
-}
-
-void
-chunk_zerochunk(chunk_t *chunk)
-{
-	lockWrite(chunk);
-	octree_zero(chunk->data);
-	unlockWrite(chunk);
-}
-
-int
-chunk_iscurrent(chunk_t *chunk)
-{
-	return chunk->iscurrent;
-}
-
-void
-chunk_setnotcurrent(chunk_t *chunk)
-{
-	chunk->iscurrent = 0;
-}
-
-long3_t
-chunk_getpos(chunk_t *chunk)
-{
-	return chunk->pos;
-}
-
-block_t
-chunk_getblock(chunk_t *c, int x, int y, int z)
-{
-	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
+	if(chunk->mesh.uploadnext)
 	{
-		block_t ret;
-		ret.id = ERR;
-		return ret;
+		if(chunk->mesh.uploadnext)
+		{
+			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
+			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.vbodatasize * sizeof(GLfloat), chunk->mesh.vbodata, GL_STATIC_DRAW);
+			free(chunk->mesh.vbodata);
+
+			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
+			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.ebodatasize * sizeof(GLfloat), chunk->mesh.ebodata, GL_STATIC_DRAW);
+			free(chunk->mesh.ebodata);
+
+			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
+			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.cbodatasize * sizeof(GLfloat), chunk->mesh.cbodata, GL_STATIC_DRAW);
+			free(chunk->mesh.cbodata);
+
+			chunk->mesh.uploadnext = 0;
+		}
 	}
 
-	//lockRead(c);
-	block_t ret = octree_get(x, y, z, c->data);
-	//unlockRead(c);
+	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
+	glVertexAttribPointer(
+			0,
+			3,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			0);
 
-	return ret;
-}
+	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
+	glVertexAttribPointer(
+			1,
+			3,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			0);
 
-blockid_t
-chunk_getblockid(chunk_t *c, int x, int y, int z)
-{
-	return chunk_getblock(c, x, y, z).id;
-}
-
-void
-chunk_setblock(chunk_t *c, int x, int y, int z, block_t b)
-{
-	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
-		return;
-
-	lockWrite(c);
-	octree_set(x, y, z, c->data, &b);
-	unlockWrite(c);
-}
-
-void
-chunk_setblockid(chunk_t *c, int x, int y, int z, blockid_t id)
-{
-	block_t b;
-	b.id = id;
-	chunk_setblock(c, x, y, z, b);
-}
-
-void
-chunk_setair(chunk_t *c, int x, int y, int z)
-{
-	chunk_setblockid(c, x, y, z, AIR);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
+	glDrawElements(GL_TRIANGLES, chunk->mesh.points, GL_UNSIGNED_INT, 0);
 }
 
 static inline void
@@ -579,47 +503,131 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	chunk->iscurrent = 1;
 }
 
-void
-chunk_render(chunk_t *chunk)
+int
+chunk_iscurrent(chunk_t *chunk)
 {
-	if(chunk->mesh.uploadnext)
+	return chunk->iscurrent;
+}
+
+void
+chunk_setnotcurrent(chunk_t *chunk)
+{
+	chunk->iscurrent = 0;
+}
+
+block_t
+chunk_getblock(chunk_t *c, int x, int y, int z)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
 	{
-		if(chunk->mesh.uploadnext)
-		{
-			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
-			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.vbodatasize * sizeof(GLfloat), chunk->mesh.vbodata, GL_STATIC_DRAW);
-			free(chunk->mesh.vbodata);
-
-			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
-			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.ebodatasize * sizeof(GLfloat), chunk->mesh.ebodata, GL_STATIC_DRAW);
-			free(chunk->mesh.ebodata);
-
-			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
-			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.cbodatasize * sizeof(GLfloat), chunk->mesh.cbodata, GL_STATIC_DRAW);
-			free(chunk->mesh.cbodata);
-
-			chunk->mesh.uploadnext = 0;
-		}
+		block_t ret;
+		ret.id = ERR;
+		return ret;
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
-	glVertexAttribPointer(
-			0,
-			3,
-			GL_FLOAT,
-			GL_FALSE,
-			0,
-			0);
+	//lockRead(c);
+	block_t ret = octree_get(x, y, z, c->data);
+	//unlockRead(c);
 
-	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
-	glVertexAttribPointer(
-			1,
-			3,
-			GL_FLOAT,
-			GL_FALSE,
-			0,
-			0);
+	return ret;
+}
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
-	glDrawElements(GL_TRIANGLES, chunk->mesh.points, GL_UNSIGNED_INT, 0);
+blockid_t
+chunk_getblockid(chunk_t *c, int x, int y, int z)
+{
+	return chunk_getblock(c, x, y, z).id;
+}
+
+void
+chunk_setblock(chunk_t *c, int x, int y, int z, block_t b)
+{
+	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
+		return;
+
+	lockWrite(c);
+	octree_set(x, y, z, c->data, &b);
+	unlockWrite(c);
+}
+
+void
+chunk_setblockid(chunk_t *c, int x, int y, int z, blockid_t id)
+{
+	block_t b;
+	b.id = id;
+	chunk_setblock(c, x, y, z, b);
+}
+
+void
+chunk_setair(chunk_t *c, int x, int y, int z)
+{
+	chunk_setblockid(c, x, y, z, AIR);
+}
+
+long3_t
+chunk_getpos(chunk_t *chunk)
+{
+	return chunk->pos;
+}
+
+void chunk_updatequeue(int3_t pos, uint8_t time)
+{
+}
+
+void chunk_update_run()
+{
+}
+
+chunk_t *
+chunk_loadchunk(long3_t pos)
+{
+	chunk_t *chunk = chunk_loademptychunk(pos);
+
+	worldgen_genchunk(chunk);
+
+	return chunk;//never laods from disk.
+}
+
+chunk_t *
+chunk_loademptychunk(long3_t pos)
+{
+	chunk_t *chunk = malloc(sizeof(chunk_t));
+
+	chunk->pos = pos;
+	chunk->data = octree_create();
+
+	init(chunk);
+
+	return chunk;
+}
+
+void
+chunk_freechunk(chunk_t *chunk)
+{
+	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
+	octree_destroy(chunk->data);
+	SDL_DestroyMutex(chunk->mutex_read);
+	SDL_DestroySemaphore(chunk->sem_write);
+	free(chunk);
+}
+
+int
+chunk_reloadchunk(long3_t pos, chunk_t *chunk)
+{
+	lockWrite(chunk);
+	chunk->pos = pos;
+	octree_zero(chunk->data);
+	unlockWrite(chunk);
+	worldgen_genchunk(chunk);
+	lockWrite(chunk);
+	chunk->iscurrent = 0;
+	unlockWrite(chunk);
+	return 0;//never loads from disk
+}
+
+void
+chunk_zerochunk(chunk_t *chunk)
+{
+	lockWrite(chunk);
+	octree_zero(chunk->data);
+	unlockWrite(chunk);
 }
