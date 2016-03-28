@@ -57,7 +57,7 @@ isquickloaded(long3_t pos, int3_t *chunkindex)
 static void
 setworldcenter(vec3_t pos)
 {
-	worldcenter = chunk_getchunkofspot(pos.x, pos.y, pos.z);
+	worldcenter = world_getchunkposofworldpos(pos.x, pos.y, pos.z);
 	worldscope.x = worldcenter.x - WORLDSIZE/2;
 	worldscope.y = worldcenter.y - WORLDSIZE/2;
 	worldscope.z = worldcenter.z - WORLDSIZE/2;
@@ -276,8 +276,8 @@ world_render(vec3_t pos)
 block_t
 world_getblock(long x, long y, long z, int loadnew)
 {
-	long3_t cpos = chunk_getchunkofspot(x, y, z);
-	int3_t internalpos = chunk_getinternalspotofspot(x,y,z);
+	long3_t cpos = world_getchunkposofworldpos(x, y, z);
+	int3_t internalpos = world_getinternalposofworldpos(x,y,z);
 
 	int3_t icpo;
 
@@ -292,8 +292,8 @@ world_getblock(long x, long y, long z, int loadnew)
 int
 world_setblock(long x, long y, long z, block_t block, int update, int loadnew, int instant)
 {
-	long3_t cpos = chunk_getchunkofspot(x, y, z);
-	int3_t internalpos = chunk_getinternalspotofspot(x, y, z);
+	long3_t cpos = world_getchunkposofworldpos(x, y, z);
+	int3_t internalpos = world_getinternalposofworldpos(x, y, z);
 
 	int3_t chunkindex;
 	if(isquickloaded(cpos, &chunkindex))

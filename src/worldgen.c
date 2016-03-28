@@ -226,7 +226,7 @@ worldgen_genchunk(chunk_t *chunk)
 long
 worldgen_getheightfrompos(long x, long z)
 {
-	setheightmapfromcpos(chunk_getchunkofspot(x,0,z));
-	int3_t internalpos = chunk_getinternalspotofspot(x,0,z);
+	setheightmapfromcpos(world_getchunkposofworldpos(x,0,z));
+	int3_t internalpos = world_getinternalposofworldpos(x,0,z);
 	return floor(getheightval(internalpos.x, internalpos.z));
 }

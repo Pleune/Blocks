@@ -11,18 +11,16 @@
 void world_init(vec3_t pos);
 void world_cleanup();
 
-void world_render(vec3_t pos);
+void world_genseed();
+uint32_t world_getseed();
 
-int world_threadentry(void *ptr);
+void world_render(vec3_t pos);
 
 block_t world_getblock(long x, long y, long z, int loadnew);
 int world_setblock(long x, long y, long z, block_t block, int update, int loadnew, int instant);
 
-void world_genseed();
-uint32_t world_getseed();
-
 static inline long3_t
-chunk_getchunkofspot(long x, long y, long z)
+world_getchunkposofworldpos(long x, long y, long z)
 {
 	long3_t chunkpos;
 	chunkpos.x = floor((double)x / CHUNKSIZE);
@@ -32,7 +30,7 @@ chunk_getchunkofspot(long x, long y, long z)
 }
 
 static inline int3_t
-chunk_getinternalspotofspot(long x, long y, long z)
+world_getinternalposofworldpos(long x, long y, long z)
 {
 	int3_t blockpos;
 	blockpos.x = MODULO(x, CHUNKSIZE);
