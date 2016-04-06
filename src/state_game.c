@@ -118,11 +118,22 @@ state_game_init()
 	rotx = 0;
 	roty = 0;
 	world_genseed();
-	long spawnheight = worldgen_getheightfrompos(0, 0)+1.1;
-	if(spawnheight < 0.1);
-	spawnheight = 0.1;
-	printf("h: %li\n", spawnheight);
-	vec3_t spawn = {0.5, spawnheight, 0.5};
+	vec3_t spawn = {0, 0, 0};
+	spawn.y = worldgen_getheightfrompos(0, 0)+1.1;
+	int spawntries = 0;
+	while((spawn.y < 0 || spawn.y > 200) && spawntries < 500)
+	{
+		spawntries++;
+		spawn.x = (double)(rand()%10000) - 5000;
+		spawn.z = (double)(rand()%10000) - 5000;
+		spawn.y = worldgen_getheightfrompos(spawn.x, spawn.z)+1.1;
+		printf("spawn retry %i x: %f z: %f h: %f\n", spawntries, spawn.x, spawn.z, spawn.y);
+	}
+	spawn.x += .5;
+	spawn.z += .5;
+	if(spawn.y < 0)
+		spawn.y = 0.1;
+	printf("h: %li\n", spawn.y);
 	world_init(spawn);
 	pos = entity_create(spawn.x, spawn.y, spawn.z, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MASS);
 	posptr = entity_getposptr(pos);
