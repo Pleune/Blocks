@@ -29,7 +29,7 @@ hash( uint32_t a)
 static uint32_t
 noise(uint32_t x, uint32_t y, uint32_t seed)
 {
-	return hash((hash(x) ^ hash(y)) + seed);
+	return hash(((hash(x)<<16) ^ hash(y)) + seed);
 }
 
 /**
