@@ -92,7 +92,19 @@ game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int upd
 		}
 	}
 	if(!block_issolid(world_getblock(p.x,p.y,p.z,0)) || !block.id)
+	{
 		world_setblock(p.x, p.y, p.z, block, update, 0, 1);
+		if(update)
+		{
+			world_updatequeue(p.x, p.y, p.z, 0, 0);
+			world_updatequeue(p.x+1, p.y, p.z, 0, 0);
+			world_updatequeue(p.x, p.y+1, p.z, 0, 0);
+			world_updatequeue(p.x, p.y, p.z+1, 0, 0);
+			world_updatequeue(p.x-1, p.y, p.z, 0, 0);
+			world_updatequeue(p.x, p.y-1, p.z, 0, 0);
+			world_updatequeue(p.x, p.y, p.z-1, 0, 0);
+		}
+	}
 }
 
 void

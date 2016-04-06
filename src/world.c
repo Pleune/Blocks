@@ -301,6 +301,14 @@ world_setblock(long x, long y, long z, block_t block, int update, int loadnew, i
 		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
 		chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
+		
+		world_updatequeue(x,y,z, 0, 0);
+		world_updatequeue(x+1,y,z, 0, 0);
+		world_updatequeue(x,y+1,z, 0, 0);
+		world_updatequeue(x,y,z+1, 0, 0);
+		world_updatequeue(x-1,y,z, 0, 0);
+		world_updatequeue(x,y-1,z, 0, 0);
+		world_updatequeue(x,y,z-1, 0, 0);
 
 		quickremeshachunk(&chunkindex, instant);
 
@@ -339,4 +347,31 @@ uint32_t
 world_getseed()
 {
 	return seed;
+}
+
+void
+world_updatequeue(long x, long y, long z, uint8_t time, update_flags_t flags)
+{
+	long3_t cpos = world_getchunkposofworldpos(x, y, z);
+	int3_t internalpos = world_getinternalposofworldpos(x, y, z);
+
+	int3_t chunkindex;
+	if(isquickloaded(cpos, &chunkindex))
+	{
+		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
+
+		chunk_updatequeue(chunk, x, y, z, time, flags);
+	}
+}
+
+long
+world_updaterun()
+{
+	long num = 0;
+	int x, y, z;
+	for(x=0; x<WORLDSIZE; x++)
+		for(y=0; y<WORLDSIZE; y++)
+			for(z=0; z<WORLDSIZE; z++)
+				num += chunk_updaterun(data[x][y][z].chunk);
+	return num;
 }

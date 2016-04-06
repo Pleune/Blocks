@@ -1,8 +1,10 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
+#define RENDER_WOBBLE 0.1
+
 #define CHUNKLEVELS 4
-#define WORLDSIZE 20
+#define WORLDSIZE 15
 
 #define BUMPYNESS 1.3
 

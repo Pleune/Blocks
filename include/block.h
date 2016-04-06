@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "custommath.h"
 #include "directions.h"
+#include "update.h"
 
 enum block_id {AIR = 0, STONE, DIRT, GRASS, SAND, BEDROCK, WATER, ERR};
 
@@ -26,5 +27,6 @@ typedef struct {
 int block_issolid(block_t b);
 vec3_t block_getcolor(blockid_t);
 
+void block_updaterun(blockid_t id, long3_t pos, update_flags_t flags);
 
 #endif //BLOCK_H

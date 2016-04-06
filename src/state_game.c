@@ -51,6 +51,7 @@ int lines = 0;
 int pp = 1;
 int takeinput = 1;
 int flying = 0;
+int updating = 1;
 
 void
 state_game_init()
@@ -118,6 +119,8 @@ state_game_init()
 	roty = 0;
 	world_genseed();
 	long spawnheight = worldgen_getheightfrompos(0, 0)+1.1;
+	if(spawnheight < 0.1);
+	spawnheight = 0.1;
 	printf("h: %li\n", spawnheight);
 	vec3_t spawn = {0.5, spawnheight, 0.5};
 	world_init(spawn);
@@ -134,6 +137,11 @@ state_game_init()
 void
 update(uint32_t dt)
 {
+	if(!updating)
+		return;
+	long num = world_updaterun();
+	if(num != 0)
+		printf("chunk updates: %li \n", num);
 }
 
 void
@@ -242,7 +250,7 @@ input(uint32_t dt)
 	if(keyboard[SDL_SCANCODE_R])
 	{
 		block_t b;
-		b.id = 2;
+		b.id = DIRT;
 		game_rayadd(&headpos, &forwardcamera, b, 1, 1);
 	}
 	if(keyboard[SDL_SCANCODE_E])
@@ -289,6 +297,10 @@ input(uint32_t dt)
 				case SDLK_f:
 					flying = !flying;
 				break;
+				case SDLK_u:
+					updating = !updating;
+					printf("UPDATING: %i\n", updating);
+				break;
 				case SDLK_p:
 					pp = !pp;
 					if(!pp)
@@ -306,7 +318,7 @@ input(uint32_t dt)
 			if(e.button.button == SDL_BUTTON_LEFT)
 			{
 				block_t b;
-				b.id = 2;
+				b.id = WATER;
 				game_rayadd(&headpos, &forwardcamera, b, 1, 1);
 			}
 			else if(e.button.button == SDL_BUTTON_RIGHT)

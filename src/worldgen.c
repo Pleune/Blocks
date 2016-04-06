@@ -14,7 +14,8 @@ long3_t lastdiasquareblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
 double heightmap[(CHUNKSIZE+1)*(CHUNKSIZE+1)];
 double metaheightmap[(DIAMONDSQUARESIZE+1)*(DIAMONDSQUARESIZE+1)];
 
-uint32_t hash( uint32_t a)
+static uint32_t
+hash( uint32_t a)
 {
 	a = (a+0x7ed55d16) + (a<<12);
 	a = (a^0xc761c23c) ^ (a>>19);
@@ -25,7 +26,8 @@ uint32_t hash( uint32_t a)
 	return a;
 }
 
-uint32_t noise(uint32_t x, uint32_t y, uint32_t seed)
+static uint32_t
+noise(uint32_t x, uint32_t y, uint32_t seed)
 {
 	return hash((hash(x) ^ hash(y)) + seed);
 }
@@ -33,7 +35,7 @@ uint32_t noise(uint32_t x, uint32_t y, uint32_t seed)
 /**
  * flattens the world out around y = 0
  */
-	void
+void
 bias(double *data)
 {
 	int x, z;
@@ -53,7 +55,7 @@ bias(double *data)
 /**
  * applys the diamond square algo.
  */
-	void
+void
 pound(double *data, size_t size, long3_t pos, uint32_t seed, int scale, int levels)
 {
 	int step;
@@ -115,7 +117,7 @@ setheightmapfromcpos(long3_t cpos)
 {
 	uint32_t seed = world_getseed();
 
-	long3_t newchunkblockpos = cpos;
+	long3_t newchunkblockpos;
 	newchunkblockpos.x = cpos.x * CHUNKSIZE;
 	newchunkblockpos.y = cpos.y * CHUNKSIZE;
 	newchunkblockpos.z = cpos.z * CHUNKSIZE;
@@ -134,29 +136,29 @@ setheightmapfromcpos(long3_t cpos)
 			lastdiasquareblockpos = newdiasquareblockpos;
 
 			metaheightmap[0] =
-				(noise(
-				       newdiasquareblockpos.x,
-				       newdiasquareblockpos.z,
-				       seed
-				       )%100) * (DIAMONDSQUARESIZE*BUMPYNESS / 100.0);
+				((noise(
+					newdiasquareblockpos.x,
+					newdiasquareblockpos.z,
+					seed
+					)%100)/100.0 - .5) * (DIAMONDSQUARESIZE*BUMPYNESS);
 			metaheightmap[DIAMONDSQUARESIZE] =
-				(noise(
-				       newdiasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE,
-				       newdiasquareblockpos.z,
-				       seed
-				       )%100) * (DIAMONDSQUARESIZE*BUMPYNESS / 100.0);
+				((noise(
+					newdiasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE,
+					newdiasquareblockpos.z,
+					seed
+					)%100)/100.0 - .5) * (DIAMONDSQUARESIZE*BUMPYNESS);
 			metaheightmap[(DIAMONDSQUARESIZE+1)*DIAMONDSQUARESIZE] =
-				(noise(
-				       newdiasquareblockpos.x,
-				       newdiasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE,
-				       seed
-				       )%100) * (DIAMONDSQUARESIZE*BUMPYNESS / 100.0);
+				((noise(
+					newdiasquareblockpos.x,
+					newdiasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE,
+					seed
+					)%100)/100.0 - .5) * (DIAMONDSQUARESIZE*BUMPYNESS);
 			metaheightmap[DIAMONDSQUARESIZE + (DIAMONDSQUARESIZE+1)*DIAMONDSQUARESIZE] =
-				(noise(
-				       newdiasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE,
-				       newdiasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE,
-				       seed
-				       )%100) * (DIAMONDSQUARESIZE*BUMPYNESS / 100.0);
+				((noise(
+					newdiasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE,
+					newdiasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE,
+					seed
+					)%100)/100.0 - .5) * (DIAMONDSQUARESIZE*BUMPYNESS);
 
 			pound(metaheightmap, DIAMONDSQUARESIZE+1, newdiasquareblockpos, seed, CHUNKSIZE, DIAMONDSQUARELEVELS);
 		}

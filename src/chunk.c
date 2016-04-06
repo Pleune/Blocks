@@ -4,8 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <pthread.h>
+
 #include <GL/glew.h>
 
+#include "world.h"
 #include "minmax.h"
 #include "worldgen.h"
 #include "octree.h"
@@ -29,17 +32,26 @@ struct mesh_s {
 	int uploadnext;
 };
 
+struct updatequeue_s {
+	struct updatequeue_s *next;
+	struct updatequeue_s *prev;
+
+	update_flags_t flags;
+
+	int3_t pos;
+	uint8_t time;
+};
+
 struct chunk_s {
 	long3_t pos;
 	octree_t *data;
 
+	struct updatequeue_s *updates;
+
 	struct mesh_s mesh;
 	int iscurrent;
 
-	SDL_mutex *mutex_read;
-	SDL_sem *sem_write;
-
-	int readers;
+	pthread_rwlock_t  rwlock;
 };
 
 const static GLfloat faces[] = {
@@ -114,57 +126,66 @@ int uvcoordsabstraction[] = {
 	3
 };
 
-void
-lockRead(chunk_t *chunk)
+static uint32_t
+hash( uint32_t a)
 {
-	SDL_LockMutex(chunk->mutex_read);
-	chunk->readers++;
-	
-	if(chunk->readers == 1)
-	{
-		SDL_SemWait(chunk->sem_write);
-	}
-	SDL_UnlockMutex(chunk->mutex_read);
+	a = (a+0x7ed55d16) + (a<<12);
+	a = (a^0xc761c23c) ^ (a>>19);
+	a = (a+0x165667b1) + (a<<5);
+	a = (a+0xd3a2646c) ^ (a<<9);
+	a = (a+0xfd7046c5) + (a<<3);
+	a = (a^0xb55a4f09) ^ (a>>16);
+	return a;
 }
 
-void
-unlockRead(chunk_t *chunk)
+static uint32_t
+noise(uint32_t x, uint32_t y, uint32_t z)
 {
-	SDL_LockMutex(chunk->mutex_read);
-	chunk->readers--;
-	if(chunk->readers == 0)
-	{
-		SDL_SemPost(chunk->sem_write);
-	}
-	if(chunk->readers < 0)
-	{
-		chunk->readers = 0;
-		printf("Semaphore: too many unlocks\n");
-	}
-	SDL_UnlockMutex(chunk->mutex_read);
+	return hash((hash(x) ^ hash(y)) ^ hash(z));
 }
 
 void
 lockWrite(chunk_t *chunk)
 {
-	SDL_SemWait(chunk->sem_write);
+	pthread_rwlock_wrlock(&chunk->rwlock);
 }
 
 void
 unlockWrite(chunk_t *chunk)
 {
-	SDL_SemPost(chunk->sem_write);
+	pthread_rwlock_unlock(&chunk->rwlock);
 }
 
+
+void
+lockRead(chunk_t *chunk)
+{
+	pthread_rwlock_rdlock(&chunk->rwlock);
+}
+
+void
+unlockRead(chunk_t *chunk)
+{
+	pthread_rwlock_unlock(&chunk->rwlock);
+}
 void
 init(chunk_t *chunk)
 {
 	glGenBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
+	chunk->updates = 0;
 	chunk->mesh.uploadnext = 0;
 	chunk->iscurrent = 0;
-	chunk->mutex_read = SDL_CreateMutex();
-	chunk->sem_write = SDL_CreateSemaphore(1);
-	chunk->readers = 0;
+	pthread_rwlock_init(&chunk->rwlock, 0);
+}
+
+long3_t
+chunk_getworldposfromchunkpos(long3_t cpos, int x, int y, int z)
+{
+	long3_t ret;
+	ret.x = cpos.x * CHUNKSIZE + x;
+	ret.y = cpos.y * CHUNKSIZE + y;
+	ret.z = cpos.z * CHUNKSIZE + z;
+	return ret;
 }
 
 void
@@ -172,6 +193,8 @@ chunk_render(chunk_t *chunk)
 {
 	if(chunk->mesh.uploadnext)
 	{
+		lockRead(chunk);
+
 		if(chunk->mesh.uploadnext)
 		{
 			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
@@ -188,6 +211,7 @@ chunk_render(chunk_t *chunk)
 
 			chunk->mesh.uploadnext = 0;
 		}
+		unlockRead(chunk);
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
@@ -220,12 +244,27 @@ addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o
 	{
 		//add point to vbo
 		//the max for o is a multiple for three, so we only have to check for the 'overflow' every three floats or one point
-		vbos[v[0]][o[0]] = x + chunk->pos.x*CHUNKSIZE;
+		vec3_t pos;
+		pos.x = x + chunk->pos.x*CHUNKSIZE;
+		pos.y = y + chunk->pos.y*CHUNKSIZE;
+		pos.z = z + chunk->pos.z*CHUNKSIZE;
+
+		vec3_t n;
+		n.x = (float)(noise(pos.x, pos.y, pos.z)%1000) * ((float)RENDER_WOBBLE / 1000.0f);
+		n.y = (float)(noise(pos.y, pos.z, pos.x)%1000) * ((float)RENDER_WOBBLE / 1000.0f);
+		n.z = (float)(noise(pos.z, pos.x, pos.y)%1000) * ((float)RENDER_WOBBLE / 1000.0f);
+
+		pos.x += n.x;
+		pos.y += n.y;
+		pos.z += n.z;
+
+		vbos[v[0]][o[0]] = pos.x;
 		color[v[0]][o[0]++] = blockcolor.x;
-		vbos[v[0]][o[0]] = y + chunk->pos.y*CHUNKSIZE;
+		vbos[v[0]][o[0]] = pos.y;
 		color[v[0]][o[0]++] = blockcolor.y;
-		vbos[v[0]][o[0]] = z + chunk->pos.z*CHUNKSIZE;
+		vbos[v[0]][o[0]] = pos.z;
 		color[v[0]][o[0]++] = blockcolor.z;
+
 		if(o[0] == 9999)
 		{
 			o[0]=0;
@@ -248,6 +287,8 @@ addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o
 void
 chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest)
 {
+	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_lock(&lock);
 	lockRead(chunk);
 
 	if(chunkabove)
@@ -262,13 +303,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		lockRead(chunkeast);
 	if(chunkwest)
 		lockRead(chunkwest);
-
-	if(chunk->mesh.uploadnext)
-	{
-		free(chunk->mesh.vbodata);
-		free(chunk->mesh.ebodata);
-		free(chunk->mesh.cbodata);
-	}
+	pthread_mutex_unlock(&lock);
 
 	GLuint *ebos[256];
 	int c = 0;
@@ -303,7 +338,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkabove)
 						{
-							if(chunk_getblock(chunkabove,x,0,z).id)
+							if(octree_get(x,0,z,chunkabove->data).id)
 								top=0;
 							else
 								top=1;
@@ -319,7 +354,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkbelow)
 						{
-							if(chunk_getblock(chunkbelow,x,CHUNKSIZE-1,z).id)
+							if(octree_get(x,CHUNKSIZE-1,z,chunkbelow->data).id)
 								bottom=0;
 							else
 								bottom=1;
@@ -335,7 +370,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunksouth)
 						{
-							if(chunk_getblock(chunksouth,x,y,0).id)
+							if(octree_get(x,y,0,chunksouth->data).id)
 								south=0;
 							else
 								south=1;
@@ -351,7 +386,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunknorth)
 						{
-							if(chunk_getblock(chunknorth,x,y,CHUNKSIZE-1).id)
+							if(octree_get(x,y,CHUNKSIZE-1, chunknorth->data).id)
 								north=0;
 							else
 								north=1;
@@ -368,7 +403,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkeast)
 						{
-							if(chunk_getblock(chunkeast,0,y,z).id)
+							if(octree_get(0,y,z,chunkeast->data).id)
 								east=0;
 							else
 								east=1;
@@ -384,7 +419,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkwest)
 						{
-							if(chunk_getblock(chunkwest,CHUNKSIZE-1,y,z).id)
+							if(octree_get(CHUNKSIZE-1,y,z, chunkwest->data).id)
 								west=0;
 							else
 								west=1;
@@ -443,8 +478,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 
 	free(ebc);
 
-	unlockRead(chunk);
-
 	if(chunkabove)
 		unlockRead(chunkabove);
 	if(chunkbelow)
@@ -457,6 +490,16 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		unlockRead(chunkeast);
 	if(chunkwest)
 		unlockRead(chunkwest);
+
+	unlockRead(chunk);
+	lockWrite(chunk);
+
+	if(chunk->mesh.uploadnext)
+	{
+		free(chunk->mesh.vbodata);
+		free(chunk->mesh.ebodata);
+		free(chunk->mesh.cbodata);
+	}
 
 	int w;
 
@@ -499,8 +542,11 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	chunk->mesh.ebodatasize = ebosize;
 	chunk->mesh.cbodatasize = cbosize;
 
-	chunk->mesh.uploadnext = 1;
+
 	chunk->iscurrent = 1;
+	chunk->mesh.uploadnext = 1;
+
+	unlockWrite(chunk);
 }
 
 int
@@ -525,9 +571,9 @@ chunk_getblock(chunk_t *c, int x, int y, int z)
 		return ret;
 	}
 
-	//lockRead(c);
+	lockRead(c);
 	block_t ret = octree_get(x, y, z, c->data);
-	//unlockRead(c);
+	unlockRead(c);
 
 	return ret;
 }
@@ -569,12 +615,69 @@ chunk_getpos(chunk_t *chunk)
 	return chunk->pos;
 }
 
-void chunk_updatequeue(int3_t pos, uint8_t time)
+void
+chunk_updatequeue(chunk_t *chunk, int x, int y, int z, uint8_t time, update_flags_t flags)
 {
+	struct updatequeue_s *new = malloc(sizeof(struct updatequeue_s));
+	if(chunk->updates)
+	{
+		struct updatequeue_s *top = chunk->updates;
+		while(top->next)
+			top = top->next;
+		top->next = new;
+		new->prev = top;
+		new->next = 0;
+	} else {
+		chunk->updates = new;
+		new->next = 0;
+		new->prev = 0;
+	}
+
+	new->pos = world_getinternalposofworldpos(x,y,z);
+	new->time = time;
+	new->flags = flags;
 }
 
-void chunk_update_run()
+long
+chunk_updaterun(chunk_t *chunk)
 {
+	long num = 0;
+
+	if(chunk->updates)
+	{
+		struct updatequeue_s *node = chunk->updates;
+
+		while(node)
+		{
+			struct updatequeue_s *next = node->next;
+			if(node->time == 0)
+			{
+				if(chunk->updates == node)
+					chunk->updates = node->next;
+
+				if(node->next != 0)
+					node->next->prev = node->prev;
+				if(node->prev != 0)
+					node->prev->next = node->next;
+
+				long3_t pos = chunk_getworldposfromchunkpos(
+						chunk->pos,
+						node->pos.x,
+						node->pos.y,
+						node->pos.z
+					);
+
+				block_updaterun(chunk_getblockid(chunk, node->pos.x, node->pos.y, node->pos.z), pos, node->flags);
+				num++;
+
+				free(node);
+			} else {
+				node->time--;
+			}
+			node = next;
+		}
+	}
+	return num;
 }
 
 chunk_t *
@@ -605,8 +708,7 @@ chunk_freechunk(chunk_t *chunk)
 {
 	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
 	octree_destroy(chunk->data);
-	SDL_DestroyMutex(chunk->mutex_read);
-	SDL_DestroySemaphore(chunk->sem_write);
+	pthread_rwlock_destroy(&chunk->rwlock);
 	free(chunk);
 }
 
