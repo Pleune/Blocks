@@ -133,7 +133,7 @@ state_game_init()
 	spawn.z += .5;
 	if(spawn.y < 0)
 		spawn.y = 0.1;
-	printf("h: %li\n", spawn.y);
+	printf("h: %f\n", spawn.y);
 	world_init(spawn);
 	pos = entity_create(spawn.x, spawn.y, spawn.z, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MASS);
 	posptr = entity_getposptr(pos);

@@ -250,9 +250,9 @@ addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o
 		pos.z = z + chunk->pos.z*CHUNKSIZE;
 
 		vec3_t n;
-		n.x = (float)(noise(pos.x, pos.y, pos.z)%1000) * ((float)RENDER_WOBBLE / 1000.0f);
-		n.y = (float)(noise(pos.y, pos.z, pos.x)%1000) * ((float)RENDER_WOBBLE / 1000.0f);
-		n.z = (float)(noise(pos.z, pos.x, pos.y)%1000) * ((float)RENDER_WOBBLE / 1000.0f);
+		n.x = ((float)(noise(pos.x, pos.y, pos.z)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
+		n.y = ((float)(noise(pos.y, pos.z, pos.x)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
+		n.z = ((float)(noise(pos.z, pos.x, pos.y)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
 
 		pos.x += n.x;
 		pos.y += n.y;
