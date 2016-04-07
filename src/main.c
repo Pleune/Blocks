@@ -4,43 +4,29 @@
 #include <GL/glew.h>
 
 #include "state.h"
-#include "state_menu.h"
-#include "state_game.h"
 
-enum events {INITALIZE, RUN, CLOSE, MAX_EVENTS};
+#define STACK_MAX 255
 
 //FUNCTION DEFS****
-static void run();//run the current state's run function
-static void transition();//switch to another state
 
 static void cleanup();//shuts everything down for a reboot
-static void start();//just turns istransitioning back on
-static void initalize();//contains the startup code
-static void exitgame();//actually exit
-
-//lookup for what functions do what for what states
-void (*const statetable[MAX_STATES][MAX_EVENTS]) (void) = {
-	{state_menu_init, state_menu_run, state_menu_close},//menu
-	{state_game_init, state_game_run, state_game_close},//game
-	{cleanup, start, initalize},//handle starting/closing
-	{exitgame, 0, 0}//close the game
-};
-
-//run function vs switch states function
-static void (*const transitionfunc[2]) (void) = {
-	run,
-	transition
-};
-
-//this is the state started by the STARTING state
-const static enum states FIRSTSTATE = GAME;
+static void init();//contains the startup code
+static void runevent(enum states s, enum events e);
+static void push(enum states newstate);
+static void pop();
 
 static int isrunning = 1;
-static int istransitioning = 0;
 
-//used by the transition function
-static enum states currentstate = STARTING;
-static enum states nextstate;
+struct statestack_s {
+	enum states states[STACK_MAX];
+	int instances[MAX_STATES];
+	int top;
+};
+struct statestack_s stack = { {0} };
+#define CURRENTSTATE (stack.states[stack.top])
+
+int queueforpop = 0;
+enum states queueforpush = MAX_STATES;
 
 //the main window
 SDL_Window *win;
@@ -53,61 +39,98 @@ char *basepath;
 int
 main(int argc, char *argv[])
 {
-	//do until exit
+	init();
 	while(isrunning)
-		//if the program's transition flag is set, run transition()
-		//otherwise just run the current state's run function
-		(*transitionfunc[istransitioning]) ();
+	{
+		runevent(CURRENTSTATE, RUN);
+
+		if(queueforpop)
+		{
+			queueforpop = 0;
+			pop();
+		}
+		if(queueforpush != MAX_STATES)
+		{
+			enum states state = queueforpush;
+			queueforpush = MAX_STATES;
+			push(state);
+		}
+	}
+
+	cleanup();
+
 	return 0;
 }
 
-//this state engine's "api" call to request a transition to another state
 void
-state_changeto(enum states newstate)
+state_queuepush(enum states state)
 {
-	printf("STATUS: state %i is requesting a change to state %i\n", currentstate, newstate);
-	istransitioning = 1;
-	nextstate = newstate;
+	if(queueforpush == MAX_STATES)
+		queueforpush = state;
+}
+
+void
+state_queuepop()
+{
+	if(!queueforpop)
+		queueforpop = 1;
 }
 
 static void
-//run the current state's run function
-run()
+runevent(enum states s, enum events e)
 {
-	(*statetable[currentstate][RUN]) ();
+	if(statetable[s][e])
+		(*statetable[s][e]) ();
 }
 
-//cleanup this state.
-//switch to the next state.
-//init that state.
-//begin running the new state.
-static void
-transition()
-{
-	printf("STATUS: transition: \"cleaning up\" last state. cleaning up the STARTING state will initalize the program.\n");
-	(*statetable[currentstate][CLOSE]) ();
-	printf("STATUS: transition: switching to another state: %i\n", nextstate);
-	currentstate = nextstate;
-	printf("STATUS: transition: initalizing the new state. if the new state is CLOSING, then this will shutdown the program\n");
-	(*statetable[currentstate][INITALIZE]) ();
-	istransitioning = 0;
-}
-
-//something bad happened, exit
 static void
 fail(const char *msg)
 {
 	printf("FAILED: %s\n", msg);
-	state_changeto(CLOSING);
+	exit(-2);
 }
 
-//the STARTING state functions****
+static void
+push(enum states newstate)
+{
+	printf("STATUS: push state %i onto %i\n", newstate, CURRENTSTATE);
 
-//state: STARTING
-//event: INITALIZE
-//changing back to the STARTING state will reboot the program.
-//INITALIZE will always be called before the close.
-//therefore this function is the program's cleanup program.
+	runevent(CURRENTSTATE, PAUSE);
+
+	if(stack.instances[newstate] == 0)
+		runevent(newstate, INITALIZE);
+	else
+		runevent(newstate, RESUME);
+
+	stack.instances[newstate]++;
+	stack.top++;
+	if(stack.top < STACK_MAX)
+		stack.states[stack.top] = newstate;
+	else
+		exit(-1);
+}
+
+static void
+pop()
+{
+	printf("STATUS: pop state %i\n", CURRENTSTATE);
+
+	stack.instances[CURRENTSTATE]--;
+
+	if(stack.instances[CURRENTSTATE] == 0)
+		runevent(CURRENTSTATE, CLOSE);
+	else
+		runevent(CURRENTSTATE, PAUSE);
+
+	stack.top--;
+	if(stack.top >= 0)
+		stack.states[stack.top + 1] = 0;
+	else
+		isrunning = 0;
+
+	runevent(CURRENTSTATE, RESUME);
+}
+
 static void
 cleanup()
 {
@@ -119,18 +142,7 @@ cleanup()
 	SDL_Quit();
 }
 
-//state: STARTING
-//event: RUN
-static void start()
-{
-	state_changeto(FIRSTSTATE);
-}
-
-//state: STARTING
-//event: CLOSE
-//the close event for the starting state is what gets run before the first main state,
-//therefore the programs's init function is this
-static void initalize()
+static void init()
 {
 	printf("STATUS: initalizing the program\n");
 
@@ -167,22 +179,20 @@ static void initalize()
 	SDL_GL_SwapWindow(win);
 
 	basepath = SDL_GetBasePath();
+
+	stack.instances[MENUMAIN] = 1;
+	stack.top = 0;
+	runevent(MENUMAIN, INITALIZE);
 }
 
-//this is the only CLOSING state function****
-//state: CLOSING
-//event: INITALIZE
-//no other functions are in this state because the program exits after this function exits.
-static void
+void
 exitgame()
 {
 	//cleanup before closing.
-	cleanup();
 	printf("STATUS: exiting the program.\n");
 	isrunning = 0;
 }
 
-//functions used outside this file
 void
 updatewindowbounds(int w, int h)
 {

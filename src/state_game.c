@@ -1,4 +1,4 @@
-#include "state_game.h"
+#include "state.h"
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
@@ -277,14 +277,14 @@ input(uint32_t dt)
 	while(SDL_PollEvent(&e))
 	{
 		if(e.type == SDL_QUIT)
-			state_changeto(CLOSING);
+			exitgame();
 
 		if(e.type == SDL_KEYDOWN)
 		{
 			switch(e.key.keysym.sym)
 			{
 				case SDLK_ESCAPE:
-					state_changeto(CLOSING);
+					state_queuepop();
 				break;
 				case SDLK_SPACE:
 					entity_jump(pos, JUMPSPEED);
