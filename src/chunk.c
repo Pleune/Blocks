@@ -194,7 +194,6 @@ chunk_render(chunk_t *chunk)
 	if(chunk->mesh.uploadnext)
 	{
 		lockRead(chunk);
-
 		if(chunk->mesh.uploadnext)
 		{
 			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
@@ -492,14 +491,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		unlockRead(chunkwest);
 
 	unlockRead(chunk);
-	lockWrite(chunk);
-
-	if(chunk->mesh.uploadnext)
-	{
-		free(chunk->mesh.vbodata);
-		free(chunk->mesh.ebodata);
-		free(chunk->mesh.cbodata);
-	}
 
 	int w;
 
@@ -532,6 +523,15 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	long vbosize = (long)9999*v + o;
 	long cbosize = (long)9999*v + o;
 
+	lockWrite(chunk);
+
+	if(chunk->mesh.uploadnext)
+	{
+		free(chunk->mesh.vbodata);
+		free(chunk->mesh.ebodata);
+		free(chunk->mesh.cbodata);
+	}
+
 	chunk->mesh.points = ebosize;
 
 	chunk->mesh.vbodata = finalvbodata;
@@ -552,7 +552,16 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 int
 chunk_iscurrent(chunk_t *chunk)
 {
-	return chunk->iscurrent;
+	int ret = chunk->iscurrent;
+	if(ret)
+	{
+		return 1;
+	} else {
+		lockRead(chunk);
+		ret = chunk->iscurrent;
+		unlockRead(chunk);
+		return ret;
+	}
 }
 
 void
@@ -619,6 +628,7 @@ void
 chunk_updatequeue(chunk_t *chunk, int x, int y, int z, uint8_t time, update_flags_t flags)
 {
 	struct updatequeue_s *new = malloc(sizeof(struct updatequeue_s));
+	lockWrite(chunk);
 	if(chunk->updates)
 	{
 		struct updatequeue_s *top = chunk->updates;
@@ -636,6 +646,7 @@ chunk_updatequeue(chunk_t *chunk, int x, int y, int z, uint8_t time, update_flag
 	new->pos = world_getinternalposofworldpos(x,y,z);
 	new->time = time;
 	new->flags = flags;
+	unlockWrite(chunk);
 }
 
 long

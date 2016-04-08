@@ -17,7 +17,9 @@ uint32_t world_getseed();
 void world_render(vec3_t pos);
 
 block_t world_getblock(long x, long y, long z, int loadnew);
+blockid_t world_getblockid(long x, long y, long z, int loadnew);
 int world_setblock(long x, long y, long z, block_t block, int update, int loadnew, int instant);
+int world_setblockid(long x, long y, long z, blockid_t id, int update, int loadnew, int instant);
 
 void world_updatequeue(long x, long y, long z, uint8_t time, update_flags_t flags);
 long world_updaterun();

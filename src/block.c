@@ -74,7 +74,29 @@ block_updaterun(blockid_t id, long3_t pos, update_flags_t flags)
 							1, 0, 0
 						);
 			} else {
-				world_updatequeue(pos.x, pos.y, pos.z, 1, UPDATE_FLOWWATER);
+				world_updatequeue(pos.x, pos.y, pos.z, 5, UPDATE_FLOWWATER);
+			}
+			break;
+		}
+		case SAND:
+		{
+			if(flags & UPDATE_FLOWWATER)
+			{
+				if(!block_issolid(world_getblock(pos.x, pos.y-1, pos.z, 0)))
+				{
+					world_setblockid(
+							pos.x, pos.y-1, pos.z,
+							SAND,
+							1, 0, 0
+						);
+					world_setblockid(
+							pos.x, pos.y, pos.z,
+							AIR,
+							0, 0, 0
+						);
+				}
+			} else {
+				world_updatequeue(pos.x, pos.y, pos.z, 1, UPDATE_FALL);
 			}
 			break;
 		}

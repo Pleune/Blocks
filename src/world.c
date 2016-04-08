@@ -17,8 +17,10 @@ long3_t worldcenter = {0, 0, 0};
 
 uint32_t seed;
 
-int stopthread;
-SDL_Thread *thread;
+int stopthreads;
+SDL_Thread *generationthread;
+SDL_Thread *remeshthreadA;
+SDL_Thread *remeshthreadB;
 
 struct {
 	chunk_t *chunk;
@@ -126,29 +128,28 @@ quickremeshachunk(int3_t *chunkindex, int instant)
 	return 0;
 }
 
-int
-world_generation(void *ptr)
+static int
+generationthreadfunc(void *ptr)
 {
-	stopthread=0;
-	while(!stopthread)
+	while(!stopthreads)
 	{
 		long3_t cpos;
 		for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
 		{
-			if(stopthread)
+			if(stopthreads)
 				break;
 			for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
 			{
-				if(stopthread)
+				if(stopthreads)
 					break;
 				for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
 				{
-					if(stopthread)
+					if(stopthreads)
 						break;
 					int3_t chunkindex;
 					if(!isquickloaded(cpos, &chunkindex))
 					{
-						if(stopthread)
+						if(stopthreads)
 							break;
 						//the chunk should be loaded but its not. load it.
 						chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
@@ -166,18 +167,29 @@ world_generation(void *ptr)
 			}
 		}
 
+		if(!stopthreads)
+			SDL_Delay(80);
+	}
+	return 0;
+}
+
+static int
+remeshthreadfuncA(void *ptr)
+{
+	while(!stopthreads)
+	{
 		int3_t i;
 		for(i.x = 0; i.x< WORLDSIZE; i.x++)
 		{
-			if(stopthread)
+			if(stopthreads)
 				break;
 			for(i.y = 0; i.y< WORLDSIZE; i.y++)
 			{
-				if(stopthread)
+				if(stopthreads)
 					break;
 				for(i.z = 0; i.z< WORLDSIZE; i.z++)
 				{
-					if(stopthread)
+					if(stopthreads)
 						break;
 
 					if(!chunk_iscurrent(data[i.x][i.y][i.z].chunk))
@@ -186,7 +198,49 @@ world_generation(void *ptr)
 			}
 		}
 
-		if(!stopthread)
+		if(!stopthreads)
+			SDL_Delay(80);
+	}
+	return 0;
+}
+
+static int
+remeshthreadfuncB(void *ptr)
+{
+	while(!stopthreads)
+	{
+		long3_t i;
+		long3_t lowbound = {
+			worldcenter.x - WORLDSIZE/6,
+			worldcenter.y - WORLDSIZE/6,
+			worldcenter.z - WORLDSIZE/6
+		};
+		long3_t highbound = {
+			worldcenter.x + WORLDSIZE/6,
+			worldcenter.y + WORLDSIZE/6,
+			worldcenter.z + WORLDSIZE/6
+		};
+		for(i.x = lowbound.x; i.x< highbound.x; i.x++)
+		{
+			if(stopthreads)
+				break;
+			for(i.y = lowbound.y; i.y< highbound.y; i.y++)
+			{
+				if(stopthreads)
+					break;
+				for(i.z = lowbound.z; i.z< highbound.z; i.z++)
+				{
+					int3_t icpo = getchunkindexofchunk(i);
+					if(stopthreads)
+						break;
+
+					if(!chunk_iscurrent(data[icpo.x][icpo.y][icpo.z].chunk))
+						quickremeshachunk(&icpo, 1);
+				}
+			}
+		}
+
+		if(!stopthreads)
 			SDL_Delay(80);
 	}
 	return 0;
@@ -223,16 +277,20 @@ world_init(vec3_t pos)
 	}
 	putchar('\n');
 
-	thread = SDL_CreateThread(world_generation, "world_generation", 0);
+	stopthreads=0;
+	generationthread = SDL_CreateThread(generationthreadfunc, "world_generation", 0);
+	remeshthreadA = SDL_CreateThread(remeshthreadfuncA, "world_remesh", 0);
+	remeshthreadB = SDL_CreateThread(remeshthreadfuncB, "world_remesh", 0);
 }
 
 void
 world_cleanup()
 {
-	stopthread=1;
+	stopthreads=1;
 
-	int ret;
-	SDL_WaitThread(thread, &ret);
+	SDL_WaitThread(generationthread, 0);
+	SDL_WaitThread(remeshthreadA, 0);
+	SDL_WaitThread(remeshthreadB, 0);
 
 	int3_t chunkindex;
 	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; chunkindex.x++)
@@ -289,6 +347,20 @@ world_getblock(long x, long y, long z, int loadnew)
 }
 
 //TODO: loadnew
+blockid_t
+world_getblockid(long x, long y, long z, int loadnew)
+{
+	long3_t cpos = world_getchunkposofworldpos(x, y, z);
+	int3_t internalpos = world_getinternalposofworldpos(x,y,z);
+
+	int3_t icpo;
+	if(isquickloaded(cpos, &icpo))
+		return chunk_getblockid(data[icpo.x][icpo.y][icpo.z].chunk, internalpos.x, internalpos.y, internalpos.z);
+
+	return ERR;
+}
+
+//TODO: loadnew
 int
 world_setblock(long x, long y, long z, block_t block, int update, int loadnew, int instant)
 {
@@ -301,7 +373,62 @@ world_setblock(long x, long y, long z, block_t block, int update, int loadnew, i
 		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
 		chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
-		
+
+		world_updatequeue(x,y,z, 0, 0);
+		world_updatequeue(x+1,y,z, 0, 0);
+		world_updatequeue(x,y+1,z, 0, 0);
+		world_updatequeue(x,y,z+1, 0, 0);
+		world_updatequeue(x-1,y,z, 0, 0);
+		world_updatequeue(x,y-1,z, 0, 0);
+		world_updatequeue(x,y,z-1, 0, 0);
+
+		quickremeshachunk(&chunkindex, instant);
+
+		cpos.x++;
+		if(internalpos.x == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
+
+		cpos.x -= 2;
+		if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
+		cpos.x++;
+
+		cpos.y++;
+		if(internalpos.y == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
+
+		cpos.y -= 2;
+		if(internalpos.y == 0 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
+		cpos.y++;
+
+		cpos.z++;
+		if(internalpos.z == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
+
+		cpos.z -= 2;
+		if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
+			quickremeshachunk(&chunkindex, instant);
+
+		return 0;
+	}
+	return -1;
+}
+
+//TODO: loadnew
+int
+world_setblockid(long x, long y, long z, blockid_t id, int update, int loadnew, int instant)
+{
+	long3_t cpos = world_getchunkposofworldpos(x, y, z);
+	int3_t internalpos = world_getinternalposofworldpos(x, y, z);
+
+	int3_t chunkindex;
+	if(isquickloaded(cpos, &chunkindex))
+	{
+		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
+
+		chunk_setblockid(chunk, internalpos.x, internalpos.y, internalpos.z, id);
+
 		world_updatequeue(x,y,z, 0, 0);
 		world_updatequeue(x+1,y,z, 0, 0);
 		world_updatequeue(x,y+1,z, 0, 0);

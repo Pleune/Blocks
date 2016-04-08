@@ -53,6 +53,35 @@ int takeinput = 1;
 int flying = 0;
 int updating = 1;
 
+SDL_Thread *updatethread;
+SDL_sem *updatesem;
+int stopupdatethread;
+
+void
+update(uint32_t dt)
+{
+	if(!updating)
+		return;
+	long num = world_updaterun();
+	if(num != 0)
+		printf("chunk updates: %li \n", num);
+}
+
+static int
+updatethreadfunc(void *ptr)
+{
+	stopupdatethread = 0;
+	while(1)
+	{
+		SDL_SemWait(updatesem);
+		if(stopupdatethread)
+			break;
+		update(50);
+	}
+	return 0;
+
+}
+
 void
 state_game_init()
 {
@@ -143,19 +172,12 @@ state_game_init()
 	SDL_ShowCursor(0);
 
 	ticks = SDL_GetTicks();
+
+	updatesem = SDL_CreateSemaphore(0);
+	updatethread = SDL_CreateThread(updatethreadfunc, "updatethread", 0);
 }
 
-void
-update(uint32_t dt)
-{
-	if(!updating)
-		return;
-	long num = world_updaterun();
-	if(num != 0)
-		printf("chunk updates: %li \n", num);
-}
-
-void
+static void
 input(uint32_t dt)
 {
 	SDL_PumpEvents();
@@ -261,7 +283,7 @@ input(uint32_t dt)
 	if(keyboard[SDL_SCANCODE_R])
 	{
 		block_t b;
-		b.id = DIRT;
+		b.id = SAND;
 		game_rayadd(&headpos, &forwardcamera, b, 1, 1);
 	}
 	if(keyboard[SDL_SCANCODE_E])
@@ -329,7 +351,7 @@ input(uint32_t dt)
 			if(e.button.button == SDL_BUTTON_LEFT)
 			{
 				block_t b;
-				b.id = WATER;
+				b.id = SAND;
 				game_rayadd(&headpos, &forwardcamera, b, 1, 1);
 			}
 			else if(e.button.button == SDL_BUTTON_RIGHT)
@@ -365,7 +387,7 @@ input(uint32_t dt)
 	forwardcamera.z += headpos.z;
 }
 
-void
+static void
 render(uint32_t dt)
 {
 	static uint32_t oneseccond = 0;
@@ -435,10 +457,10 @@ state_game_run()
 
 	static uint32_t updatebuild = 0;
 	updatebuild += dt;
-	if(updatebuild >= 500)
+	if(updatebuild >= 50)
 	{
-		updatebuild -= 500;
-		update(500);
+		updatebuild -= 50;
+		SDL_SemPost(updatesem);
 	}
 	render(dt);
 
@@ -457,5 +479,9 @@ state_game_close()
 	glDeleteFramebuffers(1, &renderbuffer.framebuffer);
 	glDeleteTextures(1, &renderbuffer.colorbuffer);
 	glDeleteTextures(1, &renderbuffer.depthbuffer);
+	stopupdatethread = 1;
+	SDL_SemPost(updatesem);
+	SDL_WaitThread(updatethread, 0);
+	SDL_DestroySemaphore(updatesem);
 	world_cleanup();
 }
