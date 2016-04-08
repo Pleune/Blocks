@@ -42,6 +42,25 @@ main(int argc, char *argv[])
 	init();
 	while(isrunning)
 	{
+		SDL_Event e;
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT)
+			{
+				exitgame();
+			} else if(e.type == SDL_WINDOWEVENT)
+			{
+				if(e.window.event == SDL_WINDOWEVENT_RESIZED)
+				{
+					updatewindowbounds(e.window.data1, e.window.data2);
+					windoww = e.window.data1;
+					windowh = e.window.data2;
+					centermouse();
+				}
+			}
+			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
+			
+		}
 		runevent(CURRENTSTATE, RUN);
 
 		if(queueforpop)
@@ -80,7 +99,7 @@ static void
 runevent(enum states s, enum events e)
 {
 	if(statetable[s][e])
-		(*statetable[s][e]) ();
+		(*statetable[s][e]) (0);
 }
 
 static void

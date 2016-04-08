@@ -83,7 +83,7 @@ updatethreadfunc(void *ptr)
 }
 
 void
-state_game_init()
+state_game_init(void *ptr)
 {
 	getwindowsize(&windoww, &windowh);
 
@@ -295,96 +295,89 @@ input(uint32_t dt)
 	headpos = *posptr;
 	headpos.y += PLAYER_EYEHEIGHT;
 
-	SDL_Event e;
-	while(SDL_PollEvent(&e))
-	{
-		if(e.type == SDL_QUIT)
-			exitgame();
-
-		if(e.type == SDL_KEYDOWN)
-		{
-			switch(e.key.keysym.sym)
-			{
-				case SDLK_ESCAPE:
-					state_queuepop();
-				break;
-				case SDLK_SPACE:
-					entity_jump(pos, JUMPSPEED);
-				break;
-				case SDLK_v:
-					lines = !lines;
-				break;
-				case SDLK_m:
-					takeinput = !takeinput;
-				break;
-				case SDLK_c:
-					printf("Coords x: %f y: %f z: %f \n", posptr->x, posptr->y, posptr->z);
-				break;
-				case SDLK_t:
-				{
-					vec3_t top = *posptr;
-					top.y = worldgen_getheightfrompos(posptr->x, posptr->z)+1;
-					entity_setpos(pos, top);
-				break;
-				}
-				case SDLK_f:
-					flying = !flying;
-				break;
-				case SDLK_u:
-					updating = !updating;
-					printf("UPDATING: %i\n", updating);
-				break;
-				case SDLK_p:
-					pp = !pp;
-					if(!pp)
-					{
-						glBindFramebuffer(GL_FRAMEBUFFER, 0);
-						glEnable(GL_DEPTH_TEST);
-						glUseProgram(drawprogram);
-					}
-				break;
-
-			}
-		}
-		else if(e.type == SDL_MOUSEBUTTONDOWN)
-		{
-			if(e.button.button == SDL_BUTTON_LEFT)
-			{
-				block_t b;
-				b.id = SAND;
-				game_rayadd(&headpos, &forwardcamera, b, 1, 1);
-			}
-			else if(e.button.button == SDL_BUTTON_RIGHT)
-			{
-				game_raydel(&headpos, &forwardcamera, 1);
-			}
-		}
-		else if(e.type == SDL_WINDOWEVENT)
-		{
-			if(e.window.event == SDL_WINDOWEVENT_RESIZED)
-			{
-				updatewindowbounds(e.window.data1, e.window.data2);
-				windoww = e.window.data1;
-				windowh = e.window.data2;
-				centermouse();
-
-				glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
-
-				glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_FLOAT, 0);
-
-				glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-
-				if(!pp)
-					glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			}
-		}
-	}
-
 	forwardcamera.x += headpos.x;
 	forwardcamera.y += headpos.y;
 	forwardcamera.z += headpos.z;
+}
+
+void
+state_game_event(void *ptr)
+{
+	SDL_Event e = ((SDL_Event *)ptr)[0];
+
+	if(e.type == SDL_KEYDOWN)
+	{
+		switch(e.key.keysym.sym)
+		{
+			case SDLK_ESCAPE:
+				state_queuepop();
+			break;
+			case SDLK_SPACE:
+				entity_jump(pos, JUMPSPEED);
+			break;
+			case SDLK_v:
+				lines = !lines;
+			break;
+			case SDLK_m:
+				takeinput = !takeinput;
+			break;
+			case SDLK_c:
+				printf("Coords x: %f y: %f z: %f \n", posptr->x, posptr->y, posptr->z);
+			break;
+			case SDLK_t:
+			{
+				vec3_t top = *posptr;
+				top.y = worldgen_getheightfrompos(posptr->x, posptr->z)+1;
+				entity_setpos(pos, top);
+			break;
+			}
+			case SDLK_f:
+				flying = !flying;
+			break;
+			case SDLK_u:
+				updating = !updating;
+				printf("UPDATING: %i\n", updating);
+			break;
+			case SDLK_p:
+				pp = !pp;
+				if(!pp)
+				{
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					glEnable(GL_DEPTH_TEST);
+					glUseProgram(drawprogram);
+				}
+			break;
+		}
+	}
+	else if(e.type == SDL_MOUSEBUTTONDOWN)
+	{
+		if(e.button.button == SDL_BUTTON_LEFT)
+		{
+			block_t b;
+			b.id = SAND;
+			game_rayadd(&headpos, &forwardcamera, b, 1, 1);
+		}
+		else if(e.button.button == SDL_BUTTON_RIGHT)
+		{
+			game_raydel(&headpos, &forwardcamera, 1);
+		}
+	}
+	else if(e.type == SDL_WINDOWEVENT)
+	{
+		if(e.window.event == SDL_WINDOWEVENT_RESIZED)
+		{
+			glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
+
+			glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_FLOAT, 0);
+
+			glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+
+			if(!pp)
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		}
+	}
 }
 
 static void
@@ -449,7 +442,7 @@ render(uint32_t dt)
 }
 
 void
-state_game_run()
+state_game_run(void *ptr)
 {
 	uint32_t newticks = SDL_GetTicks();
 	uint32_t dt = ticks ? newticks - ticks : 0;
@@ -473,7 +466,7 @@ state_game_run()
 }
 
 void
-state_game_close()
+state_game_close(void *ptr)
 {
 	glDeleteProgram(drawprogram);
 	glDeleteFramebuffers(1, &renderbuffer.framebuffer);
