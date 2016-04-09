@@ -2,7 +2,7 @@ CC=gcc
 
 ROOT=./
 
-CFLAGS:= -Wall -O1 -g
+CFLAGS:= -Wall -O3 -g
 LFLAGS:= -g
 LIBS:=-lm -lSDL2 -lGL -lGLEW
 

@@ -39,6 +39,9 @@ typedef struct mat4_s {
 	float mat[16];
 } mat4_t;
 
+int imin(int a, int b);
+int imax(int a, int b);
+
 //many of these are not actually coded in yet
 
 long double *distlong3(long double *out, long3_t *a, long3_t *b);

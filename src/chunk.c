@@ -236,10 +236,10 @@ chunk_render(chunk_t *chunk)
 }
 
 static inline void
-addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o, GLfloat **vbos, GLfloat **color, GLuint *ebc, GLint x, GLint y, GLint z, vec3_t blockcolor, uint8_t blockid)
+addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o, GLfloat **vbos, GLfloat **color, GLuint *ebc, GLfloat x, GLfloat y, GLfloat z, vec3_t blockcolor, uint8_t blockid)
 {
 	GLint index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1) + blockid * (CHUNKSIZE+1)*(CHUNKSIZE+1)*256;
-	if(!ebc[index])
+	if(!ebc[index] || blockid == WATER)
 	{
 		//add point to vbo
 		//the max for o is a multiple for three, so we only have to check for the 'overflow' every three floats or one point
@@ -329,7 +329,8 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 			for(z=0; z<CHUNKSIZE; z++)
 			{
 		//		long index = x+CHUNKSIZE*y+CHUNKSIZE*CHUNKSIZE*z;
-				if(octree_get(x, y, z, chunk->data).id)
+				block_t block = octree_get(x, y, z, chunk->data);
+				if(block.id != AIR)
 				{
 					int top, bottom, south, north, east, west;
 
@@ -337,14 +338,15 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkabove)
 						{
-							if(octree_get(x,0,z,chunkabove->data).id)
+							block_t b = octree_get(x,0,z,chunkabove->data);
+							if(b.id != AIR && (block.id != WATER || block.metadata.number == SIM_WATER_LEVELS))
 								top=0;
 							else
 								top=1;
 						} else
 							top=1;
 					} else {
-						if(octree_get(x,y+1,z,chunk->data).id)
+						if(octree_get(x,y+1,z,chunk->data).id && (block.id != WATER || block.metadata.number == SIM_WATER_LEVELS))
 							top = 0;
 						else
 							top = 1;
@@ -369,14 +371,16 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunksouth)
 						{
-							if(octree_get(x,y,0,chunksouth->data).id)
+							block_t b = octree_get(x,y,0,chunksouth->data);
+							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								south=0;
-							else
+							else 
 								south=1;
 						} else
 							south=1;
 					} else {
-						if(octree_get(x,y,z+1,chunk->data).id)
+						block_t b = octree_get(x,y,z+1,chunk->data);
+						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							south = 0;
 						else
 							south = 1;
@@ -385,14 +389,16 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunknorth)
 						{
-							if(octree_get(x,y,CHUNKSIZE-1, chunknorth->data).id)
+							block_t b = octree_get(x,y,CHUNKSIZE-1, chunknorth->data);
+							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								north=0;
 							else
 								north=1;
 						} else
 							north=1;
 					} else {
-						if(octree_get(x,y,z-1,chunk->data).id)
+						block_t b = octree_get(x,y,z-1,chunk->data);
+						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							north = 0;
 						else
 							north = 1;
@@ -402,14 +408,16 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkeast)
 						{
-							if(octree_get(0,y,z,chunkeast->data).id)
+							block_t b = octree_get(0,y,z,chunkeast->data);
+							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								east=0;
 							else
 								east=1;
 						} else
 							east=1;
 					} else {
-						if(octree_get(x+1,y,z,chunk->data).id)
+						block_t b = octree_get(x+1,y,z,chunk->data);
+						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							east = 0;
 						else
 							east = 1;
@@ -418,14 +426,16 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkwest)
 						{
-							if(octree_get(CHUNKSIZE-1,y,z, chunkwest->data).id)
+							block_t b = octree_get(CHUNKSIZE-1,y,z, chunkwest->data);
+							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								west=0;
 							else
 								west=1;
 						} else
 							west=1;
 					} else {
-						if(octree_get(x-1,y,z,chunk->data).id)
+						block_t b = octree_get(x-1,y,z,chunk->data);
+						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							west = 0;
 						else
 							west = 1;
@@ -445,15 +455,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					int q=0;
 					int t;
 
-					/*
-					//point data
-					termbodata[termi++] = faces[q++] + x + chunk->pos.x*CHUNKSIZE;
-					termbodata[termi++] = faces[q++] + y + chunk->pos.y*CHUNKSIZE;
-					termbodata[termi++] = faces[q++] + z + chunk->pos.z*CHUNKSIZE;
-					//texcoord data
-					termbodata[termi++] = uvcoords[uvcoordsabstraction[texcount]*2];
-					termbodata[termi++] = uvcoords[uvcoordsabstraction[texcount++]*2+1];
-					*/
 					for(t=0;t<6;t++)
 					{
 						if(U[t])
@@ -461,8 +462,12 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 							int Q=q+18;
 							while(q<Q)
 							{
+								GLfloat hmux = 1.0f;
+								if(block.id == WATER)
+									hmux = (GLfloat)block.metadata.number / (GLfloat)SIM_WATER_LEVELS;
+
 								GLfloat x_ = faces[q++] + x;
-								GLfloat y_ = faces[q++] + y;
+								GLfloat y_ = faces[q++]*hmux + y;
 								GLfloat z_ = faces[q++] + z;
 								addpoint(chunk, &c,&i,ebos,&v,&o,vbos,cbos,ebc,x_,y_,z_,blockcolor,block.id);
 							}
@@ -629,11 +634,27 @@ chunk_updatequeue(chunk_t *chunk, int x, int y, int z, uint8_t time, update_flag
 {
 	struct updatequeue_s *new = malloc(sizeof(struct updatequeue_s));
 	lockWrite(chunk);
+
+	new->pos = world_getinternalposofworldpos(x,y,z);
+	new->time = time;
+	new->flags = flags;
+
 	if(chunk->updates)
 	{
 		struct updatequeue_s *top = chunk->updates;
 		while(top->next)
+		{
+			if(new->pos.x == top->pos.x && new->pos.y == top->pos.y && new->pos.z == top->pos.z)
+			{
+				if(top->time > time)
+					top->time = time;
+				top->flags |= flags;
+				unlockWrite(chunk);
+				free(new);
+				return;
+			}
 			top = top->next;
+		}
 		top->next = new;
 		new->prev = top;
 		new->next = 0;
@@ -642,10 +663,6 @@ chunk_updatequeue(chunk_t *chunk, int x, int y, int z, uint8_t time, update_flag
 		new->next = 0;
 		new->prev = 0;
 	}
-
-	new->pos = world_getinternalposofworldpos(x,y,z);
-	new->time = time;
-	new->flags = flags;
 	unlockWrite(chunk);
 }
 
@@ -678,7 +695,7 @@ chunk_updaterun(chunk_t *chunk)
 						node->pos.z
 					);
 
-				block_updaterun(chunk_getblockid(chunk, node->pos.x, node->pos.y, node->pos.z), pos, node->flags);
+				block_updaterun(chunk_getblock(chunk, node->pos.x, node->pos.y, node->pos.z), pos, node->flags);
 				num++;
 
 				free(node);

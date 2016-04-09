@@ -63,8 +63,8 @@ update(uint32_t dt)
 	if(!updating)
 		return;
 	long num = world_updaterun();
-	if(num != 0)
-		printf("chunk updates: %li \n", num);
+	if(num)
+		printf("u:%li\n", num);
 }
 
 static int
@@ -76,7 +76,7 @@ updatethreadfunc(void *ptr)
 		SDL_SemWait(updatesem);
 		if(stopupdatethread)
 			break;
-		update(50);
+		update(20);
 	}
 	return 0;
 
@@ -150,7 +150,7 @@ state_game_init(void *ptr)
 	vec3_t spawn = {0, 0, 0};
 	spawn.y = worldgen_getheightfrompos(0, 0)+1.1;
 	int spawntries = 0;
-	while((spawn.y < 0 || spawn.y > 200) && spawntries < 500)
+	while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
 	{
 		spawntries++;
 		spawn.x = (double)(rand()%10000) - 5000;
@@ -283,21 +283,26 @@ input(uint32_t dt)
 	if(keyboard[SDL_SCANCODE_R])
 	{
 		block_t b;
-		b.id = SAND;
-		game_rayadd(&headpos, &forwardcamera, b, 1, 1);
+		b.id = WATER;
+		b.metadata.number = SIM_WATER_LEVELS;
+		game_rayadd(&headpos, &forwardcamera, b, 1, 1, 1000);
 	}
 	if(keyboard[SDL_SCANCODE_E])
 	{
-		game_raydel(&headpos, &forwardcamera, 1);
+		game_raydel(&headpos, &forwardcamera, 1, 1000);
+	}
+	if(keyboard[SDL_SCANCODE_C])
+	{
+		vec3_t dir;
+		for(dir.x = -1; dir.x < 1; dir.x += .3)
+		for(dir.y = -1; dir.y < 0; dir.y += .3)
+		for(dir.z = -1; dir.z < 1; dir.z += .3)
+			game_raydel(&headpos, &dir, 1, 50);
 	}
 
 
 	headpos = *posptr;
 	headpos.y += PLAYER_EYEHEIGHT;
-
-	forwardcamera.x += headpos.x;
-	forwardcamera.y += headpos.y;
-	forwardcamera.z += headpos.z;
 }
 
 void
@@ -354,12 +359,12 @@ state_game_event(void *ptr)
 		if(e.button.button == SDL_BUTTON_LEFT)
 		{
 			block_t b;
-			b.id = SAND;
-			game_rayadd(&headpos, &forwardcamera, b, 1, 1);
+			b.id = WATER_GEN;
+			game_rayadd(&headpos, &forwardcamera, b, 1, 1, 1000);
 		}
 		else if(e.button.button == SDL_BUTTON_RIGHT)
 		{
-			game_raydel(&headpos, &forwardcamera, 1);
+			game_raydel(&headpos, &forwardcamera, 1, 1000);
 		}
 	}
 	else if(e.type == SDL_WINDOWEVENT)
@@ -396,8 +401,13 @@ render(uint32_t dt)
 
 	input(dt);
 
+	vec3_t forwardview;
+	forwardview.x = forwardcamera.x + headpos.x;
+	forwardview.y = forwardcamera.y + headpos.y;
+	forwardview.z = forwardcamera.z + headpos.z;
+
 	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 3000, .1);
-	mat4_t view = getviewmatrix(headpos, forwardcamera, up);
+	mat4_t view = getviewmatrix(headpos, forwardview, up);
 
 	mat4_t mvp;
 	dotmat4mat4(&mvp, &projection, &view);
@@ -450,9 +460,10 @@ state_game_run(void *ptr)
 
 	static uint32_t updatebuild = 0;
 	updatebuild += dt;
-	if(updatebuild >= 50)
+	if(updatebuild >= 20)
 	{
-		updatebuild -= 50;
+		updatebuild -= 20;
+		SDL_SemTryWait(updatesem);
 		SDL_SemPost(updatesem);
 	}
 	render(dt);

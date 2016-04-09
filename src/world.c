@@ -374,13 +374,16 @@ world_setblock(long x, long y, long z, block_t block, int update, int loadnew, i
 
 		chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
 
-		world_updatequeue(x,y,z, 0, 0);
-		world_updatequeue(x+1,y,z, 0, 0);
-		world_updatequeue(x,y+1,z, 0, 0);
-		world_updatequeue(x,y,z+1, 0, 0);
-		world_updatequeue(x-1,y,z, 0, 0);
-		world_updatequeue(x,y-1,z, 0, 0);
-		world_updatequeue(x,y,z-1, 0, 0);
+		if(update)
+		{
+			world_updatequeue(x,y,z, update-1, 0);
+			world_updatequeue(x+1,y,z, update-1, 0);
+			world_updatequeue(x,y+1,z, update-1, 0);
+			world_updatequeue(x,y,z+1, update-1, 0);
+			world_updatequeue(x-1,y,z, update-1, 0);
+			world_updatequeue(x,y-1,z, update-1, 0);
+			world_updatequeue(x,y,z-1, update-1, 0);
+		}
 
 		quickremeshachunk(&chunkindex, instant);
 
@@ -429,13 +432,16 @@ world_setblockid(long x, long y, long z, blockid_t id, int update, int loadnew, 
 
 		chunk_setblockid(chunk, internalpos.x, internalpos.y, internalpos.z, id);
 
-		world_updatequeue(x,y,z, 0, 0);
-		world_updatequeue(x+1,y,z, 0, 0);
-		world_updatequeue(x,y+1,z, 0, 0);
-		world_updatequeue(x,y,z+1, 0, 0);
-		world_updatequeue(x-1,y,z, 0, 0);
-		world_updatequeue(x,y-1,z, 0, 0);
-		world_updatequeue(x,y,z-1, 0, 0);
+		if(update)
+		{
+			world_updatequeue(x,y,z, update-1, 0);
+			world_updatequeue(x+1,y,z, update-1, 0);
+			world_updatequeue(x,y+1,z, update-1, 0);
+			world_updatequeue(x,y,z+1, update-1, 0);
+			world_updatequeue(x-1,y,z, update-1, 0);
+			world_updatequeue(x,y-1,z, update-1, 0);
+			world_updatequeue(x,y,z-1, update-1, 0);
+		}
 
 		quickremeshachunk(&chunkindex, instant);
 

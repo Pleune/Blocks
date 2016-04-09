@@ -4,7 +4,7 @@
 #define RENDER_WOBBLE 0.1
 
 #define CHUNKLEVELS 4
-#define WORLDSIZE 25
+#define WORLDSIZE 20
 
 #define WORLDGEN_BUMPYNESS 3
 #define WORLDGEN_RANGE 0.5
@@ -22,5 +22,7 @@
 #define PLAYER_EYEHEIGHT 3.4
 #define PLAYER_MASS 30
 #define PLAYER_WIDTH 1.8
+
+#define SIM_WATER_LEVELS 80
 
 #endif //DEFINES_H

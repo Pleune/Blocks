@@ -3,6 +3,24 @@
 #include <string.h>
 #include <math.h>
 
+int
+imin(int a, int b)
+{
+	if(a < b)
+		return a;
+	else
+		return b;
+}
+
+int
+imax(int a, int b)
+{
+	if(a > b)
+		return a;
+	else
+		return b;
+}
+
 long double *
 distlong3(long double *out, long3_t *a, long3_t *b)
 {

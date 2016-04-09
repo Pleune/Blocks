@@ -5,7 +5,7 @@
 #include "world.h"
 
 void
-game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int update, int before)
+game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int update, int before, int dist)
 {
 	long3_t p;
 	p.x = floorf(start->x);
@@ -55,7 +55,7 @@ game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int upd
 	};
 
 	int i;
-	for(i=0; i<1000; i++)
+	for(i=0; i<dist; i++)
 	{
 		if((max.x <= max.y || iszero.y) && (max.x <= max.z || iszero.z) && !iszero.x)
 		{
@@ -108,9 +108,9 @@ game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int upd
 }
 
 void
-game_raydel(const vec3_t* start, const vec3_t *direction, int update)
+game_raydel(const vec3_t* start, const vec3_t *direction, int update, int dist)
 {
 	block_t b;
-	b.id = 0;
-	game_rayadd(start, direction, b, update, 0);
+	b.id = AIR;
+	game_rayadd(start, direction, b, update, 0, dist);
 }

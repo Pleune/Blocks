@@ -209,6 +209,13 @@ worldgen_genchunk(chunk_t *chunk)
 {
 	long3_t newchunkblockpos = setheightmapfromcpos(chunk_getpos(chunk));
 
+	static const block_t water = {
+		.id = WATER,
+		{
+			.number = SIM_WATER_LEVELS
+		}
+	};
+
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; x++)
 	{
@@ -230,7 +237,7 @@ worldgen_genchunk(chunk_t *chunk)
 					else
 						chunk_setblockid(chunk, x, y, z, GRASS);
 				else if(blockheight < 0)
-					chunk_setblockid(chunk, x, y, z, WATER);
+					chunk_setblock(chunk, x, y, z, water);
 				else
 					break;
 			}
