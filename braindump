@@ -1,0 +1,30 @@
+Things to do:
+
+-save files
+-main menu
+-other menus
+-inventory
+-crafting
+-block breaking
+-text engine
+-physics engine
+-collision
+-far lands fixing
+-Dynamically decompress high load chunks
+
+
+Save file format:
+
+<> = 
+size of data
+type of data
+
+<<<<<<<<<<<<<<<<<<<<<<<<<
+
+<>Name
+<>Seed
+<>Date
+<>Octree data
+<>Block entity data
+<>Entity data
+checksum
