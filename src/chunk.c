@@ -238,7 +238,7 @@ chunk_render(chunk_t *chunk)
 static inline void
 addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o, GLfloat **vbos, GLfloat **color, GLuint *ebc, GLfloat x, GLfloat y, GLfloat z, vec3_t blockcolor, uint8_t blockid)
 {
-	GLint index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1) + blockid * (CHUNKSIZE+1)*(CHUNKSIZE+1)*256;
+	GLint index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1) + blockid * (CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1);
 	if(!ebc[index] || blockid == WATER)
 	{
 		//add point to vbo
@@ -319,7 +319,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 	cbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 
-	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * 256);
+	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * BLOCK_MAXTYPES);
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; x++)
@@ -328,7 +328,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		{
 			for(z=0; z<CHUNKSIZE; z++)
 			{
-		//		long index = x+CHUNKSIZE*y+CHUNKSIZE*CHUNKSIZE*z;
 				block_t block = octree_get(x, y, z, chunk->data);
 				if(block.id != AIR)
 				{

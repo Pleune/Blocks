@@ -7,6 +7,7 @@
 #include "update.h"
 
 enum block_id {AIR = 0, STONE, DIRT, GRASS, SAND, BEDROCK, WATER, WATER_GEN, ERR};
+#define BLOCK_MAXTYPES 9
 
 typedef enum block_id blockid_t;
 
