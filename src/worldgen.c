@@ -35,7 +35,7 @@ noise(uint32_t x, uint32_t y, uint32_t seed)
 /**
  * flattens the world out around y = 0
  */
-void
+static void
 bias(double *data)
 {
 	int x, z;
@@ -51,7 +51,7 @@ bias(double *data)
 	}
 }
 
-double
+static double
 weight(double d)
 {
 	double val = d / (WORLDGEN_RANGE * DIAMONDSQUARESIZE);
@@ -67,7 +67,7 @@ weight(double d)
 /**
  * applys the diamond square algo.
  */
-void
+static void
 pound(double *data, size_t size, long3_t pos, uint32_t seed, int scale, int levels)
 {
 	int step;
@@ -125,7 +125,7 @@ pound(double *data, size_t size, long3_t pos, uint32_t seed, int scale, int leve
 	}
 }
 
-long3_t
+static long3_t
 setheightmapfromcpos(long3_t cpos)
 {
 	uint32_t seed = world_getseed();
@@ -193,7 +193,7 @@ setheightmapfromcpos(long3_t cpos)
 	return newchunkblockpos;
 }
 
-double
+static double
 getheightval(long x, long z)
 {
 	return (heightmap[

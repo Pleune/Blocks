@@ -43,7 +43,7 @@ octree_zero(octree_t *tree)
 	tree->data.block.id = AIR;
 }
 
-block_t
+static block_t
 get(int8_t x, int8_t y, int8_t z, octree_t *tree, int8_t level)
 {
 	if(level < CHUNKLEVELS)
@@ -64,7 +64,7 @@ octree_get(int8_t x, int8_t y, int8_t z, octree_t *tree)
 	return get(x, y, z, tree, 0);
 }
 
-void
+static void
 set(int8_t x, int8_t y, int8_t z, octree_t *tree, block_t *data, int8_t level)
 {
 	int i;

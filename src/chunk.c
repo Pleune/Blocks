@@ -144,31 +144,31 @@ noise(uint32_t x, uint32_t y, uint32_t z)
 	return hash((hash(x) ^ hash(y)) ^ hash(z));
 }
 
-void
+static void
 lockWrite(chunk_t *chunk)
 {
 	pthread_rwlock_wrlock(&chunk->rwlock);
 }
 
-void
+static void
 unlockWrite(chunk_t *chunk)
 {
 	pthread_rwlock_unlock(&chunk->rwlock);
 }
 
 
-void
+static void
 lockRead(chunk_t *chunk)
 {
 	pthread_rwlock_rdlock(&chunk->rwlock);
 }
 
-void
+static void
 unlockRead(chunk_t *chunk)
 {
 	pthread_rwlock_unlock(&chunk->rwlock);
 }
-void
+static void
 init(chunk_t *chunk)
 {
 	glGenBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
