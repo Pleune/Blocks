@@ -51,8 +51,13 @@ struct chunk_s {
 	struct mesh_s mesh;
 	int iscurrent;
 
+	int iscompressed;
+	block_t *raw;
+
 	pthread_rwlock_t  rwlock;
 };
+
+int numuncompressed = 0;
 
 const static GLfloat faces[] = {
 //top
@@ -175,6 +180,7 @@ init(chunk_t *chunk)
 	chunk->updates = 0;
 	chunk->mesh.uploadnext = 0;
 	chunk->iscurrent = 0;
+	chunk->iscompressed = 1;
 	pthread_rwlock_init(&chunk->rwlock, 0);
 }
 
@@ -186,6 +192,70 @@ chunk_getworldposfromchunkpos(long3_t cpos, int x, int y, int z)
 	ret.y = cpos.y * CHUNKSIZE + y;
 	ret.z = cpos.z * CHUNKSIZE + z;
 	return ret;
+}
+
+static void
+compress(chunk_t *chunk)
+{
+	if(chunk->iscompressed)
+		return;
+
+	lockWrite(chunk);
+	int x, y, z;
+	for(x=0; x<CHUNKSIZE; x++)
+	for(y=0; y<CHUNKSIZE; y++)
+	for(z=0; z<CHUNKSIZE; z++)
+		octree_set(x, y, z, chunk->data, &chunk->raw[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
+
+	chunk->iscompressed = 1;
+
+	unlockWrite(chunk);
+
+	free(chunk->raw);
+	numuncompressed--;
+}
+
+static void
+uncompress(chunk_t *chunk)
+{
+	if(!chunk->iscompressed)
+		return;
+
+	chunk->raw = malloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE* sizeof(block_t));
+
+	lockWrite(chunk);
+
+	int x, y, z;
+	for(x=0; x<CHUNKSIZE; x++)
+	for(y=0; y<CHUNKSIZE; y++)
+	for(z=0; z<CHUNKSIZE; z++)
+		chunk->raw[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = octree_get(x, y, z, chunk->data);
+
+	chunk->iscompressed = 0;
+
+	unlockWrite(chunk);
+
+	numuncompressed++;
+}
+
+static block_t
+getblock(chunk_t *c, int x, int y, int z)
+{
+	block_t ret;
+	if(c->iscompressed)
+		ret = octree_get(x, y, z, c->data);
+	else
+		ret = c->raw[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+	return ret;
+}
+
+static void
+setblock(chunk_t *c, int x, int y, int z, block_t b)
+{
+	if(c->iscompressed)
+		octree_set(x, y, z, c->data, &b);
+	else
+		c->raw[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
 }
 
 void
@@ -328,7 +398,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		{
 			for(z=0; z<CHUNKSIZE; z++)
 			{
-				block_t block = octree_get(x, y, z, chunk->data);
+				block_t block = getblock(chunk, x, y, z);
 				if(block.id != AIR)
 				{
 					int top, bottom, south, north, east, west;
@@ -337,7 +407,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkabove)
 						{
-							block_t b = octree_get(x,0,z,chunkabove->data);
+							block_t b = getblock(chunkabove, x,0,z);
 							if(b.id != AIR && (block.id != WATER || block.metadata.number == SIM_WATER_LEVELS))
 								top=0;
 							else
@@ -345,7 +415,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							top=1;
 					} else {
-						if(octree_get(x,y+1,z,chunk->data).id && (block.id != WATER || block.metadata.number == SIM_WATER_LEVELS))
+						if(getblock(chunk, x,y+1,z).id && (block.id != WATER || block.metadata.number == SIM_WATER_LEVELS))
 							top = 0;
 						else
 							top = 1;
@@ -354,14 +424,14 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkbelow)
 						{
-							if(octree_get(x,CHUNKSIZE-1,z,chunkbelow->data).id)
+							if(getblock(chunkbelow, x,CHUNKSIZE-1,z).id)
 								bottom=0;
 							else
 								bottom=1;
 						} else
 							bottom=1;
 					} else {
-						if(octree_get(x,y-1,z,chunk->data).id)
+						if(getblock(chunk, x,y-1,z).id)
 							bottom = 0;
 						else
 							bottom = 1;
@@ -370,7 +440,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunksouth)
 						{
-							block_t b = octree_get(x,y,0,chunksouth->data);
+							block_t b = getblock(chunksouth, x,y,0);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								south=0;
 							else 
@@ -378,7 +448,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							south=1;
 					} else {
-						block_t b = octree_get(x,y,z+1,chunk->data);
+						block_t b = getblock(chunk, x,y,z+1);
 						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							south = 0;
 						else
@@ -388,7 +458,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunknorth)
 						{
-							block_t b = octree_get(x,y,CHUNKSIZE-1, chunknorth->data);
+							block_t b = getblock(chunknorth, x,y,CHUNKSIZE-1);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								north=0;
 							else
@@ -396,7 +466,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							north=1;
 					} else {
-						block_t b = octree_get(x,y,z-1,chunk->data);
+						block_t b = getblock(chunk, x,y,z-1);
 						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							north = 0;
 						else
@@ -407,7 +477,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkeast)
 						{
-							block_t b = octree_get(0,y,z,chunkeast->data);
+							block_t b = getblock(chunkeast, 0,y,z);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								east=0;
 							else
@@ -415,7 +485,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							east=1;
 					} else {
-						block_t b = octree_get(x+1,y,z,chunk->data);
+						block_t b = getblock(chunk, x+1,y,z);
 						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							east = 0;
 						else
@@ -425,7 +495,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkwest)
 						{
-							block_t b = octree_get(CHUNKSIZE-1,y,z, chunkwest->data);
+							block_t b = getblock(chunkwest, CHUNKSIZE-1,y,z);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								west=0;
 							else
@@ -433,14 +503,13 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							west=1;
 					} else {
-						block_t b = octree_get(x-1,y,z,chunk->data);
+						block_t b = getblock(chunk, x-1,y,z);
 						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							west = 0;
 						else
 							west = 1;
 					}
 
-					block_t block = octree_get(x,y,z,chunk->data);
 					vec3_t blockcolor = block_getcolor(block.id);
 
 					int U[6] = {
@@ -584,8 +653,10 @@ chunk_getblock(chunk_t *c, int x, int y, int z)
 		return ret;
 	}
 
+	block_t ret;
+
 	lockRead(c);
-	block_t ret = octree_get(x, y, z, c->data);
+	ret = getblock(c, x, y, z);
 	unlockRead(c);
 
 	return ret;
@@ -604,7 +675,7 @@ chunk_setblock(chunk_t *c, int x, int y, int z, block_t b)
 		return;
 
 	lockWrite(c);
-	octree_set(x, y, z, c->data, &b);
+		setblock(c, x, y, z, b);
 	unlockWrite(c);
 }
 
@@ -704,6 +775,18 @@ chunk_updaterun(chunk_t *chunk)
 			node = next;
 		}
 	}
+
+	if(num > CHUNK_UNCOMPRESS && chunk->iscompressed)
+	{
+		printf("uncompressing #%i\n", numuncompressed);
+		uncompress(chunk);
+	}
+	else if(num < CHUNK_RECOMPRESS && !chunk->iscompressed)
+	{
+		printf("compressing #%i\n", numuncompressed);
+		compress(chunk);
+	}
+
 	return num;
 }
 
