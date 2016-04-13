@@ -4,6 +4,6 @@
 typedef uint8_t update_flags_t;
 
 #define UPDATE_FLOWWATER 0b1
-#define UPDATE_FALL 0b01
+#define UPDATE_FALL 0b10
 
 #endif //UPDATE_H

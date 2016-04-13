@@ -154,7 +154,7 @@ block_updaterun(block_t b, long3_t pos, update_flags_t flags)
 						int avg = sum/num;
 						int rem = sum % num;
 
-						delay += 40 / (avg + rem);
+						delay += SIM_WATER_DELAY;
 
 						if(avg > 0 && avg != waterinme)
 						{

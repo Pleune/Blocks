@@ -29,7 +29,7 @@ void chunk_setair(chunk_t *c, int x, int y, int z);
 
 long3_t chunk_getpos(chunk_t *chunk);
 
-void chunk_updatequeue(chunk_t *chunk, int x, int y, int z, uint8_t time, update_flags_t flags);
+void chunk_updatequeue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags);
 long chunk_updaterun(chunk_t *chunk);
 
 chunk_t *chunk_loadchunk(long3_t pos);

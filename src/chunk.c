@@ -39,20 +39,21 @@ struct updatequeue_s {
 	update_flags_t flags;
 
 	int3_t pos;
-	uint8_t time;
+	int time;
 };
 
 struct chunk_s {
 	long3_t pos;
 	octree_t *data;
+	block_t *rawblocks;
 
 	struct updatequeue_s *updates;
+	struct updatequeue_s *rawupdates;
+
+	int iscompressed;
 
 	struct mesh_s mesh;
 	int iscurrent;
-
-	int iscompressed;
-	block_t *raw;
 
 	pthread_rwlock_t  rwlock;
 };
@@ -195,6 +196,43 @@ chunk_getworldposfromchunkpos(long3_t cpos, int x, int y, int z)
 }
 
 static void
+updatequeue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags)
+{
+	struct updatequeue_s *new = malloc(sizeof(struct updatequeue_s));
+
+	new->pos.x = x;
+	new->pos.y = y;
+	new->pos.z = z;
+
+	new->time = time;
+	new->flags = flags;
+
+	if(chunk->updates)
+	{
+		struct updatequeue_s *top = chunk->updates;
+		while(top->next)
+		{
+			if(new->pos.x == top->pos.x && new->pos.y == top->pos.y && new->pos.z == top->pos.z)
+			{
+				if(top->time > time)
+					top->time = time;
+				top->flags |= flags;
+				free(new);
+				return;
+			}
+			top = top->next;
+		}
+		top->next = new;
+		new->prev = top;
+		new->next = 0;
+	} else {
+		chunk->updates = new;
+		new->next = 0;
+		new->prev = 0;
+	}
+}
+
+static void
 compress(chunk_t *chunk)
 {
 	if(chunk->iscompressed)
@@ -205,13 +243,21 @@ compress(chunk_t *chunk)
 	for(x=0; x<CHUNKSIZE; x++)
 	for(y=0; y<CHUNKSIZE; y++)
 	for(z=0; z<CHUNKSIZE; z++)
-		octree_set(x, y, z, chunk->data, &chunk->raw[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
+	{
+		octree_set(x, y, z, chunk->data, &chunk->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
+		struct updatequeue_s *update = &chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+		if(update->time >= 0)
+		{
+			updatequeue(chunk, x, y, z, update->time, update->flags);
+		}
+	}
 
 	chunk->iscompressed = 1;
 
 	unlockWrite(chunk);
 
-	free(chunk->raw);
+	free(chunk->rawblocks);
+	free(chunk->rawupdates);
 	numuncompressed--;
 }
 
@@ -221,7 +267,8 @@ uncompress(chunk_t *chunk)
 	if(!chunk->iscompressed)
 		return;
 
-	chunk->raw = malloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE* sizeof(block_t));
+	chunk->rawblocks = malloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE* sizeof(block_t));
+	chunk->rawupdates = malloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE* sizeof(struct updatequeue_s));
 
 	lockWrite(chunk);
 
@@ -229,7 +276,31 @@ uncompress(chunk_t *chunk)
 	for(x=0; x<CHUNKSIZE; x++)
 	for(y=0; y<CHUNKSIZE; y++)
 	for(z=0; z<CHUNKSIZE; z++)
-		chunk->raw[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = octree_get(x, y, z, chunk->data);
+	{
+		chunk->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = octree_get(x, y, z, chunk->data);
+		chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].time = -1;
+	}
+
+	if(chunk->updates)
+	{
+		struct updatequeue_s *node = chunk->updates;
+
+		while(node)
+		{
+			struct updatequeue_s *next = node->next;
+
+			struct updatequeue_s *raw = &chunk->rawupdates[node->pos.x + node->pos.y*CHUNKSIZE + node->pos.z*CHUNKSIZE*CHUNKSIZE];
+
+			raw->time = node->time;
+			raw->pos = node->pos;
+
+			free(node);
+
+			node = next;
+		}
+
+		chunk->updates = 0;
+	}
 
 	chunk->iscompressed = 0;
 
@@ -245,7 +316,7 @@ getblock(chunk_t *c, int x, int y, int z)
 	if(c->iscompressed)
 		ret = octree_get(x, y, z, c->data);
 	else
-		ret = c->raw[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+		ret = c->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
 	return ret;
 }
 
@@ -255,7 +326,7 @@ setblock(chunk_t *c, int x, int y, int z, block_t b)
 	if(c->iscompressed)
 		octree_set(x, y, z, c->data, &b);
 	else
-		c->raw[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
+		c->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
 }
 
 void
@@ -443,7 +514,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 							block_t b = getblock(chunksouth, x,y,0);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								south=0;
-							else 
+							else
 								south=1;
 						} else
 							south=1;
@@ -615,7 +686,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	chunk->mesh.ebodatasize = ebosize;
 	chunk->mesh.cbodatasize = cbosize;
 
-
 	chunk->iscurrent = 1;
 	chunk->mesh.uploadnext = 1;
 
@@ -700,38 +770,22 @@ chunk_getpos(chunk_t *chunk)
 }
 
 void
-chunk_updatequeue(chunk_t *chunk, int x, int y, int z, uint8_t time, update_flags_t flags)
+chunk_updatequeue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags)
 {
-	struct updatequeue_s *new = malloc(sizeof(struct updatequeue_s));
 	lockWrite(chunk);
-
-	new->pos = world_getinternalposofworldpos(x,y,z);
-	new->time = time;
-	new->flags = flags;
-
-	if(chunk->updates)
+	if(chunk->iscompressed)
 	{
-		struct updatequeue_s *top = chunk->updates;
-		while(top->next)
-		{
-			if(new->pos.x == top->pos.x && new->pos.y == top->pos.y && new->pos.z == top->pos.z)
-			{
-				if(top->time > time)
-					top->time = time;
-				top->flags |= flags;
-				unlockWrite(chunk);
-				free(new);
-				return;
-			}
-			top = top->next;
-		}
-		top->next = new;
-		new->prev = top;
-		new->next = 0;
+		updatequeue(chunk, x, y, z, time, flags);
 	} else {
-		chunk->updates = new;
-		new->next = 0;
-		new->prev = 0;
+		struct updatequeue_s *update = &(chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
+		if(update->time >= 0)
+		{
+			update->flags |= flags;
+			update->time = imin(update->time, time);
+		} else {
+			update->time = time;
+			update->flags = flags;
+		}
 	}
 	unlockWrite(chunk);
 }
@@ -741,49 +795,73 @@ chunk_updaterun(chunk_t *chunk)
 {
 	long num = 0;
 
-	if(chunk->updates)
+	if(chunk->iscompressed)
 	{
-		struct updatequeue_s *node = chunk->updates;
-
-		while(node)
+		if(chunk->updates)
 		{
-			struct updatequeue_s *next = node->next;
-			if(node->time == 0)
+			struct updatequeue_s *node = chunk->updates;
+
+			while(node)
 			{
-				if(chunk->updates == node)
-					chunk->updates = node->next;
+				struct updatequeue_s *next = node->next;
+				if(node->time == 0)
+				{
+					if(chunk->updates == node)
+						chunk->updates = node->next;
 
-				if(node->next != 0)
-					node->next->prev = node->prev;
-				if(node->prev != 0)
-					node->prev->next = node->next;
+					if(node->next != 0)
+						node->next->prev = node->prev;
+					if(node->prev != 0)
+						node->prev->next = node->next;
 
-				long3_t pos = chunk_getworldposfromchunkpos(
-						chunk->pos,
-						node->pos.x,
-						node->pos.y,
-						node->pos.z
-					);
+					long3_t pos = chunk_getworldposfromchunkpos(
+							chunk->pos,
+							node->pos.x,
+							node->pos.y,
+							node->pos.z
+						);
 
-				block_updaterun(chunk_getblock(chunk, node->pos.x, node->pos.y, node->pos.z), pos, node->flags);
-				num++;
+					block_updaterun(chunk_getblock(chunk, node->pos.x, node->pos.y, node->pos.z), pos, node->flags);
+					num++;
 
-				free(node);
-			} else {
-				node->time--;
+					free(node);
+				} else {
+					node->time--;
+				}
+				node = next;
 			}
-			node = next;
+		}
+	} else {
+		int x, y, z;
+		for(x=0; x<CHUNKSIZE; x++)
+		for(y=0; y<CHUNKSIZE; y++)
+		for(z=0; z<CHUNKSIZE; z++)
+		{
+			struct updatequeue_s *node = &chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+			if(node->time >= 0)
+			{
+				node->time--;
+				if(node->time == -1)
+				{
+					long3_t pos = chunk_getworldposfromchunkpos(
+							chunk->pos,
+							x, y, z
+						);
+
+					block_t block = chunk_getblock(chunk, x, y, z); 
+					block_updaterun(block, pos, node->flags);
+					num++;
+				}
+			}
 		}
 	}
 
 	if(num > CHUNK_UNCOMPRESS && chunk->iscompressed)
 	{
-		printf("uncompressing #%i\n", numuncompressed);
 		uncompress(chunk);
 	}
 	else if(num < CHUNK_RECOMPRESS && !chunk->iscompressed)
 	{
-		printf("compressing #%i\n", numuncompressed);
 		compress(chunk);
 	}
 
@@ -826,6 +904,16 @@ int
 chunk_reloadchunk(long3_t pos, chunk_t *chunk)
 {
 	lockWrite(chunk);
+	if(!chunk->iscompressed)
+	{
+		chunk->iscompressed = 1;
+		free(chunk->rawblocks);
+		free(chunk->rawupdates);
+		numuncompressed--;
+	}
+
+	//TODO: clear updates
+
 	chunk->pos = pos;
 	octree_zero(chunk->data);
 	unlockWrite(chunk);

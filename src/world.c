@@ -486,14 +486,14 @@ void
 world_updatequeue(long x, long y, long z, uint8_t time, update_flags_t flags)
 {
 	long3_t cpos = world_getchunkposofworldpos(x, y, z);
-	//int3_t internalpos = world_getinternalposofworldpos(x, y, z);
+	int3_t internalpos = world_getinternalposofworldpos(x, y, z);
 
 	int3_t chunkindex;
 	if(isquickloaded(cpos, &chunkindex))
 	{
 		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
-		chunk_updatequeue(chunk, x, y, z, time, flags);
+		chunk_updatequeue(chunk, internalpos.x, internalpos.y, internalpos.z, time, flags);
 	}
 }
 
