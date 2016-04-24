@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <pthread.h>
-
 #include <GL/glew.h>
 
 #include "world.h"
@@ -54,8 +52,10 @@ struct chunk_s {
 
 	struct mesh_s mesh;
 	int iscurrent;
-
-	pthread_rwlock_t  rwlock;
+	
+	SDL_mutex *mutex_read;
+	SDL_sem *sem_write;
+	int readers;
 };
 
 int numuncompressed = 0;
@@ -150,30 +150,48 @@ noise(uint32_t x, uint32_t y, uint32_t z)
 	return hash((hash(x) ^ hash(y)) ^ hash(z));
 }
 
-static void
-lockWrite(chunk_t *chunk)
-{
-	pthread_rwlock_wrlock(&chunk->rwlock);
-}
-
-static void
-unlockWrite(chunk_t *chunk)
-{
-	pthread_rwlock_unlock(&chunk->rwlock);
-}
-
-
-static void
+void
 lockRead(chunk_t *chunk)
 {
-	pthread_rwlock_rdlock(&chunk->rwlock);
+	SDL_LockMutex(chunk->mutex_read);
+	chunk->readers++;
+	
+	if(chunk->readers == 1)
+	{
+		SDL_SemWait(chunk->sem_write);
+	}
+	SDL_UnlockMutex(chunk->mutex_read);
 }
 
-static void
+void
 unlockRead(chunk_t *chunk)
 {
-	pthread_rwlock_unlock(&chunk->rwlock);
+	SDL_LockMutex(chunk->mutex_read);
+	chunk->readers--;
+	if(chunk->readers == 0)
+	{
+		SDL_SemPost(chunk->sem_write);
+	}
+	if(chunk->readers < 0)
+	{
+		chunk->readers = 0;
+		printf("Semaphore: too many unlocks\n");
+	}
+	SDL_UnlockMutex(chunk->mutex_read);
 }
+
+void
+lockWrite(chunk_t *chunk)
+{
+	SDL_SemWait(chunk->sem_write);
+}
+
+void
+unlockWrite(chunk_t *chunk)
+{
+	SDL_SemPost(chunk->sem_write);
+}
+
 static void
 init(chunk_t *chunk)
 {
@@ -182,7 +200,9 @@ init(chunk_t *chunk)
 	chunk->mesh.uploadnext = 0;
 	chunk->iscurrent = 0;
 	chunk->iscompressed = 1;
-	pthread_rwlock_init(&chunk->rwlock, 0);
+	chunk->mutex_read = SDL_CreateMutex();
+	chunk->sem_write = SDL_CreateSemaphore(1);
+	chunk->readers = 0;
 }
 
 long3_t
@@ -427,8 +447,6 @@ addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o
 void
 chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest)
 {
-	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-	pthread_mutex_lock(&lock);
 	lockRead(chunk);
 
 	if(chunkabove)
@@ -443,7 +461,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		lockRead(chunkeast);
 	if(chunkwest)
 		lockRead(chunkwest);
-	pthread_mutex_unlock(&lock);
 
 	GLuint *ebos[256];
 	int c = 0;
@@ -896,7 +913,8 @@ chunk_freechunk(chunk_t *chunk)
 {
 	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
 	octree_destroy(chunk->data);
-	pthread_rwlock_destroy(&chunk->rwlock);
+	SDL_DestroyMutex(chunk->mutex_read);
+	SDL_DestroySemaphore(chunk->sem_write);
 	free(chunk);
 }
 
