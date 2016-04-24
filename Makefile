@@ -4,7 +4,7 @@ ROOT=./
 
 CFLAGS:= -Wall -O3 -g
 LFLAGS:= -g
-LIBS:=-lm -lSDL2 -lGL -lGLEW
+LIBS:=-lm -lSDL2 -lGLEW
 
 SRCDIR=$(ROOT)src/
 INCDIR=$(ROOT)include/

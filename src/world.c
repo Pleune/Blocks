@@ -19,11 +19,13 @@ uint32_t seed;
 
 int stopthreads;
 SDL_Thread *generationthread;
-SDL_Thread *remeshthreadA;
-SDL_Thread *remeshthreadB;
+SDL_Thread *remeshthreadA; //entire world (slow)
+SDL_Thread *remeshthreadB; //center of world (faster)
+SDL_Thread *remeshthreadC; //Only "instant" updates (fastest)
 
 struct {
 	chunk_t *chunk;
+	uint8_t instantremesh;
 } data[WORLDSIZE][WORLDSIZE][WORLDSIZE];
 
 static inline int3_t
@@ -65,15 +67,9 @@ setworldcenter(vec3_t pos)
 	worldscope.z = worldcenter.z - WORLDSIZE/2;
 }
 
-static int
-quickremeshachunk(int3_t *chunkindex, int instant)
+static void
+remesh(int3_t *chunkindex)
 {
-	if(!instant)
-	{
-		chunk_setnotcurrent(data[chunkindex->x][chunkindex->y][chunkindex->z].chunk);
-		return 0;
-	}
-
 	chunk_t *north=0;
 	chunk_t *south=0;
 	chunk_t *east=0;
@@ -124,8 +120,18 @@ quickremeshachunk(int3_t *chunkindex, int instant)
 
 	//re set up the buffers
 	chunk_remesh(chunk, up,down,north,south,east,west);
+}
 
-	return 0;
+static void
+queueremesh(int3_t *chunkindex, int instant)
+{
+	if(instant)
+	{
+		data[chunkindex->x][chunkindex->y][chunkindex->z].instantremesh = 1;
+	}
+
+	chunk_setnotcurrent(data[chunkindex->x][chunkindex->y][chunkindex->z].chunk);
+	return;
 }
 
 static int
@@ -193,7 +199,7 @@ remeshthreadfuncA(void *ptr)
 						break;
 
 					if(!chunk_iscurrent(data[i.x][i.y][i.z].chunk))
-						quickremeshachunk(&i, 1);
+						remesh(&i);
 				}
 			}
 		}
@@ -235,13 +241,49 @@ remeshthreadfuncB(void *ptr)
 						break;
 
 					if(!chunk_iscurrent(data[icpo.x][icpo.y][icpo.z].chunk))
-						quickremeshachunk(&icpo, 1);
+						remesh(&icpo);
 				}
 			}
 		}
 
 		if(!stopthreads)
 			SDL_Delay(80);
+	}
+	return 0;
+}
+
+static int
+remeshthreadfuncC(void *ptr)
+{
+	while(!stopthreads)
+	{
+		uint32_t ticks = SDL_GetTicks();
+		int3_t i;
+		for(i.x = 0; i.x< WORLDSIZE; i.x++)
+		{
+			if(stopthreads)
+				break;
+			for(i.y = 0; i.y< WORLDSIZE; i.y++)
+			{
+				if(stopthreads)
+					break;
+				for(i.z = 0; i.z< WORLDSIZE; i.z++)
+				{
+					if(stopthreads)
+						break;
+
+					if(data[i.x][i.y][i.z].instantremesh)
+					{
+						data[i.x][i.y][i.z].instantremesh = 0;
+						remesh(&i);
+					}
+				}
+			}
+		}
+
+		uint32_t ticksdiff = SDL_GetTicks() - ticks;
+		if(ticksdiff < 100)
+			SDL_Delay(100 - ticksdiff); //Don't run this function more than 10 times a seccond
 	}
 	return 0;
 }
@@ -267,11 +309,15 @@ world_init(vec3_t pos)
 		{
 			for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
 			{
-				printf("LOADING... %f%%\r", (float)(chunkno * 100.0f)/(WORLDSIZE*WORLDSIZE*WORLDSIZE));
+				char string[] = "                    ";
+				float percent = (float)chunkno/(WORLDSIZE*WORLDSIZE*WORLDSIZE);
+				memset(string, '#', (sizeof(string) - 1) * percent);
+				printf("LOADING... [%s] %f%%\r", string, percent * 100.0f);
 				fflush(stdout);
 				chunkno++;
 				int3_t chunkindex = getchunkindexofchunk(cpos);
 				data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_loadchunk(cpos);
+				data[chunkindex.x][chunkindex.y][chunkindex.z].instantremesh = 0;
 			}
 		}
 	}
@@ -279,8 +325,9 @@ world_init(vec3_t pos)
 
 	stopthreads=0;
 	generationthread = SDL_CreateThread(generationthreadfunc, "world_generation", 0);
-	remeshthreadA = SDL_CreateThread(remeshthreadfuncA, "world_remesh", 0);
-	remeshthreadB = SDL_CreateThread(remeshthreadfuncB, "world_remesh", 0);
+	remeshthreadA = SDL_CreateThread(remeshthreadfuncA, "world_remeshA", 0);
+	remeshthreadB = SDL_CreateThread(remeshthreadfuncB, "world_remeshB", 0);
+	remeshthreadC = SDL_CreateThread(remeshthreadfuncC, "world_remeshC", 0);
 }
 
 void
@@ -385,33 +432,33 @@ world_setblock(long x, long y, long z, block_t block, int update, int loadnew, i
 			world_updatequeue(x,y,z-1, update-1, 0);
 		}
 
-		quickremeshachunk(&chunkindex, instant);
+		queueremesh(&chunkindex, instant);
 
 		cpos.x++;
 		if(internalpos.x == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 
 		cpos.x -= 2;
 		if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 		cpos.x++;
 
 		cpos.y++;
 		if(internalpos.y == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 
 		cpos.y -= 2;
 		if(internalpos.y == 0 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 		cpos.y++;
 
 		cpos.z++;
 		if(internalpos.z == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 
 		cpos.z -= 2;
 		if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 
 		return 0;
 	}
@@ -443,33 +490,33 @@ world_setblockid(long x, long y, long z, blockid_t id, int update, int loadnew, 
 			world_updatequeue(x,y,z-1, update-1, 0);
 		}
 
-		quickremeshachunk(&chunkindex, instant);
+		queueremesh(&chunkindex, instant);
 
 		cpos.x++;
 		if(internalpos.x == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 
 		cpos.x -= 2;
 		if(internalpos.x == 0 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 		cpos.x++;
 
 		cpos.y++;
 		if(internalpos.y == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 
 		cpos.y -= 2;
 		if(internalpos.y == 0 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 		cpos.y++;
 
 		cpos.z++;
 		if(internalpos.z == CHUNKSIZE-1 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 
 		cpos.z -= 2;
 		if(internalpos.z == 0 && isquickloaded(cpos, &chunkindex))
-			quickremeshachunk(&chunkindex, instant);
+			queueremesh(&chunkindex, instant);
 
 		return 0;
 	}

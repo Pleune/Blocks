@@ -40,7 +40,7 @@ static uint32_t ticks = 0;
 
 const static vec3_t up = {0,1,0};
 
-int fpscap = 1;
+int fpscap = 0;
 const int fpsmax = 120;
 
 entity_t *pos;
@@ -150,14 +150,14 @@ state_game_init(void *ptr)
 	vec3_t spawn = {0, 0, 0};
 	spawn.y = worldgen_getheightfrompos(0, 0)+1.1;
 	int spawntries = 0;
-	while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
-	{
-		spawntries++;
-		spawn.x = (double)(rand()%10000) - 5000;
-		spawn.z = (double)(rand()%10000) - 5000;
-		spawn.y = worldgen_getheightfrompos(spawn.x, spawn.z)+1.1;
-		printf("spawn retry %i x: %f z: %f h: %f\n", spawntries, spawn.x, spawn.z, spawn.y);
-	}
+	//while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
+	//{
+	//	spawntries++;
+	//	spawn.x = (double)(rand()%10000) - 5000;
+	//	spawn.z = (double)(rand()%10000) - 5000;
+	//	spawn.y = worldgen_getheightfrompos(spawn.x, spawn.z)+1.1;
+	//	printf("spawn retry %i x: %f z: %f h: %f\n", spawntries, spawn.x, spawn.z, spawn.y);
+	//}
 	spawn.x += .5;
 	spawn.z += .5;
 	if(spawn.y < 0)
