@@ -140,15 +140,15 @@ generationthreadfunc(void *ptr)
 	while(!stopthreads)
 	{
 		long3_t cpos;
-		for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
+		for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; ++cpos.x)
 		{
 			if(stopthreads)
 				break;
-			for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
+			for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; ++cpos.z)
 			{
 				if(stopthreads)
 					break;
-				for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
+				for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; ++cpos.y)
 				{
 					if(stopthreads)
 						break;
@@ -185,15 +185,15 @@ remeshthreadfuncA(void *ptr)
 	while(!stopthreads)
 	{
 		int3_t i;
-		for(i.x = 0; i.x< WORLDSIZE; i.x++)
+		for(i.x = 0; i.x< WORLDSIZE; ++i.x)
 		{
 			if(stopthreads)
 				break;
-			for(i.y = 0; i.y< WORLDSIZE; i.y++)
+			for(i.y = 0; i.y< WORLDSIZE; ++i.y)
 			{
 				if(stopthreads)
 					break;
-				for(i.z = 0; i.z< WORLDSIZE; i.z++)
+				for(i.z = 0; i.z< WORLDSIZE; ++i.z)
 				{
 					if(stopthreads)
 						break;
@@ -226,15 +226,15 @@ remeshthreadfuncB(void *ptr)
 			worldcenter.y + WORLDSIZE/6,
 			worldcenter.z + WORLDSIZE/6
 		};
-		for(i.x = lowbound.x; i.x< highbound.x; i.x++)
+		for(i.x = lowbound.x; i.x< highbound.x; ++i.x)
 		{
 			if(stopthreads)
 				break;
-			for(i.y = lowbound.y; i.y< highbound.y; i.y++)
+			for(i.y = lowbound.y; i.y< highbound.y; ++i.y)
 			{
 				if(stopthreads)
 					break;
-				for(i.z = lowbound.z; i.z< highbound.z; i.z++)
+				for(i.z = lowbound.z; i.z< highbound.z; ++i.z)
 				{
 					int3_t icpo = getchunkindexofchunk(i);
 					if(stopthreads)
@@ -259,15 +259,15 @@ remeshthreadfuncC(void *ptr)
 	{
 		uint32_t ticks = SDL_GetTicks();
 		int3_t i;
-		for(i.x = 0; i.x< WORLDSIZE; i.x++)
+		for(i.x = 0; i.x< WORLDSIZE; ++i.x)
 		{
 			if(stopthreads)
 				break;
-			for(i.y = 0; i.y< WORLDSIZE; i.y++)
+			for(i.y = 0; i.y< WORLDSIZE; ++i.y)
 			{
 				if(stopthreads)
 					break;
-				for(i.z = 0; i.z< WORLDSIZE; i.z++)
+				for(i.z = 0; i.z< WORLDSIZE; ++i.z)
 				{
 					if(stopthreads)
 						break;
@@ -303,24 +303,21 @@ world_init(vec3_t pos)
 
 	long chunkno = 1;
 	long3_t cpos;
-	for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; cpos.x++)
+	for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; ++cpos.x)
+	for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; ++cpos.z)
+	for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; ++cpos.y)
 	{
-		for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; cpos.z++)
-		{
-			for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; cpos.y++)
-			{
-				char string[] = "                    ";
-				float percent = (float)chunkno/(WORLDSIZE*WORLDSIZE*WORLDSIZE);
-				memset(string, '#', (sizeof(string) - 1) * percent);
-				printf("LOADING... [%s] %f%%\r", string, percent * 100.0f);
-				fflush(stdout);
-				chunkno++;
-				int3_t chunkindex = getchunkindexofchunk(cpos);
-				data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_loadchunk(cpos);
-				data[chunkindex.x][chunkindex.y][chunkindex.z].instantremesh = 0;
-			}
-		}
+		char string[] = "                    ";
+		float percent = (float)chunkno/(WORLDSIZE*WORLDSIZE*WORLDSIZE);
+		memset(string, '#', (sizeof(string) - 1) * percent);
+		printf("LOADING... [%s] %f%%\r", string, percent * 100.0f);
+		fflush(stdout);
+		chunkno++;
+		int3_t chunkindex = getchunkindexofchunk(cpos);
+		data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_loadchunk(cpos);
+		data[chunkindex.x][chunkindex.y][chunkindex.z].instantremesh = 0;
 	}
+
 	putchar('\n');
 
 	stopthreads=0;
@@ -340,16 +337,10 @@ world_cleanup()
 	SDL_WaitThread(remeshthreadB, 0);
 
 	int3_t chunkindex;
-	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; chunkindex.x++)
-	{
-		for(chunkindex.y=0; chunkindex.y<WORLDSIZE; chunkindex.y++)
-		{
-			for(chunkindex.z=0; chunkindex.z<WORLDSIZE; chunkindex.z++)
-			{
-				chunk_freechunk(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
-			}
-		}
-	}
+	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; ++chunkindex.x)
+	for(chunkindex.y=0; chunkindex.y<WORLDSIZE; ++chunkindex.y)
+	for(chunkindex.z=0; chunkindex.z<WORLDSIZE; ++chunkindex.z)
+		chunk_freechunk(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
 }
 
 void
@@ -365,16 +356,10 @@ world_render(vec3_t pos)
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 
-	for(x=0; x<WORLDSIZE; x++)
-	{
-		for(y=0; y<WORLDSIZE; y++)
-		{
-			for(z=0; z<WORLDSIZE; z++)
-			{
-				chunk_render(data[x][y][z].chunk);
-			}
-		}
-	}
+	for(x=0; x<WORLDSIZE; ++x)
+	for(y=0; y<WORLDSIZE; ++y)
+	for(z=0; z<WORLDSIZE; ++z)
+		chunk_render(data[x][y][z].chunk);
 }
 
 //TODO: loadnew
@@ -549,9 +534,9 @@ world_updaterun()
 {
 	long num = 0;
 	int x, y, z;
-	for(x=0; x<WORLDSIZE; x++)
-		for(y=0; y<WORLDSIZE; y++)
-			for(z=0; z<WORLDSIZE; z++)
-				num += chunk_updaterun(data[x][y][z].chunk);
+	for(x=0; x<WORLDSIZE; ++x)
+	for(y=0; y<WORLDSIZE; ++y)
+	for(z=0; z<WORLDSIZE; ++z)
+		num += chunk_updaterun(data[x][y][z].chunk);
 	return num;
 }

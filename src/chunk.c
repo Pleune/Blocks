@@ -260,9 +260,9 @@ compress(chunk_t *chunk)
 
 	lockWrite(chunk);
 	int x, y, z;
-	for(x=0; x<CHUNKSIZE; x++)
-	for(y=0; y<CHUNKSIZE; y++)
-	for(z=0; z<CHUNKSIZE; z++)
+	for(x=0; x<CHUNKSIZE; ++x)
+	for(y=0; y<CHUNKSIZE; ++y)
+	for(z=0; z<CHUNKSIZE; ++z)
 	{
 		octree_set(x, y, z, chunk->data, &chunk->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
 		struct updatequeue_s *update = &chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
@@ -293,9 +293,9 @@ uncompress(chunk_t *chunk)
 	lockWrite(chunk);
 
 	int x, y, z;
-	for(x=0; x<CHUNKSIZE; x++)
-	for(y=0; y<CHUNKSIZE; y++)
-	for(z=0; z<CHUNKSIZE; z++)
+	for(x=0; x<CHUNKSIZE; ++x)
+	for(y=0; y<CHUNKSIZE; ++y)
+	for(z=0; z<CHUNKSIZE; ++z)
 	{
 		chunk->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = octree_get(x, y, z, chunk->data);
 		chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].time = -1;
@@ -483,11 +483,11 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * BLOCK_MAXTYPES);
 
 	int x, y, z;
-	for(x=0; x<CHUNKSIZE; x++)
+	for(x=0; x<CHUNKSIZE; ++x)
 	{
-		for(y=0; y<CHUNKSIZE; y++)
+		for(y=0; y<CHUNKSIZE; ++y)
 		{
-			for(z=0; z<CHUNKSIZE; z++)
+			for(z=0; z<CHUNKSIZE; ++z)
 			{
 				block_t block = getblock(chunk, x, y, z);
 				if(block.id != AIR)
@@ -614,7 +614,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					int q=0;
 					int t;
 
-					for(t=0;t<6;t++)
+					for(t=0; t<6; ++t)
 					{
 						if(U[t])
 						{
@@ -660,7 +660,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 
 	GLuint *finalebodata = (GLuint *)malloc(sizeof(GLuint) * ((long)9999*c + i));
 
-	for(w=0; w<c; w++)
+	for(w=0; w<c; ++w)
 	{
 		memcpy(&finalebodata[(long)w*9999], ebos[w], (long)9999 * sizeof(GLuint));
 		free(ebos[w]);
@@ -671,7 +671,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	GLfloat *finalvbodata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*v + o));
 	GLfloat *finalcbodata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*v + o));
 
-	for(w=0; w<v; w++)
+	for(w=0; w<v; ++w)
 	{
 		memcpy(&finalvbodata[(long)w*9999], vbos[w], (long)9999 * sizeof(GLfloat));
 		free(vbos[w]);
@@ -853,9 +853,9 @@ chunk_updaterun(chunk_t *chunk)
 		}
 	} else {
 		int x, y, z;
-		for(x=0; x<CHUNKSIZE; x++)
-		for(y=0; y<CHUNKSIZE; y++)
-		for(z=0; z<CHUNKSIZE; z++)
+		for(x=0; x<CHUNKSIZE; ++x)
+		for(y=0; y<CHUNKSIZE; ++y)
+		for(z=0; z<CHUNKSIZE; ++z)
 		{
 			struct updatequeue_s *node = &chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
 			if(node->time >= 0)
