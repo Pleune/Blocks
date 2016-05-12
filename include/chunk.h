@@ -32,11 +32,11 @@ long3_t chunk_getpos(chunk_t *chunk);
 void chunk_updatequeue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags);
 long chunk_updaterun(chunk_t *chunk);
 
-chunk_t *chunk_loadchunk(long3_t pos);
 chunk_t *chunk_loademptychunk(long3_t pos);
 void chunk_freechunk(chunk_t *chunk);
 
-int chunk_reloadchunk(long3_t pos, chunk_t *chunk);
+int chunk_recenter(chunk_t *chunk, long3_t pos);
+
 void chunk_zerochunk(chunk_t *chunk);
 
 #endif //CHUNK_H

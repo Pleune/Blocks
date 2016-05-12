@@ -14,14 +14,15 @@
 #include "entity.h"
 #include "worldgen.h"
 
-int windoww, windowh;
+static int windoww = 0;
+int windowh = 0;
 
-GLuint drawprogram;
-GLuint drawprogrammatrixinput;
+static GLuint drawprogram;
+static GLuint drawprogrammatrixinput;
 
-GLuint ppprogram;
-GLuint pppointbuffer;
-GLuint pppointbufferid;
+static GLuint ppprogram;
+static GLuint pppointbuffer;
+static GLuint pppointbufferid;
 
 struct {
 	GLuint framebuffer;
@@ -31,31 +32,31 @@ struct {
 
 	GLuint colorbufferid;
 	GLuint depthbufferid;
-} renderbuffer;
+} static renderbuffer;
 
-vec3_t forwardcamera;
-vec3_t headpos;
+static vec3_t forwardcamera;
+static vec3_t headpos;
 
 static uint32_t ticks = 0;
 
 const static vec3_t up = {0,1,0};
 
-int fpscap = 0;
-const int fpsmax = 120;
+static int fpscap = 0;
+const static int fpsmax = 120;
 
-entity_t *pos;
-const vec3_t *posptr;
-float rotx, roty;
+static entity_t *pos;
+const static vec3_t *posptr;
+static float rotx, roty;
 
-int lines = 0;
-int pp = 1;
-int takeinput = 1;
-int flying = 0;
-int updating = 1;
+static int lines = 0;
+static int pp = 1;
+static int takeinput = 1;
+static int flying = 0;
+static int updating = 1;
 
-SDL_Thread *updatethread;
-SDL_sem *updatesem;
-int stopupdatethread;
+static SDL_Thread *updatethread;
+static SDL_sem *updatesem;
+static int stopupdatethread;
 
 void
 update(uint32_t dt)
@@ -148,16 +149,18 @@ state_game_init(void *ptr)
 	roty = 0;
 	world_genseed();
 	vec3_t spawn = {0, 0, 0};
-	spawn.y = worldgen_getheightfrompos(0, 0)+1.1;
+
+	spawn.y = worldgen_getheightfrompos(0, 0, 0)+1.1;
+
 	int spawntries = 0;
-	//while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
-	//{
-	//	spawntries++;
-	//	spawn.x = (double)(rand()%10000) - 5000;
-	//	spawn.z = (double)(rand()%10000) - 5000;
-	//	spawn.y = worldgen_getheightfrompos(spawn.x, spawn.z)+1.1;
-	//	printf("spawn retry %i x: %f z: %f h: %f\n", spawntries, spawn.x, spawn.z, spawn.y);
-	//}
+	while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
+	{
+		spawntries++;
+		spawn.x = (double)(rand()%10000) - 5000;
+		spawn.z = (double)(rand()%10000) - 5000;
+		spawn.y = worldgen_getheightfrompos(0, spawn.x, spawn.z)+1.1;
+		printf("spawn retry %i x: %f z: %f h: %f\n", spawntries, spawn.x, spawn.z, spawn.y);
+	}
 	spawn.x += .5;
 	spawn.z += .5;
 	if(spawn.y < 0)
@@ -285,11 +288,11 @@ input(uint32_t dt)
 		block_t b;
 		b.id = WATER;
 		b.metadata.number = SIM_WATER_LEVELS;
-		game_rayadd(&headpos, &forwardcamera, b, 1, 1, 1000);
+		world_rayadd(&headpos, &forwardcamera, b, 1, 1, 1000);
 	}
 	if(keyboard[SDL_SCANCODE_E])
 	{
-		game_raydel(&headpos, &forwardcamera, 1, 1000);
+		world_raydel(&headpos, &forwardcamera, 1, 1000);
 	}
 	if(keyboard[SDL_SCANCODE_C])
 	{
@@ -297,7 +300,7 @@ input(uint32_t dt)
 		for(dir.x = -1; dir.x < 1; dir.x += .3)
 		for(dir.y = -1; dir.y < 0; dir.y += .3)
 		for(dir.z = -1; dir.z < 1; dir.z += .3)
-			game_raydel(&headpos, &dir, 1, 50);
+			world_raydel(&headpos, &dir, 1, 50);
 	}
 
 
@@ -332,7 +335,7 @@ state_game_event(void *ptr)
 			case SDLK_t:
 			{
 				vec3_t top = *posptr;
-				top.y = worldgen_getheightfrompos(posptr->x, posptr->z)+1;
+				top.y = worldgen_getheightfrompos(0, posptr->x, posptr->z)+1;
 				entity_setpos(pos, top);
 			break;
 			}
@@ -360,17 +363,19 @@ state_game_event(void *ptr)
 		{
 			block_t b;
 			b.id = WATER_GEN;
-			game_rayadd(&headpos, &forwardcamera, b, 1, 1, 1000);
+			world_rayadd(&headpos, &forwardcamera, b, 1, 1, 1000);
 		}
 		else if(e.button.button == SDL_BUTTON_RIGHT)
 		{
-			game_raydel(&headpos, &forwardcamera, 1, 1000);
+			world_raydel(&headpos, &forwardcamera, 1, 1000);
 		}
 	}
 	else if(e.type == SDL_WINDOWEVENT)
 	{
 		if(e.window.event == SDL_WINDOWEVENT_RESIZED)
 		{
+			getwindowsize(&windoww, &windowh);
+
 			glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
 
 			glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);

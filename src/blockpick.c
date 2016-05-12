@@ -4,8 +4,8 @@
 
 #include "world.h"
 
-void
-game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int update, int before, int dist)
+long3_t
+world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 {
 	long3_t p;
 	p.x = floorf(start->x);
@@ -91,26 +91,23 @@ game_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int upd
 			}
 		}
 	}
-	if(!block_issolid(world_getblock(p.x,p.y,p.z,0)) || !block.id)
-	{
-		world_setblock(p.x, p.y, p.z, block, update, 0, 1);
-		if(update)
-		{
-			world_updatequeue(p.x, p.y, p.z, 0, 0);
-			world_updatequeue(p.x+1, p.y, p.z, 0, 0);
-			world_updatequeue(p.x, p.y+1, p.z, 0, 0);
-			world_updatequeue(p.x, p.y, p.z+1, 0, 0);
-			world_updatequeue(p.x-1, p.y, p.z, 0, 0);
-			world_updatequeue(p.x, p.y-1, p.z, 0, 0);
-			world_updatequeue(p.x, p.y, p.z-1, 0, 0);
-		}
-	}
+
+	return p;
 }
 
 void
-game_raydel(const vec3_t* start, const vec3_t *direction, int update, int dist)
+world_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int update, int before, int dist)
+{
+	long3_t p = world_raypos(start, direction, before, dist);
+
+	if(!block_issolid(world_getblock(p.x,p.y,p.z,0)) || !block.id)
+		world_setblock(p.x, p.y, p.z, block, update, 0, 1);
+}
+
+void
+world_raydel(const vec3_t* start, const vec3_t *direction, int update, int dist)
 {
 	block_t b;
 	b.id = AIR;
-	game_rayadd(start, direction, b, update, 0, dist);
+	world_rayadd(start, direction, b, update, 0, dist);
 }

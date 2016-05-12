@@ -5,23 +5,28 @@
 #include <math.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
 
 #include <SDL2/SDL_timer.h>
 
 #include "defines.h"
 #include "chunk.h"
 #include "modulo.h"
+#include "worldgen.h"
+#include "blockpick.h"
 
-long3_t worldscope = {0, 0, 0};
-long3_t worldcenter = {0, 0, 0};
+static long3_t worldscope = {0, 0, 0};
+static vec3_t worldcenterpos = {0, 0, 0};
+static long3_t worldcenter = {0, 0, 0};
 
-uint32_t seed;
+static uint32_t seed;
 
-int stopthreads;
-SDL_Thread *generationthread;
-SDL_Thread *remeshthreadA; //entire world (slow)
-SDL_Thread *remeshthreadB; //center of world (faster)
-SDL_Thread *remeshthreadC; //Only "instant" updates (fastest)
+static int stopthreads;
+static SDL_Thread *generationthread;
+static SDL_Thread *remeshthreadA; //entire world (slow)
+static SDL_Thread *remeshthreadB; //center of world (faster)
+static SDL_Thread *remeshthreadC; //Only "raycasted" updates (fasterer)
+static SDL_Thread *remeshthreadD; //Only "instant" updates (fastest)
 
 struct {
 	chunk_t *chunk;
@@ -61,6 +66,8 @@ isquickloaded(long3_t pos, int3_t *chunkindex)
 static void
 setworldcenter(vec3_t pos)
 {
+	worldcenterpos = pos;
+
 	worldcenter = world_getchunkposofworldpos(pos.x, pos.y, pos.z);
 	worldscope.x = worldcenter.x - WORLDSIZE/2;
 	worldscope.y = worldcenter.y - WORLDSIZE/2;
@@ -134,21 +141,40 @@ queueremesh(int3_t *chunkindex, int instant)
 	return;
 }
 
+struct world_genthread_s {
+	SDL_sem *initalized;
+	int continuous;
+	worldgen_t* context;
+	int3_t low;
+	int3_t high;
+
+	int *counter;
+};
+
 static int
 generationthreadfunc(void *ptr)
 {
-	while(!stopthreads)
+	struct world_genthread_s *info = (struct world_genthread_s *)ptr;
+	int3_t low = info->low;
+	int3_t high = info->high;
+	int continuous = info->continuous;
+	worldgen_t *context = info->context;
+	int *counter = info->counter;
+
+	SDL_SemPost(info->initalized);
+
+	do
 	{
 		long3_t cpos;
-		for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; ++cpos.x)
+		for(cpos.x = worldscope.x + low.x; cpos.x < worldscope.x+high.x; ++cpos.x)
 		{
 			if(stopthreads)
 				break;
-			for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; ++cpos.z)
+			for(cpos.z = worldscope.z + low.z; cpos.z < worldscope.z+high.z; ++cpos.z)
 			{
 				if(stopthreads)
 					break;
-				for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; ++cpos.y)
+				for(cpos.y = worldscope.y + low.y; cpos.y < worldscope.y+high.y; ++cpos.y)
 				{
 					if(stopthreads)
 						break;
@@ -157,10 +183,11 @@ generationthreadfunc(void *ptr)
 					{
 						if(stopthreads)
 							break;
-						//the chunk should be loaded but its not. load it.
+
 						chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
-						chunk_reloadchunk(cpos, chunk);
+						chunk_recenter(chunk, cpos);
+						worldgen_genchunk(context, chunk);
 
 						chunk_setnotcurrent(data[chunkindex.x == WORLDSIZE-1 ? 0 : chunkindex.x+1][chunkindex.y][chunkindex.z].chunk);
 						chunk_setnotcurrent(data[chunkindex.x == 0 ? WORLDSIZE-1 : chunkindex.x-1][chunkindex.y][chunkindex.z].chunk);
@@ -168,6 +195,17 @@ generationthreadfunc(void *ptr)
 						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y == 0 ? WORLDSIZE-1 : chunkindex.y-1][chunkindex.z].chunk);
 						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z == WORLDSIZE-1 ? 0 : chunkindex.z+1].chunk);
 						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z == 0 ? WORLDSIZE-1 : chunkindex.z-1].chunk);
+
+						if(counter)
+						{
+							++(*counter);
+
+							char string[] = "                    ";
+							float percent = (float)(*counter)/(WORLDSIZE*WORLDSIZE*WORLDSIZE);
+							memset(string, '#', (sizeof(string) - 1) * percent);
+							printf("LOADING... [%s] %f%%\r", string, percent * 100.0f);
+							fflush(stdout);
+						}
 					}
 				}
 			}
@@ -175,10 +213,11 @@ generationthreadfunc(void *ptr)
 
 		if(!stopthreads)
 			SDL_Delay(80);
-	}
+	} while(!stopthreads && continuous);
 	return 0;
 }
 
+//FULL REMESH
 static int
 remeshthreadfuncA(void *ptr)
 {
@@ -210,6 +249,7 @@ remeshthreadfuncA(void *ptr)
 	return 0;
 }
 
+//MIDDLE WORLD REMESH
 static int
 remeshthreadfuncB(void *ptr)
 {
@@ -252,8 +292,47 @@ remeshthreadfuncB(void *ptr)
 	return 0;
 }
 
+//RAYCAST REMESH
 static int
 remeshthreadfuncC(void *ptr)
+{
+	{
+		vec3_t i;
+		for(i.x = -WORLDSIZE; i.x < WORLDSIZE; ++i.x)
+		{
+			if(stopthreads)
+				break;
+			for(i.y = -WORLDSIZE; i.y < WORLDSIZE; ++i.y)
+			{
+				if(stopthreads)
+					break;
+				for(i.z = -WORLDSIZE; i.z < WORLDSIZE; ++i.z)
+				{
+					if(stopthreads)
+						break;
+
+					long3_t pos = world_raypos(&worldcenterpos, &i, 0, 1000);
+					pos = world_getchunkposofworldpos(pos.x, pos.y, pos.z);
+
+					int3_t icpo = getchunkindexofchunk(pos);
+
+					if(!chunk_iscurrent(data[icpo.x][icpo.y][icpo.z].chunk))
+						remesh(&icpo);
+
+				}
+			}
+		}
+
+		if(!stopthreads)
+			SDL_Delay(80);
+	}
+	return 0;
+}
+
+
+//FAST REMESH
+static int
+remeshthreadfuncD(void *ptr)
 {
 	while(!stopthreads)
 	{
@@ -301,30 +380,62 @@ world_init(vec3_t pos)
 {
 	setworldcenter(pos);
 
-	long chunkno = 1;
-	long3_t cpos;
-	for(cpos.x = worldscope.x; cpos.x< worldscope.x+WORLDSIZE; ++cpos.x)
-	for(cpos.z = worldscope.z; cpos.z< worldscope.z+WORLDSIZE; ++cpos.z)
-	for(cpos.y = worldscope.y; cpos.y< worldscope.y+WORLDSIZE; ++cpos.y)
+	int3_t cpos;
+	for(cpos.x = 0; cpos.x<WORLDSIZE; ++cpos.x)
+	for(cpos.z = 0; cpos.z<WORLDSIZE; ++cpos.z)
+	for(cpos.y = 0; cpos.y<WORLDSIZE; ++cpos.y)
 	{
-		char string[] = "                    ";
-		float percent = (float)chunkno/(WORLDSIZE*WORLDSIZE*WORLDSIZE);
-		memset(string, '#', (sizeof(string) - 1) * percent);
-		printf("LOADING... [%s] %f%%\r", string, percent * 100.0f);
-		fflush(stdout);
-		chunkno++;
-		int3_t chunkindex = getchunkindexofchunk(cpos);
-		data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_loadchunk(cpos);
-		data[chunkindex.x][chunkindex.y][chunkindex.z].instantremesh = 0;
+		long3_t long3max = {LONG_MAX, LONG_MAX, LONG_MAX};
+
+		data[cpos.x][cpos.y][cpos.z].chunk = chunk_loademptychunk(long3max);
+		data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
 	}
 
-	putchar('\n');
-
 	stopthreads=0;
-	generationthread = SDL_CreateThread(generationthreadfunc, "world_generation", 0);
+	int wgcounter;
+	struct world_genthread_s wginfo = { 0, 0, 0,
+		{0, 0, 0},
+		{WORLDSIZE, WORLDSIZE, WORLDSIZE}
+	};
+	wginfo.initalized = SDL_CreateSemaphore(0);
+	wginfo.counter = &wgcounter;
+
+	SDL_Thread *wgthreads[INIT_WORLDGEN_THREADS];
+	worldgen_t *wgcontexts[INIT_WORLDGEN_THREADS];
+
+	int i;
+	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
+	{
+		wginfo.low.x = (WORLDSIZE / (double)INIT_WORLDGEN_THREADS)*i;
+		wginfo.high.x = (WORLDSIZE / (double)INIT_WORLDGEN_THREADS)*(i+1);
+
+		wginfo.context = worldgen_createcontext();
+		wgcontexts[i] = wginfo.context;
+
+		wgthreads[i] = SDL_CreateThread(generationthreadfunc, "world_generation_init", &wginfo);
+		SDL_SemWait(wginfo.initalized);
+	}
+
+	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
+	{
+		SDL_WaitThread(wgthreads[i], 0);
+		worldgen_destroycontext(wgcontexts[i]);
+	}
+
+	wginfo.continuous = 1;
+	wginfo.low.x = 0;
+	wginfo.high.x = WORLDSIZE;
+	wginfo.context = 0;
+	wginfo.counter = 0;
+
+	generationthread = SDL_CreateThread(generationthreadfunc, "world_generation", &wginfo);
+	SDL_SemWait(wginfo.initalized);
+	SDL_DestroySemaphore(wginfo.initalized);
+
 	remeshthreadA = SDL_CreateThread(remeshthreadfuncA, "world_remeshA", 0);
 	remeshthreadB = SDL_CreateThread(remeshthreadfuncB, "world_remeshB", 0);
 	remeshthreadC = SDL_CreateThread(remeshthreadfuncC, "world_remeshC", 0);
+	remeshthreadD = SDL_CreateThread(remeshthreadfuncD, "world_remeshD", 0);
 }
 
 void
@@ -335,6 +446,8 @@ world_cleanup()
 	SDL_WaitThread(generationthread, 0);
 	SDL_WaitThread(remeshthreadA, 0);
 	SDL_WaitThread(remeshthreadB, 0);
+	SDL_WaitThread(remeshthreadC, 0);
+	SDL_WaitThread(remeshthreadD, 0);
 
 	int3_t chunkindex;
 	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; ++chunkindex.x)

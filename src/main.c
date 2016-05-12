@@ -32,7 +32,7 @@ enum states queueforpush = MAX_STATES;
 SDL_Window *win;
 SDL_GLContext glcontext;
 
-int windoww, windowh;
+static int windoww, windowh;
 
 char *basepath;
 
@@ -59,7 +59,6 @@ main(int argc, char *argv[])
 				}
 			}
 			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
-			
 		}
 		runevent(CURRENTSTATE, RUN);
 

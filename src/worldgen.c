@@ -9,10 +9,17 @@
 
 #define DIAMONDSQUARESIZE (int) CAT(0x1p, DIAMONDSQUARELEVELS)
 
-long3_t lastchunkblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
-long3_t lastdiasquareblockpos = {LONG_MAX, LONG_MAX, LONG_MAX};
-double heightmap[(CHUNKSIZE+1)*(CHUNKSIZE+1)];
-double metaheightmap[(DIAMONDSQUARESIZE+1)*(DIAMONDSQUARESIZE+1)];
+struct worldgen_s {
+	long3_t lastchunkblockpos;
+	long3_t lastdiasquareblockpos;
+	double heightmap[(CHUNKSIZE+1)*(CHUNKSIZE+1)];
+	double metaheightmap[(DIAMONDSQUARESIZE+1)*(DIAMONDSQUARESIZE+1)];
+};
+
+worldgen_t defaultcontext = {
+	{LONG_MAX,LONG_MAX,LONG_MAX},
+	{LONG_MAX,LONG_MAX,LONG_MAX}
+};
 
 static uint32_t
 hash( uint32_t a)
@@ -39,15 +46,13 @@ static void
 bias(double *data)
 {
 	int x, z;
-	for(x=0; x<CHUNKSIZE+1; x++)
+	for(x=0; x<CHUNKSIZE+1; ++x)
+	for(z=0; z<CHUNKSIZE+1; z++)
 	{
-		for(z=0; z<CHUNKSIZE+1; z++)
-		{
-			int index = x + z*(CHUNKSIZE+1);
-			double h = data[index];
+		int index = x + z*(CHUNKSIZE+1);
+		double h = data[index];
 
-			data[index] = (h*h*h*h*h)/(h*h*h*h+300*h*h);
-		}
+		data[index] = (h*h*h*h*h)/(h*h*h*h+300*h*h);
 	}
 }
 
@@ -126,27 +131,32 @@ pound(double *data, size_t size, long3_t pos, uint32_t seed, int scale, int leve
 }
 
 static long3_t
-setheightmapfromcpos(long3_t cpos)
+setheightmapfromcpos(worldgen_t *context, long3_t cpos)
 {
 	uint32_t seed = world_getseed();
+
+	double *heightmap = context->heightmap;
+	double *metaheightmap = context->metaheightmap;
 
 	long3_t newchunkblockpos;
 	newchunkblockpos.x = cpos.x * CHUNKSIZE;
 	newchunkblockpos.y = cpos.y * CHUNKSIZE;
 	newchunkblockpos.z = cpos.z * CHUNKSIZE;
 
-	if(lastchunkblockpos.x != newchunkblockpos.x || lastchunkblockpos.z != newchunkblockpos.z || (lastchunkblockpos.x == LONG_MAX || lastchunkblockpos.z == LONG_MAX))
+	if(context->lastchunkblockpos.x != newchunkblockpos.x
+		|| context->lastchunkblockpos.z != newchunkblockpos.z
+		|| (context->lastchunkblockpos.x == LONG_MAX || context->lastchunkblockpos.z == LONG_MAX))
 	{
-		lastchunkblockpos = newchunkblockpos;
+		context->lastchunkblockpos = newchunkblockpos;
 		long3_t newdiasquareblockpos = {
 			floor((double)cpos.x / (double)DIAMONDSQUARESIZE) * DIAMONDSQUARESIZE * CHUNKSIZE,
 			floor((double)cpos.y / (double)DIAMONDSQUARESIZE) * DIAMONDSQUARESIZE * CHUNKSIZE,
 			floor((double)cpos.z / (double)DIAMONDSQUARESIZE) * DIAMONDSQUARESIZE * CHUNKSIZE
 		};
 
-		if(lastdiasquareblockpos.x != newdiasquareblockpos.x || lastdiasquareblockpos.z != newdiasquareblockpos.z || (lastdiasquareblockpos.x == LONG_MAX || lastdiasquareblockpos.z == LONG_MAX))
+		if(context->lastdiasquareblockpos.x != newdiasquareblockpos.x || context->lastdiasquareblockpos.z != newdiasquareblockpos.z || (context->lastdiasquareblockpos.x == LONG_MAX || context->lastdiasquareblockpos.z == LONG_MAX))
 		{
-			lastdiasquareblockpos = newdiasquareblockpos;
+			context->lastdiasquareblockpos = newdiasquareblockpos;
 
 			metaheightmap[0] =
 				((noise(
@@ -194,20 +204,45 @@ setheightmapfromcpos(long3_t cpos)
 }
 
 static double
-getheightval(long x, long z)
+getheightval(worldgen_t *context, long x, long z)
 {
-	return (heightmap[
-				x+1 + z*(CHUNKSIZE+1)] +
-				heightmap[x + z*(CHUNKSIZE+1)] +
-				heightmap[x+1 + (z+1)*(CHUNKSIZE+1)] +
-				heightmap[x + (z+1)*(CHUNKSIZE+1)
-			]) / 4.0;
+	double *heightmap = context->heightmap;
+	return (
+			heightmap[x+1 + z*(CHUNKSIZE+1)] +
+			heightmap[x + z*(CHUNKSIZE+1)] +
+			heightmap[x+1 + (z+1)*(CHUNKSIZE+1)] +
+			heightmap[x + (z+1)*(CHUNKSIZE+1)
+		]) / 4.0;
+}
+
+worldgen_t *
+worldgen_createcontext()
+{
+	worldgen_t *ret = malloc(sizeof(worldgen_t));
+
+	ret->lastchunkblockpos.x = LONG_MAX;
+	ret->lastchunkblockpos.y = LONG_MAX;
+	ret->lastchunkblockpos.z = LONG_MAX;
+	ret->lastdiasquareblockpos.x = LONG_MAX;
+	ret->lastdiasquareblockpos.y = LONG_MAX;
+	ret->lastdiasquareblockpos.z = LONG_MAX;
+
+	return ret;
 }
 
 void
-worldgen_genchunk(chunk_t *chunk)
+worldgen_destroycontext(worldgen_t *context)
 {
-	long3_t newchunkblockpos = setheightmapfromcpos(chunk_getpos(chunk));
+	free(context);
+}
+
+void
+worldgen_genchunk(worldgen_t *context, chunk_t *chunk)
+{
+	if(context == 0)
+		context = &defaultcontext;
+
+	long3_t newchunkblockpos = setheightmapfromcpos(context, chunk_getpos(chunk));
 
 	static const block_t water = {
 		.id = WATER,
@@ -217,38 +252,37 @@ worldgen_genchunk(chunk_t *chunk)
 	};
 
 	int x, y, z;
-	for(x=0; x<CHUNKSIZE; x++)
+	for(x=0; x<CHUNKSIZE; ++x)
+	for(z=0; z<CHUNKSIZE; ++z)
+	for(y=0; y<CHUNKSIZE; ++y)
 	{
-		for(z=0; z<CHUNKSIZE; z++)
-		{
-			for(y=0; y<CHUNKSIZE; y++)
-			{
-				double height = getheightval(x,z);
-				int32_t blockheight = y + newchunkblockpos.y;
-				if(blockheight < height - 100)
-					chunk_setblockid(chunk, x, y, z, BEDROCK);
-				else if(blockheight < height - 20)
-					chunk_setblockid(chunk, x, y, z, STONE);
-				else if(blockheight < height - 3)
-					chunk_setblockid(chunk, x, y, z, DIRT);
-				else if(blockheight < height)
-					if(height < .55)
-						chunk_setblockid(chunk, x, y, z, SAND);
-					else
-						chunk_setblockid(chunk, x, y, z, GRASS);
-				else if(blockheight < 0)
-					chunk_setblock(chunk, x, y, z, water);
-				else
-					break;
-			}
-		}
+		double height = getheightval(context, x, z);
+		int32_t blockheight = y + newchunkblockpos.y;
+		if(blockheight < height - 100)
+			chunk_setblockid(chunk, x, y, z, BEDROCK);
+		else if(blockheight < height - 20)
+			chunk_setblockid(chunk, x, y, z, STONE);
+		else if(blockheight < height - 3)
+			chunk_setblockid(chunk, x, y, z, DIRT);
+		else if(blockheight < height)
+			if(height < .55)
+				chunk_setblockid(chunk, x, y, z, SAND);
+			else
+				chunk_setblockid(chunk, x, y, z, GRASS);
+		else if(blockheight < 0)
+			chunk_setblock(chunk, x, y, z, water);
+		else
+			break;
 	}
 }
 
 long
-worldgen_getheightfrompos(long x, long z)
+worldgen_getheightfrompos(worldgen_t *context, long x, long z)
 {
-	setheightmapfromcpos(world_getchunkposofworldpos(x,0,z));
+	if(context == 0)
+		context = &defaultcontext;
+
+	setheightmapfromcpos(context, world_getchunkposofworldpos(x,0,z));
 	int3_t internalpos = world_getinternalposofworldpos(x,0,z);
-	return floor(getheightval(internalpos.x, internalpos.z));
+	return floor(getheightval(context, internalpos.x, internalpos.z));
 }

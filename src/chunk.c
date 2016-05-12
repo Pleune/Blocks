@@ -8,7 +8,6 @@
 
 #include "world.h"
 #include "minmax.h"
-#include "worldgen.h"
 #include "octree.h"
 
 enum buffer {vbo, cbo, ebo, BUFFERS_MAX};
@@ -52,7 +51,7 @@ struct chunk_s {
 
 	struct mesh_s mesh;
 	int iscurrent;
-	
+
 	SDL_mutex *mutex_read;
 	SDL_sem *sem_write;
 	int readers;
@@ -155,7 +154,7 @@ lockRead(chunk_t *chunk)
 {
 	SDL_LockMutex(chunk->mutex_read);
 	chunk->readers++;
-	
+
 	if(chunk->readers == 1)
 	{
 		SDL_SemWait(chunk->sem_write);
@@ -715,12 +714,13 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 int
 chunk_iscurrent(chunk_t *chunk)
 {
+	lockRead(chunk);
 	int ret = chunk->iscurrent;
 	if(ret)
 	{
+		unlockRead(chunk);
 		return 1;
 	} else {
-		lockRead(chunk);
 		ret = chunk->iscurrent;
 		unlockRead(chunk);
 		return ret;
@@ -868,7 +868,7 @@ chunk_updaterun(chunk_t *chunk)
 							x, y, z
 						);
 
-					block_t block = chunk_getblock(chunk, x, y, z); 
+					block_t block = chunk_getblock(chunk, x, y, z);
 					block_updaterun(block, pos, node->flags);
 					num++;
 				}
@@ -886,16 +886,6 @@ chunk_updaterun(chunk_t *chunk)
 	}
 
 	return num;
-}
-
-chunk_t *
-chunk_loadchunk(long3_t pos)
-{
-	chunk_t *chunk = chunk_loademptychunk(pos);
-
-	worldgen_genchunk(chunk);
-
-	return chunk;//never laods from disk.
 }
 
 chunk_t *
@@ -922,7 +912,7 @@ chunk_freechunk(chunk_t *chunk)
 }
 
 int
-chunk_reloadchunk(long3_t pos, chunk_t *chunk)
+chunk_recenter(chunk_t *chunk, long3_t pos)
 {
 	lockWrite(chunk);
 	if(!chunk->iscompressed)
@@ -937,9 +927,6 @@ chunk_reloadchunk(long3_t pos, chunk_t *chunk)
 
 	chunk->pos = pos;
 	octree_zero(chunk->data);
-	unlockWrite(chunk);
-	worldgen_genchunk(chunk);
-	lockWrite(chunk);
 	chunk->iscurrent = 0;
 	unlockWrite(chunk);
 	return 0;//never loads from disk
