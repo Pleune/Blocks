@@ -9,6 +9,7 @@
 
 #include <SDL2/SDL_timer.h>
 
+#include "custommath.h"
 #include "defines.h"
 #include "chunk.h"
 #include "modulo.h"
@@ -458,7 +459,7 @@ world_cleanup()
 }
 
 void
-world_render(vec3_t pos)
+world_render(vec3_t pos, GLuint modelmatrix)
 {
 	setworldcenter(pos);
 	glEnable(GL_DEPTH_TEST);
@@ -475,7 +476,13 @@ world_render(vec3_t pos)
 	for(x=0; x<WORLDSIZE; ++x)
 	for(y=0; y<WORLDSIZE; ++y)
 	for(z=0; z<WORLDSIZE; ++z)
+	{
+		long3_t chunkpos = chunk_getworldpos(data[x][y][z].chunk);
+		mat4_t matrix = gettranslatematrix(chunkpos.x - pos.x, chunkpos.y - pos.y, chunkpos.z - pos.z);
+		glUniformMatrix4fv(modelmatrix, 1, GL_FALSE, matrix.mat);
+
 		points += chunk_render(data[x][y][z].chunk);
+	}
 
 	totalpoints = points;
 }

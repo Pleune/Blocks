@@ -206,6 +206,16 @@ init(chunk_t *chunk)
 }
 
 long3_t
+chunk_getworldpos(chunk_t *chunk)
+{
+	long3_t ret;
+	ret.x = chunk->pos.x * CHUNKSIZE;
+	ret.y = chunk->pos.y * CHUNKSIZE;
+	ret.z = chunk->pos.z * CHUNKSIZE;
+	return ret;
+}
+
+long3_t
 chunk_getworldposfromchunkpos(long3_t cpos, int x, int y, int z)
 {
 	long3_t ret;
@@ -410,14 +420,14 @@ addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o
 		//add point to vbo
 		//the max for o is a multiple for three, so we only have to check for the 'overflow' every three floats or one point
 		vec3_t pos;
-		pos.x = x + chunk->pos.x*CHUNKSIZE;
-		pos.y = y + chunk->pos.y*CHUNKSIZE;
-		pos.z = z + chunk->pos.z*CHUNKSIZE;
+		pos.x = x;
+		pos.y = y;
+		pos.z = z;
 
 		vec3_t n;
-		n.x = ((float)(noise(pos.x, pos.y, pos.z)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
-		n.y = ((float)(noise(pos.y, pos.z, pos.x)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
-		n.z = ((float)(noise(pos.z, pos.x, pos.y)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
+		n.x = ((float)(noise(pos.x + chunk->pos.x * CHUNKSIZE, pos.y + chunk->pos.y * CHUNKSIZE, pos.z + chunk->pos.z * CHUNKSIZE)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
+		n.y = ((float)(noise(pos.y + chunk->pos.y * CHUNKSIZE, pos.z + chunk->pos.z * CHUNKSIZE, pos.x + chunk->pos.x * CHUNKSIZE)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
+		n.z = ((float)(noise(pos.z + chunk->pos.z * CHUNKSIZE, pos.x + chunk->pos.x * CHUNKSIZE, pos.y + chunk->pos.y * CHUNKSIZE)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
 
 		pos.x += n.x;
 		pos.y += n.y;

@@ -98,6 +98,29 @@ dotmat4mat4(mat4_t *out, mat4_t *a, mat4_t *b)
 }
 
 mat4_t
+gettranslatematrix(float x, float y, float z)
+{
+	mat4_t ret;
+	ret.mat[0] = 1;
+	ret.mat[1] = 0;
+	ret.mat[2] = 0;
+	ret.mat[3] = 0;
+	ret.mat[4] = 0;
+	ret.mat[5] = 1;
+	ret.mat[6] = 0;
+	ret.mat[7] = 0;
+	ret.mat[8] = 0;
+	ret.mat[9] = 0;
+	ret.mat[10] = 1;
+	ret.mat[11] = 0;
+	ret.mat[12] = x;
+	ret.mat[13] = y;
+	ret.mat[14] = z;
+	ret.mat[15] = 1;
+	return ret;
+}
+
+mat4_t
 getprojectionmatrix(float fov, float aspect, float far, float near)
 {
 	float top = near * tan(0.00872664625/*(pi/180)/2*/ * fov);

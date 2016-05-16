@@ -191,7 +191,7 @@ static void init()
 
 	glClearColor(0,0,0,1);
 	glFrontFace(GL_CCW);
-	glEnable(GL_CULL_FACE);
+//	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	glClear(GL_COLOR_BUFFER_BIT);
 	SDL_GL_SwapWindow(win);

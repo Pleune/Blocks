@@ -22,7 +22,8 @@ static int windoww = 0;
 int windowh = 0;
 
 static GLuint drawprogram;
-static GLuint drawprogrammatrixinput;
+static GLuint viewprojectionmatrix;
+static GLuint modelmatrix;
 
 static GLuint ppprogram;
 static GLuint pppointbuffer;
@@ -44,6 +45,8 @@ static vec3_t headpos;
 static uint32_t ticks = 0;
 
 const static vec3_t up = {0,1,0};
+const static vec3_t zero = {0,0,0};
+const static vec3_t height = {0,PLAYER_EYEHEIGHT,0};
 
 static int fpscap = 0;
 const static int fpsmax = 120;
@@ -96,7 +99,8 @@ state_game_init(void *ptr)
 	gl_loadprogram(&drawprogram, "shaders/vs", "shaders/fs");
 	gl_loadprogram(&ppprogram, "shaders/pvs", "shaders/pfs");
 
-	drawprogrammatrixinput = glGetUniformLocation(drawprogram, "MVP");
+	modelmatrix = glGetUniformLocation(drawprogram, "MODEL");
+	viewprojectionmatrix = glGetUniformLocation(drawprogram, "VP");
 	pppointbufferid = glGetUniformLocation(ppprogram, "tex");
 
 	//generate the post processing framebuffer
@@ -307,7 +311,6 @@ input(uint32_t dt)
 			world_raydel(&headpos, &dir, 1, 50);
 	}
 
-
 	headpos = *posptr;
 	headpos.y += PLAYER_EYEHEIGHT;
 }
@@ -425,18 +428,17 @@ render(uint32_t dt)
 		frame=0;
 	}
 
-	input(dt);
-
-	vec3_t forwardview;
-	forwardview.x = forwardcamera.x + headpos.x;
-	forwardview.y = forwardcamera.y + headpos.y;
-	forwardview.z = forwardcamera.z + headpos.z;
+	vec3_t forward = {
+		forwardcamera.x,
+		forwardcamera.y + PLAYER_EYEHEIGHT,
+		forwardcamera.z,
+	};
 
 	mat4_t projection = getprojectionmatrix(90, (float)windoww / (float)windowh, 3000, .1);
-	mat4_t view = getviewmatrix(headpos, forwardview, up);
+	mat4_t view = getviewmatrix(height, forward, up);
 
-	mat4_t mvp;
-	dotmat4mat4(&mvp, &projection, &view);
+	mat4_t vp;
+	dotmat4mat4(&vp, &projection, &view);
 
 	//render to framebuffer here
 	if(pp)
@@ -447,8 +449,8 @@ render(uint32_t dt)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	glUseProgram(drawprogram);
-	glUniformMatrix4fv(drawprogrammatrixinput, 1, GL_FALSE, mvp.mat);
-	world_render(*posptr);
+	glUniformMatrix4fv(viewprojectionmatrix, 1, GL_FALSE, vp.mat);
+	world_render(*posptr, modelmatrix);
 
 	if(lines)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -492,6 +494,8 @@ state_game_run(void *ptr)
 		SDL_SemTryWait(updatesem);
 		SDL_SemPost(updatesem);
 	}
+
+	input(dt);
 	render(dt);
 
 	if(fpscap)

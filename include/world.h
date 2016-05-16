@@ -14,7 +14,7 @@ void world_cleanup();
 void world_genseed();
 uint32_t world_getseed();
 
-void world_render(vec3_t pos);
+void world_render(vec3_t pos, GLuint modelmatrix);
 
 block_t world_getblock(long x, long y, long z, int loadnew);
 blockid_t world_getblockid(long x, long y, long z, int loadnew);
