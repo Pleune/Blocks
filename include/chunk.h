@@ -15,7 +15,7 @@ typedef struct chunk_s chunk_t;
 
 long3_t chunk_getworldposfromchunkpos(long3_t cpos, int x, int y, int z);
 
-void chunk_render(chunk_t *chunk);
+long chunk_render(chunk_t *chunk);
 void chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest);
 
 int chunk_iscurrent(chunk_t *chunk);

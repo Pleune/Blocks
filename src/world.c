@@ -20,6 +20,7 @@ static vec3_t worldcenterpos = {0, 0, 0};
 static long3_t worldcenter = {0, 0, 0};
 
 static uint32_t seed;
+static long totalpoints=0;
 
 static int stopthreads;
 static SDL_Thread *generationthread;
@@ -391,8 +392,8 @@ world_init(vec3_t pos)
 		data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
 	}
 
-	stopthreads=0;
-	int wgcounter;
+	stopthreads = 0;
+	int wgcounter = 0;
 	struct world_genthread_s wginfo = { 0, 0, 0,
 		{0, 0, 0},
 		{WORLDSIZE, WORLDSIZE, WORLDSIZE}
@@ -469,10 +470,14 @@ world_render(vec3_t pos)
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 
+	long points = 0;
+
 	for(x=0; x<WORLDSIZE; ++x)
 	for(y=0; y<WORLDSIZE; ++y)
 	for(z=0; z<WORLDSIZE; ++z)
-		chunk_render(data[x][y][z].chunk);
+		points += chunk_render(data[x][y][z].chunk);
+
+	totalpoints = points;
 }
 
 //TODO: loadnew
@@ -651,5 +656,12 @@ world_updaterun()
 	for(y=0; y<WORLDSIZE; ++y)
 	for(z=0; z<WORLDSIZE; ++z)
 		num += chunk_updaterun(data[x][y][z].chunk);
+
 	return num;
+}
+
+long
+world_gettrianglecount()
+{
+	return totalpoints / 3;
 }

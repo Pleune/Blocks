@@ -14,6 +14,10 @@
 #include "entity.h"
 #include "worldgen.h"
 
+#define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
+#define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049 
+#define GPU_MEMORY_INFO_EVICTED_MEMORY_NVX 0x904B
+
 static int windoww = 0;
 int windowh = 0;
 
@@ -401,6 +405,23 @@ render(uint32_t dt)
 	{
 		oneseccond -= 1000;
 		info("FPS: %i", frame);
+
+		GLint total_mem_kb = 0;
+		glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, 
+		&total_mem_kb);
+ 
+		GLint cur_avail_mem_kb = 0;
+		glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX, 
+		&cur_avail_mem_kb);
+ 
+		GLint cur_evicted_mem_kb = 0;
+		glGetIntegerv(GPU_MEMORY_INFO_EVICTED_MEMORY_NVX, 
+		&cur_evicted_mem_kb);
+
+		printf("MEM AVAIL: %i\t /%imb\n", cur_avail_mem_kb/1000, total_mem_kb/1000);
+		printf("           %imb evicted\n", cur_evicted_mem_kb/1000);
+		printf("%li triangles\n", world_gettrianglecount());
+
 		frame=0;
 	}
 
@@ -492,5 +513,6 @@ state_game_close(void *ptr)
 	SDL_SemPost(updatesem);
 	SDL_WaitThread(updatethread, 0);
 	SDL_DestroySemaphore(updatesem);
+	entity_destroy(pos);
 	world_cleanup();
 }

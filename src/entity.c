@@ -22,6 +22,7 @@ entity_t *
 entity_create(double x, double y, double z, double w, double h, double m)
 {
 	entity_t *entity = malloc(sizeof(entity_t));
+	memset(&(entity->velocity), 0, sizeof(vec3_t));
 
 	vec3_t pos = {x,y,z};
 

@@ -14,7 +14,7 @@ struct node_s {
 octree_t
 *octree_create()
 {
-	octree_t *tree = malloc(sizeof(octree_t));
+	octree_t *tree = calloc(1, sizeof(octree_t));
 	tree->isleaf = 1;
 	tree->data.block.id = AIR;
 	return tree;

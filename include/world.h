@@ -24,6 +24,8 @@ int world_setblockid(long x, long y, long z, blockid_t id, int update, int loadn
 void world_updatequeue(long x, long y, long z, uint8_t time, update_flags_t flags);
 long world_updaterun();
 
+long world_gettrianglecount();
+
 static inline long3_t
 world_getchunkposofworldpos(long x, long y, long z)
 {

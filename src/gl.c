@@ -64,16 +64,22 @@ gl_loadprogram(GLuint *program, char *vertexshadername, char *fragmentshadername
 	char *message;
 
 	glGetShaderiv(vertexshader, GL_INFO_LOG_LENGTH, &errorlen);
-	message = (char *)malloc(errorlen * sizeof(char));
-	glGetShaderInfoLog(vertexshader, errorlen, 0, message);
-	printf("INFO: vertexshader info:\n%s\n", message);
-	free(message);
+	if(errorlen)
+	{
+		message = (char *)malloc(errorlen * sizeof(char));
+		glGetShaderInfoLog(vertexshader, errorlen, 0, message);
+		printf("INFO: vertexshader info:\n%s\n", message);
+		free(message);
+	}
 
 	glGetShaderiv(fragmentshader, GL_INFO_LOG_LENGTH, &errorlen);
-	message = (char *)malloc(errorlen * sizeof(char));
-	glGetShaderInfoLog(fragmentshader, errorlen, 0, message);
-	printf("INFO: fragmentshader info:\n%s\n", message);
-	free(message);
+	if(errorlen)
+	{
+		message = (char *)malloc(errorlen * sizeof(char));
+		glGetShaderInfoLog(fragmentshader, errorlen, 0, message);
+		printf("INFO: fragmentshader info:\n%s\n", message);
+		free(message);
+	}
 
 	*program = glCreateProgram();
 	glAttachShader(*program, vertexshader);
@@ -81,10 +87,13 @@ gl_loadprogram(GLuint *program, char *vertexshadername, char *fragmentshadername
 	glLinkProgram(*program);
 
 	glGetProgramiv(*program, GL_INFO_LOG_LENGTH, &errorlen);
-	message = (char *)malloc(errorlen * sizeof(char));
-	glGetProgramInfoLog(*program, errorlen, 0, message);
-	printf("INFO: opengl program info:\n%s\n", message);
-	free(message);
+	if(errorlen)
+	{
+		message = (char *)malloc(errorlen * sizeof(char));
+		glGetProgramInfoLog(*program, errorlen, 0, message);
+		printf("INFO: opengl program info:\n%s\n", message);
+		free(message);
+	}
 
 	glDeleteShader(vertexshader);
 	glDeleteShader(fragmentshader);

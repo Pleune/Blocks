@@ -197,6 +197,7 @@ init(chunk_t *chunk)
 	glGenBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
 	chunk->updates = 0;
 	chunk->mesh.uploadnext = 0;
+	chunk->mesh.points = 0;
 	chunk->iscurrent = 0;
 	chunk->iscompressed = 1;
 	chunk->mutex_read = SDL_CreateMutex();
@@ -348,7 +349,7 @@ setblock(chunk_t *c, int x, int y, int z, block_t b)
 		c->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
 }
 
-void
+long
 chunk_render(chunk_t *chunk)
 {
 	if(chunk->mesh.uploadnext)
@@ -396,6 +397,8 @@ chunk_render(chunk_t *chunk)
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
 		glDrawElements(GL_TRIANGLES, chunk->mesh.points, GL_UNSIGNED_INT, 0);
 	}
+
+	return chunk->mesh.points;
 }
 
 static inline void
@@ -921,6 +924,14 @@ chunk_recenter(chunk_t *chunk, long3_t pos)
 		free(chunk->rawblocks);
 		free(chunk->rawupdates);
 		numuncompressed--;
+	}
+
+	if(chunk->mesh.uploadnext)
+	{
+		free(chunk->mesh.vbodata);
+		free(chunk->mesh.ebodata);
+		free(chunk->mesh.cbodata);
+		chunk->mesh.uploadnext = 0;
 	}
 
 	//TODO: clear updates
