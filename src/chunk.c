@@ -52,6 +52,8 @@ struct chunk_s {
 	struct mesh_s mesh;
 	int iscurrent;
 
+	SDL_mutex *externallock;
+
 	SDL_mutex *mutex_read;
 	SDL_sem *sem_write;
 	int readers;
@@ -200,6 +202,7 @@ init(chunk_t *chunk)
 	chunk->mesh.points = 0;
 	chunk->iscurrent = 0;
 	chunk->iscompressed = 1;
+	chunk->externallock = SDL_CreateMutex();
 	chunk->mutex_read = SDL_CreateMutex();
 	chunk->sem_write = SDL_CreateSemaphore(1);
 	chunk->readers = 0;
@@ -462,6 +465,7 @@ addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o
 void
 chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest)
 {
+	chunk_lock(chunk);
 	lockRead(chunk);
 
 	if(chunkabove)
@@ -722,6 +726,21 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	chunk->mesh.uploadnext = 1;
 
 	unlockWrite(chunk);
+	chunk_unlock(chunk);
+}
+
+
+void
+chunk_lock(chunk_t *chunk)
+{
+	SDL_LockMutex(chunk->externallock);
+}
+
+
+void
+chunk_unlock(chunk_t *chunk)
+{
+	SDL_UnlockMutex(chunk->externallock);
 }
 
 int
@@ -744,6 +763,12 @@ void
 chunk_setnotcurrent(chunk_t *chunk)
 {
 	chunk->iscurrent = 0;
+}
+
+void
+chunk_clearmesh(chunk_t *chunk)
+{
+	chunk->mesh.points = 0;
 }
 
 block_t
@@ -919,13 +944,14 @@ chunk_freechunk(chunk_t *chunk)
 {
 	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
 	octree_destroy(chunk->data);
+	SDL_DestroyMutex(chunk->externallock);
 	SDL_DestroyMutex(chunk->mutex_read);
 	SDL_DestroySemaphore(chunk->sem_write);
 	free(chunk);
 }
 
 int
-chunk_recenter(chunk_t *chunk, long3_t pos)
+chunk_recenter(chunk_t *chunk, long3_t *pos)
 {
 	lockWrite(chunk);
 	if(!chunk->iscompressed)
@@ -946,7 +972,7 @@ chunk_recenter(chunk_t *chunk, long3_t pos)
 
 	//TODO: clear updates
 
-	chunk->pos = pos;
+	chunk->pos = *pos;
 	octree_zero(chunk->data);
 	chunk->iscurrent = 0;
 	unlockWrite(chunk);

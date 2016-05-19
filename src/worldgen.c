@@ -237,10 +237,14 @@ worldgen_destroycontext(worldgen_t *context)
 }
 
 void
-worldgen_genchunk(worldgen_t *context, chunk_t *chunk)
+worldgen_genchunk(worldgen_t *context, chunk_t *chunk, long3_t *cpos)
 {
 	if(context == 0)
 		context = &defaultcontext;
+
+	chunk_lock(chunk);
+	chunk_recenter(chunk, cpos);
+	chunk_clearmesh(chunk);
 
 	long3_t newchunkblockpos = setheightmapfromcpos(context, chunk_getpos(chunk));
 
@@ -274,6 +278,8 @@ worldgen_genchunk(worldgen_t *context, chunk_t *chunk)
 		else
 			break;
 	}
+
+	chunk_unlock(chunk);
 }
 
 long

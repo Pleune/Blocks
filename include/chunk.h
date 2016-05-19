@@ -16,8 +16,13 @@ typedef struct chunk_s chunk_t;
 long chunk_render(chunk_t *chunk);
 void chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest);
 
+void chunk_lock(chunk_t *chunk);
+void chunk_unlock(chunk_t *chunk);
+
 int chunk_iscurrent(chunk_t *chunk);
 void chunk_setnotcurrent(chunk_t *chunk);
+
+void chunk_clearmesh(chunk_t *chunk);
 
 block_t chunk_getblock(chunk_t *c, int x, int y, int z);
 blockid_t chunk_getblockid(chunk_t *c, int x, int y, int z);
@@ -35,7 +40,7 @@ long chunk_updaterun(chunk_t *chunk);
 chunk_t *chunk_loademptychunk(long3_t pos);
 void chunk_freechunk(chunk_t *chunk);
 
-int chunk_recenter(chunk_t *chunk, long3_t pos);
+int chunk_recenter(chunk_t *chunk, long3_t *pos);
 
 void chunk_zerochunk(chunk_t *chunk);
 

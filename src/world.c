@@ -188,8 +188,7 @@ generationthreadfunc(void *ptr)
 
 						chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
-						chunk_recenter(chunk, cpos);
-						worldgen_genchunk(context, chunk);
+						worldgen_genchunk(context, chunk, &cpos);
 
 						chunk_setnotcurrent(data[chunkindex.x == WORLDSIZE-1 ? 0 : chunkindex.x+1][chunkindex.y][chunkindex.z].chunk);
 						chunk_setnotcurrent(data[chunkindex.x == 0 ? WORLDSIZE-1 : chunkindex.x-1][chunkindex.y][chunkindex.z].chunk);
