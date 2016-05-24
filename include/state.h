@@ -29,5 +29,6 @@ void getwindowsize(int *w, int* h);
 void swapwindow();
 char *getbasepath();
 void centermouse();
+int hascontroller();
 
 #endif

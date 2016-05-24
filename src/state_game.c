@@ -60,6 +60,11 @@ static int pp = 1;
 static int takeinput = 1;
 static int flying = 0;
 static int updating = 1;
+static int usecontroller = 1;
+
+struct {
+	double x, y;
+} static leftstick = {0}, rightstick = {0};
 
 static SDL_Thread *updatethread;
 static SDL_sem *updatesem;
@@ -88,6 +93,15 @@ updatethreadfunc(void *ptr)
 	}
 	return 0;
 
+}
+
+static inline double
+deadzone(double d)
+{
+	if(d > 0)
+		return d > .1 ? (d - .1) / .9 : 0;
+	else
+		return d < -.1 ? (d + .1) / .9 : 0;
 }
 
 void
@@ -193,102 +207,77 @@ input(uint32_t dt)
 {
 	SDL_PumpEvents();
 
+	vec3_t inputvec = {0,0,0};
+
 	const uint8_t *keyboard = SDL_GetKeyboardState(0);
 
 	if(takeinput)
 	{
-		int mousex, mousey;
-		SDL_GetMouseState(&mousex, &mousey);
-		centermouse();
-		double deltamousex = mousex - windoww/2;
-		double deltamousey = mousey - windowh/2;
+		if(hascontroller() && usecontroller)
+		{
+			inputvec.x = leftstick.x;
+			inputvec.z = leftstick.y;
+			rotx += JOYSTICK_SENSITIVITY_LOOK*rightstick.x*dt/1000.0;
+			roty -= JOYSTICK_SENSITIVITY_LOOK*rightstick.y*dt/1000.0;
+		} else {
+			if(keyboard[SDL_SCANCODE_W])
+				inputvec.z -= 1;
+			if(keyboard[SDL_SCANCODE_A])
+				inputvec.x -= 1;
+			if(keyboard[SDL_SCANCODE_S])
+				inputvec.z += 1;
+			if(keyboard[SDL_SCANCODE_D])
+				inputvec.x += 1;
+			if(keyboard[SDL_SCANCODE_LSHIFT])
+				inputvec.y -= 1;
+			if(keyboard[SDL_SCANCODE_SPACE])
+				inputvec.y += 1;
+		
+			int mousex, mousey;
+			SDL_GetMouseState(&mousex, &mousey);
+			centermouse();
+			double deltamousex = mousex - windoww/2;
+			double deltamousey = mousey - windowh/2;
 
-		rotx += MOUSE_SENSITIVITY*deltamousex;
-		roty -= MOUSE_SENSITIVITY*deltamousey;
+			rotx += MOUSE_SENSITIVITY*deltamousex;
+			roty -= MOUSE_SENSITIVITY*deltamousey;
 
-		roty = roty > M_PI/2-.005 ? M_PI/2-.005 : roty;
-		roty = roty < -M_PI/2+.005 ? -M_PI/2+.005 : roty;
+			roty = roty > M_PI/2-.005 ? M_PI/2-.005 : roty;
+			roty = roty < -M_PI/2+.005 ? -M_PI/2+.005 : roty;
 
-		rotx = rotx > M_PI*2 ? rotx - M_PI*2: rotx;
-		rotx = rotx < -M_PI*2 ? rotx + M_PI*2: rotx;
+			rotx = rotx > M_PI*2 ? rotx - M_PI*2: rotx;
+			rotx = rotx < -M_PI*2 ? rotx + M_PI*2: rotx;
+		}
 	}
 
 	forwardcamera.x = sin(rotx) * cos(roty);
 	forwardcamera.y = sin(roty);
 	forwardcamera.z = -cos(rotx) * cos(roty);
 
-	vec2_t forwardmovement;
-	forwardmovement.x = sin(rotx);
-	forwardmovement.y = -cos(rotx);
+	//vec2_t forwardmovement;
+	//forwardmovement.x = sin(rotx);
+	//forwardmovement.y = -cos(rotx);
 
-	vec3_t delta = {0,0,0};
 
-	if(flying)
+	vec3_t rotatevec;
+	rotatevec.x = cos(rotx)*inputvec.x - sin(rotx)*inputvec.z;
+	rotatevec.z = sin(rotx)*inputvec.x + cos(rotx)*inputvec.z;
+	rotatevec.y = inputvec.y;
+
+	if(dt < 500)
 	{
-		if(keyboard[SDL_SCANCODE_W])
+		if(flying)
 		{
-			delta.x = SPEED * forwardmovement.x * (dt / 1000.0);
-			delta.z = SPEED * forwardmovement.y * (dt / 1000.0);
-			entity_move(pos, &delta);
+			rotatevec.x *= SPEED * dt / 1000.0;
+			rotatevec.y *= SPEED * dt / 1000.0;
+			rotatevec.z *= SPEED * dt / 1000.0;
+			entity_move(pos, &rotatevec);
+		} else {
+			rotatevec.x *= FORCE;
+			rotatevec.y = 0;
+			rotatevec.z *= FORCE;
+			entity_update(pos, &rotatevec, dt/1000.0);
 		}
-		if(keyboard[SDL_SCANCODE_A])
-		{
-			delta.x = SPEED * forwardmovement.y * (dt / 1000.0);
-			delta.z = -SPEED * forwardmovement.x * (dt / 1000.0);
-			entity_move(pos, &delta);
-		}
-		if(keyboard[SDL_SCANCODE_S])
-		{
-			delta.x = -SPEED * forwardmovement.x * (dt / 1000.0);
-			delta.z = -SPEED * forwardmovement.y * (dt / 1000.0);
-			entity_move(pos, &delta);
-		}
-		if(keyboard[SDL_SCANCODE_D])
-		{
-			delta.x = -SPEED * forwardmovement.y * (dt / 1000.0);
-			delta.z = +SPEED * forwardmovement.x * (dt / 1000.0);
-			entity_move(pos, &delta);
-		}
-		if(keyboard[SDL_SCANCODE_LSHIFT])
-		{
-			delta.x = 0;
-			delta.y = -SPEED * (dt / 1000.0);
-			delta.z = 0;
-			entity_move(pos, &delta);
-		}
-		if(keyboard[SDL_SCANCODE_SPACE])
-		{
-			delta.x = 0;
-			delta.y = SPEED * (dt / 1000.0);
-			delta.z = 0;
-			entity_move(pos, &delta);
-		}
-	}
-	else
-	{
-		vec3_t forces = {0, 0, 0};
-		if(keyboard[SDL_SCANCODE_W])
-		{
-			forces.x += FORCE * forwardmovement.x;
-			forces.z += FORCE * forwardmovement.y;
-		}
-		if(keyboard[SDL_SCANCODE_A])
-		{
-			forces.x += FORCE * forwardmovement.y;
-			forces.z += -FORCE * forwardmovement.x;
-		}
-		if(keyboard[SDL_SCANCODE_S])
-		{
-			forces.x += -FORCE * forwardmovement.x;
-			forces.z += -FORCE * forwardmovement.y;
-		}
-		if(keyboard[SDL_SCANCODE_D])
-		{
-			forces.x += -FORCE * forwardmovement.y;
-			forces.z += +FORCE * forwardmovement.x;
-		}
-		if(dt < 500)
-			entity_update(pos, &forces, dt/1000.0);
 	}
 
 	if(keyboard[SDL_SCANCODE_R])
@@ -364,6 +353,36 @@ state_game_event(void *ptr)
 			break;
 		}
 	}
+	
+	else if(e.type == SDL_CONTROLLERBUTTONDOWN)
+	{
+		switch(e.cbutton.button)
+		{
+			case SDL_CONTROLLER_BUTTON_A:
+				entity_jump(pos, JUMPSPEED);
+				break;
+		}
+	}
+
+	else if(e.type == SDL_CONTROLLERAXISMOTION)
+	{
+		switch(e.caxis.axis)
+		{
+			case SDL_CONTROLLER_AXIS_LEFTX:
+				leftstick.x = deadzone(e.caxis.value / 32768.0);
+				break;
+			case SDL_CONTROLLER_AXIS_LEFTY:
+				leftstick.y = deadzone(e.caxis.value / 32768.0);
+				break;
+			case SDL_CONTROLLER_AXIS_RIGHTX:
+				rightstick.x = deadzone(e.caxis.value / 32768.0);
+				break;
+			case SDL_CONTROLLER_AXIS_RIGHTY:
+				rightstick.y = deadzone(e.caxis.value / 32768.0);
+				break;
+		}
+	}
+
 	else if(e.type == SDL_MOUSEBUTTONDOWN)
 	{
 		if(e.button.button == SDL_BUTTON_LEFT)

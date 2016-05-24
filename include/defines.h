@@ -5,8 +5,8 @@
 
 #define INIT_WORLDGEN_THREADS 4
 
-#define CHUNKLEVELS 4
-#define WORLDSIZE 8
+#define CHUNKLEVELS 5
+#define WORLDSIZE 32
 #define WORLDGEN_BUMPYNESS 3
 #define WORLDGEN_RANGE 0.5
 #define DIAMONDSQUARELEVELS 11
@@ -28,5 +28,7 @@
 
 #define SIM_WATER_LEVELS 10
 #define SIM_WATER_DELAY (5 / (avg + rem))
+
+#define JOYSTICK_SENSITIVITY_LOOK 10
 
 #endif //DEFINES_H

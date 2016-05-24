@@ -22,6 +22,7 @@ struct statestack_s {
 	int instances[MAX_STATES];
 	int top;
 };
+
 struct statestack_s stack = { {0} };
 #define CURRENTSTATE (stack.states[stack.top])
 
@@ -35,6 +36,8 @@ SDL_GLContext glcontext;
 static int windoww, windowh;
 
 char *basepath;
+
+static SDL_GameController *controller = NULL;
 
 int
 main(int argc, char *argv[])
@@ -155,6 +158,7 @@ cleanup()
 	printf("STATUS: cleaning up for either an exit or a reboot\n");
 
 	free(basepath);
+	SDL_GameControllerClose(controller);
 	SDL_GL_DeleteContext(glcontext);
 	SDL_DestroyWindow(win);
 	SDL_Quit();
@@ -172,6 +176,20 @@ static void init()
 	if(!win)
 		//SDL2 didn't create a window
 		fail("SDL_CreateWindow");
+
+	for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+		if(SDL_IsGameController(i))
+		{
+			controller = SDL_GameControllerOpen(i);
+			if(controller)
+			{
+				printf("Game controller found\n");
+				break;
+			} else {
+				printf(stderr, "Could not open gamecontroller %i: %s\n", i, SDL_GetError());
+			}
+		}
+	}
 
 	glcontext = SDL_GL_CreateContext(win);
 	if(!glcontext)
@@ -243,3 +261,10 @@ centermouse()
 {
 	SDL_WarpMouseInWindow(win, windoww/2, windowh/2);
 }
+
+int
+hascontroller()
+{
+	return controller ? 1 : 0;
+}
+
