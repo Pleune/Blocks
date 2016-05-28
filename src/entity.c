@@ -104,7 +104,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
-				if(block_issolid(world_getblock(b, y, z, 0)))
+				if(block_issolid(world_getblock(b, y, z, 0).id))
 				{
 					entity->pos.x = b - halfw -.0001;
 					entity->velocity.x = 0;
@@ -123,7 +123,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
-				if(block_issolid(world_getblock(b, y, z, 0)))
+				if(block_issolid(world_getblock(b, y, z, 0).id))
 				{
 					entity->pos.x = b + 1 + halfw + .0001;
 					entity->velocity.x = 0;
@@ -143,7 +143,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
-				if(block_issolid(world_getblock(x, b, z, 0)))
+				if(block_issolid(world_getblock(x, b, z, 0).id))
 				{
 					entity->pos.y = b - entity->h - .0001;
 					entity->velocity.y = 0;
@@ -161,7 +161,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
-				if(block_issolid(world_getblock(x, b, z, 0)))
+				if(block_issolid(world_getblock(x, b, z, 0).id))
 				{
 					entity->pos.y = b + 1;
 					entity->velocity.y = 0;
@@ -182,7 +182,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
 			{
-				if(block_issolid(world_getblock(x, y, b, 0)))
+				if(block_issolid(world_getblock(x, y, b, 0).id))
 				{
 					entity->pos.z = b - halfw - .0001;
 					entity->velocity.z = 0;
@@ -200,7 +200,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
 			{
-				if(block_issolid(world_getblock(x, y, b, 0)))
+				if(block_issolid(world_getblock(x, y, b, 0).id))
 				{
 					entity->pos.z = b + 1 + halfw + .0001;
 					entity->velocity.z = 0;

@@ -2,7 +2,7 @@
 #include "world.h"
 #include "custommath.h"
 
-const blockdata_t blockinfo[(enum block_id) ERR + 1] = {
+const struct blockproperties block_properties[BLOCK_NUM_TYPES] = {
 	[AIR] = {0, {0,0,0}, "Air"},
 	[STONE] = {1, {0.2,0.2,0.22}, "Stone"},
 	[DIRT] = {1, {0.185,0.09,0.05}, "Dirt"},
@@ -13,22 +13,6 @@ const blockdata_t blockinfo[(enum block_id) ERR + 1] = {
 	[WATER_GEN] = {1, {.8,.8,.8}, "Water Generator"},
 	[ERR] = {0, {1,0,0}, "Error"}
 };
-
-
-int
-block_issolid(block_t b)
-{
-	if(b.id != ERR)
-		return blockinfo[b.id].issolid;
-	else
-		return 0;
-}
-
-vec3_t
-block_getcolor(blockid_t id)
-{
-	return blockinfo[id].color;
-}
 
 void
 block_updaterun(block_t b, long3_t pos, update_flags_t flags)
@@ -43,7 +27,7 @@ block_updaterun(block_t b, long3_t pos, update_flags_t flags)
 				if(waterinme > 0)
 				{ //flow down
 					block_t u = world_getblock(pos.x, pos.y -1, pos.z, 0);
-					if(!block_issolid(u) && u.id != WATER && u.id != ERR)
+					if(!block_issolid(u.id) && u.id != WATER && u.id != ERR)
 					{
 						u.id = WATER;
 						u.metadata.number = 0;
@@ -59,7 +43,7 @@ block_updaterun(block_t b, long3_t pos, update_flags_t flags)
 				if(waterinme > 0)
 				{ //flow down
 					block_t u = world_getblock(pos.x+1, pos.y -1, pos.z, 0);
-					if(!block_issolid(u) && u.id != WATER && u.id != ERR)
+					if(!block_issolid(u.id) && u.id != WATER && u.id != ERR)
 					{
 						u.id = WATER;
 						u.metadata.number = 0;
@@ -75,7 +59,7 @@ block_updaterun(block_t b, long3_t pos, update_flags_t flags)
 				if(waterinme > 0)
 				{ //flow down
 					block_t u = world_getblock(pos.x-1, pos.y -1, pos.z, 0);
-					if(!block_issolid(u) && u.id != WATER && u.id != ERR)
+					if(!block_issolid(u.id) && u.id != WATER && u.id != ERR)
 					{
 						u.id = WATER;
 						u.metadata.number = 0;
@@ -91,7 +75,7 @@ block_updaterun(block_t b, long3_t pos, update_flags_t flags)
 				if(waterinme > 0)
 				{ //flow down
 					block_t u = world_getblock(pos.x, pos.y -1, pos.z+1, 0);
-					if(!block_issolid(u) && u.id != WATER && u.id != ERR)
+					if(!block_issolid(u.id) && u.id != WATER && u.id != ERR)
 					{
 						u.id = WATER;
 						u.metadata.number = 0;
@@ -107,7 +91,7 @@ block_updaterun(block_t b, long3_t pos, update_flags_t flags)
 				if(waterinme > 0)
 				{ //flow down
 					block_t u = world_getblock(pos.x, pos.y -1, pos.z-1, 0);
-					if(!block_issolid(u) && u.id != WATER && u.id != ERR)
+					if(!block_issolid(u.id) && u.id != WATER && u.id != ERR)
 					{
 						u.id = WATER;
 						u.metadata.number = 0;
@@ -137,7 +121,7 @@ block_updaterun(block_t b, long3_t pos, update_flags_t flags)
 					int i;
 					for(i=0; i<4; i++)
 					{
-						if(!block_issolid(u[i]) && u[i].id != WATER && u[i].id != ERR)
+						if(!block_issolid(u[i].id) && u[i].id != WATER && u[i].id != ERR)
 						{
 							u[i].id = WATER;
 							u[i].metadata.number = 0;
@@ -230,7 +214,7 @@ block_updaterun(block_t b, long3_t pos, update_flags_t flags)
 		{
 			if(flags & UPDATE_FALL)
 			{
-				if(!block_issolid(world_getblock(pos.x, pos.y-1, pos.z, 0)))
+				if(!block_issolid(world_getblock(pos.x, pos.y-1, pos.z, 0).id))
 				{
 					world_setblock(
 							pos.x, pos.y-1, pos.z,

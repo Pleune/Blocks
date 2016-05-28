@@ -496,7 +496,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 	cbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
 
-	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * BLOCK_MAXTYPES);
+	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * BLOCK_NUM_TYPES);
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; ++x)

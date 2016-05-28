@@ -186,7 +186,7 @@ static void init()
 				printf("Game controller found\n");
 				break;
 			} else {
-				printf(stderr, "Could not open gamecontroller %i: %s\n", i, SDL_GetError());
+				fprintf(stderr, "Could not open gamecontroller %i: %s\n", i, SDL_GetError());
 			}
 		}
 	}

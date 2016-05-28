@@ -61,7 +61,7 @@ world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 		{
 			max.x += delta.x;
 			p.x += dirx;
-			if(block_issolid(world_getblock(p.x,p.y,p.z,0)))
+			if(block_issolid(world_getblock(p.x,p.y,p.z,0).id))
 			{
 				if(before)
 					p.x -= dirx;
@@ -72,7 +72,7 @@ world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 		{
 			max.y += delta.y;
 			p.y += diry;
-			if(block_issolid(world_getblock(p.x,p.y,p.z,0)))
+			if(block_issolid(world_getblock(p.x,p.y,p.z,0).id))
 			{
 				if(before)
 					p.y -= diry;
@@ -83,7 +83,7 @@ world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 		{
 			max.z += delta.z;
 			p.z += dirz;
-			if(block_issolid(world_getblock(p.x,p.y,p.z,0)))
+			if(block_issolid(world_getblock(p.x,p.y,p.z,0).id))
 			{
 				if(before)
 					p.z -= dirz;
@@ -100,7 +100,7 @@ world_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int up
 {
 	long3_t p = world_raypos(start, direction, before, dist);
 
-	if(!block_issolid(world_getblock(p.x,p.y,p.z,0)) || !block.id)
+	if(!block_issolid(world_getblock(p.x,p.y,p.z,0).id) || !block.id)
 		world_setblock(p.x, p.y, p.z, block, update, 0, 1);
 }
 
