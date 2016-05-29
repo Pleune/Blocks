@@ -9,20 +9,15 @@
 #include "world.h"
 #include "minmax.h"
 #include "octree.h"
+#include "stack.h"
 
-enum buffer {vbo, cbo, ebo, BUFFERS_MAX};
+typedef GLuint chunk_mesh_normal_index_t;
+#define CHUNK_MESH_NORMAL_INDEX_MAX ((CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1)*BLOCK_NUM_TYPES)
 
 struct mesh_s {
-	GLuint bufferobjs[BUFFERS_MAX];
+	GLuint element_buffer;
 
-	GLfloat *vbodata;
-	long vbodatasize;
-
-	GLuint *ebodata;
-	long ebodatasize;
-
-	GLfloat *cbodata;
-	long cbodatasize;
+	struct stack elements;
 
 	long points;
 
@@ -59,9 +54,9 @@ struct chunk_s {
 	int readers;
 };
 
-int numuncompressed = 0;
+static int numuncompressed = 0;
 
-const static GLfloat faces[] = {
+const static int faces[] = {
 //top
 0,1,0,
 0,1,1,
@@ -117,39 +112,8 @@ const static GLfloat faces[] = {
 0,0,0
 };
 
-GLfloat uvcoords[] = {
-	0,0,
-	1,0,
-	1,1,
-	0,1
-};
-
-int uvcoordsabstraction[] = {
-	0,
-	3,
-	1,
-	2,
-	1,
-	3
-};
-
-static uint32_t
-hash( uint32_t a)
-{
-	a = (a+0x7ed55d16) + (a<<12);
-	a = (a^0xc761c23c) ^ (a>>19);
-	a = (a+0x165667b1) + (a<<5);
-	a = (a+0xd3a2646c) ^ (a<<9);
-	a = (a+0xfd7046c5) + (a<<3);
-	a = (a^0xb55a4f09) ^ (a>>16);
-	return a;
-}
-
-static uint32_t
-noise(uint32_t x, uint32_t y, uint32_t z)
-{
-	return hash((hash(x) ^ hash(y)) ^ hash(z));
-}
+static GLuint index_buffer_vertices = 0;
+static GLuint index_buffer_colors = 0;
 
 void
 lockRead(chunk_t *chunk)
@@ -175,6 +139,7 @@ unlockRead(chunk_t *chunk)
 	}
 	if(chunk->readers < 0)
 	{
+		//TODO: error
 		chunk->readers = 0;
 		printf("Semaphore: too many unlocks\n");
 	}
@@ -196,7 +161,7 @@ unlockWrite(chunk_t *chunk)
 static void
 init(chunk_t *chunk)
 {
-	glGenBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
+	glGenBuffers(1, &(chunk->mesh.element_buffer));
 	chunk->updates = 0;
 	chunk->mesh.uploadnext = 0;
 	chunk->mesh.points = 0;
@@ -206,6 +171,54 @@ init(chunk_t *chunk)
 	chunk->mutex_read = SDL_CreateMutex();
 	chunk->sem_write = SDL_CreateSemaphore(1);
 	chunk->readers = 0;
+}
+
+void
+chunk_initindexbuffers()
+{
+	glGenBuffers(1, &index_buffer_vertices);
+	glGenBuffers(1, &index_buffer_colors);
+
+	GLfloat *vertices = malloc(CHUNK_MESH_NORMAL_INDEX_MAX * 3 * sizeof(GLfloat));
+	GLfloat *colors = malloc(CHUNK_MESH_NORMAL_INDEX_MAX * 3 * sizeof(GLfloat));
+
+	int i = 0;
+
+	int x, y, z, id;
+	for(id = 0; id<BLOCK_NUM_TYPES; ++id)
+	for(z = 0; z<CHUNKSIZE+1; ++z)
+	for(y = 0; y<CHUNKSIZE+1; ++y)
+	for(x = 0; x<CHUNKSIZE+1; ++x)
+	{
+		vertices[i] = x;
+		colors[i] = block_properties[id].color.x;
+		++i;
+
+		vertices[i] = y;
+		colors[i] = block_properties[id].color.y;
+		++i;
+
+		vertices[i] = z;
+		colors[i] = block_properties[id].color.z;
+		++i;
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, index_buffer_vertices);
+	glBufferData(GL_ARRAY_BUFFER, CHUNK_MESH_NORMAL_INDEX_MAX * 3 * sizeof(GLfloat), vertices, GL_STATIC_DRAW);
+	free(vertices);
+
+	glBindBuffer(GL_ARRAY_BUFFER, index_buffer_colors);
+	glBufferData(GL_ARRAY_BUFFER, CHUNK_MESH_NORMAL_INDEX_MAX * 3 * sizeof(GLfloat), colors, GL_STATIC_DRAW);
+	free(colors);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void
+chunk_destroyindexbuffers()
+{
+	glDeleteBuffers(1, &index_buffer_vertices);
+	glDeleteBuffers(1, &index_buffer_colors);
 }
 
 long3_t
@@ -370,17 +383,9 @@ chunk_render(chunk_t *chunk)
 		lockRead(chunk);
 		if(chunk->mesh.uploadnext)
 		{
-			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
-			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.vbodatasize * sizeof(GLfloat), chunk->mesh.vbodata, GL_STATIC_DRAW);
-			free(chunk->mesh.vbodata);
-
-			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
-			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.ebodatasize * sizeof(GLfloat), chunk->mesh.ebodata, GL_STATIC_DRAW);
-			free(chunk->mesh.ebodata);
-
-			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
-			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.cbodatasize * sizeof(GLfloat), chunk->mesh.cbodata, GL_STATIC_DRAW);
-			free(chunk->mesh.cbodata);
+			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.element_buffer);
+			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.elements.size, chunk->mesh.elements.data, GL_STATIC_DRAW);
+			stack_destroy(&(chunk->mesh.elements));
 
 			chunk->mesh.uploadnext = 0;
 		}
@@ -389,7 +394,7 @@ chunk_render(chunk_t *chunk)
 
 	if(chunk->mesh.points > 0)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[vbo]);
+		glBindBuffer(GL_ARRAY_BUFFER, index_buffer_vertices);
 		glVertexAttribPointer(
 				0,
 				3,
@@ -398,7 +403,7 @@ chunk_render(chunk_t *chunk)
 				0,
 				0);
 
-		glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.bufferobjs[cbo]);
+		glBindBuffer(GL_ARRAY_BUFFER, index_buffer_colors);
 		glVertexAttribPointer(
 				1,
 				3,
@@ -406,8 +411,7 @@ chunk_render(chunk_t *chunk)
 				GL_FALSE,
 				0,
 				0);
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->mesh.bufferobjs[ebo]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->mesh.element_buffer);
 		glDrawElements(GL_TRIANGLES, chunk->mesh.points, GL_UNSIGNED_INT, 0);
 	}
 
@@ -415,51 +419,10 @@ chunk_render(chunk_t *chunk)
 }
 
 static inline void
-addpoint(chunk_t *chunk, int *c, uint16_t *i, GLuint **ebos, int *v, uint16_t *o, GLfloat **vbos, GLfloat **color, GLuint *ebc, GLfloat x, GLfloat y, GLfloat z, vec3_t blockcolor, uint8_t blockid)
+addpoint(struct stack *stack, int x, int y, int z, blockid_t blockid)
 {
-	GLint index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1) + blockid * (CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1);
-	if(!ebc[index] || blockid == WATER)
-	{
-		//add point to vbo
-		//the max for o is a multiple for three, so we only have to check for the 'overflow' every three floats or one point
-		vec3_t pos;
-		pos.x = x;
-		pos.y = y;
-		pos.z = z;
-
-		vec3_t n;
-		n.x = ((float)(noise(pos.x + chunk->pos.x * CHUNKSIZE, pos.y + chunk->pos.y * CHUNKSIZE, pos.z + chunk->pos.z * CHUNKSIZE)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
-		n.y = ((float)(noise(pos.y + chunk->pos.y * CHUNKSIZE, pos.z + chunk->pos.z * CHUNKSIZE, pos.x + chunk->pos.x * CHUNKSIZE)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
-		n.z = ((float)(noise(pos.z + chunk->pos.z * CHUNKSIZE, pos.x + chunk->pos.x * CHUNKSIZE, pos.y + chunk->pos.y * CHUNKSIZE)%1000)-.5f) * ((float)RENDER_WOBBLE / 1000.0f);
-
-		pos.x += n.x;
-		pos.y += n.y;
-		pos.z += n.z;
-
-		vbos[v[0]][o[0]] = pos.x;
-		color[v[0]][o[0]++] = blockcolor.x;
-		vbos[v[0]][o[0]] = pos.y;
-		color[v[0]][o[0]++] = blockcolor.y;
-		vbos[v[0]][o[0]] = pos.z;
-		color[v[0]][o[0]++] = blockcolor.z;
-
-		if(o[0] == 9999)
-		{
-			o[0]=0;
-			v[0]++;
-			vbos[v[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
-			color[v[0]] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
-		}
-
-		ebc[index] = v[0]*3333 + o[0]/3;
-	}
-	ebos[c[0]][i[0]++] = ebc[index] - 1;
-	if(i[0] == 9999)
-	{
-		i[0]=0;
-		c[0]++;
-		ebos[c[0]] = (GLuint *)malloc(sizeof(GLuint) * 9999);
-	}
+	chunk_mesh_normal_index_t index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1) + blockid * (CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1);
+	stack_push(stack, &index);
 }
 
 void
@@ -481,22 +444,8 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	if(chunkwest)
 		lockRead(chunkwest);
 
-	GLuint *ebos[256];
-	int c = 0;
-	uint16_t i = 0;
-
-	ebos[0] = (GLuint *)malloc(sizeof(GLuint) * 9999);
-
-	GLfloat *vbos[256];
-	GLfloat *cbos[256];
-
-	int v = 0;
-	uint16_t o = 0;
-
-	vbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
-	cbos[0] = (GLfloat *)malloc(sizeof(GLfloat) * 9999);
-
-	GLuint *ebc = (GLuint *)calloc(sizeof(GLuint), (CHUNKSIZE+1) * (CHUNKSIZE+1) * (CHUNKSIZE+1) * BLOCK_NUM_TYPES);
+	struct stack elements;
+	stack_init(&elements, sizeof(chunk_mesh_normal_index_t), 1000, 2.0); //TODO: better constants
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; ++x)
@@ -617,8 +566,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 							west = 1;
 					}
 
-					vec3_t blockcolor = block_getcolor(block.id);
-
 					int U[6] = {
 						top,
 						bottom,
@@ -637,14 +584,10 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 							int Q=q+18;
 							while(q<Q)
 							{
-								GLfloat hmux = 1.0f;
-								if(block.id == WATER)
-									hmux = (GLfloat)block.metadata.number / (GLfloat)SIM_WATER_LEVELS;
-
-								GLfloat x_ = faces[q++] + x;
-								GLfloat y_ = faces[q++]*hmux + y;
-								GLfloat z_ = faces[q++] + z;
-								addpoint(chunk, &c,&i,ebos,&v,&o,vbos,cbos,ebc,x_,y_,z_,blockcolor,block.id);
+								int x_ = faces[q++] + x;
+								int y_ = faces[q++] + y;
+								int z_ = faces[q++] + z;
+								addpoint(&elements, x_, y_, z_, block.id);
 							}
 						} else {
 							q+=18;
@@ -654,8 +597,6 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 			}
 		}
 	}
-
-	free(ebc);
 
 	if(chunkabove)
 		unlockRead(chunkabove);
@@ -672,55 +613,15 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 
 	unlockRead(chunk);
 
-	int w;
-
-	GLuint *finalebodata = (GLuint *)malloc(sizeof(GLuint) * ((long)9999*c + i));
-
-	for(w=0; w<c; ++w)
-	{
-		memcpy(&finalebodata[(long)w*9999], ebos[w], (long)9999 * sizeof(GLuint));
-		free(ebos[w]);
-	}
-	memcpy(&finalebodata[(long)c*9999], ebos[c], i*sizeof(GLuint));
-	free(ebos[c]);
-
-	GLfloat *finalvbodata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*v + o));
-	GLfloat *finalcbodata = (GLfloat *)malloc(sizeof(GLfloat) * ((long)9999*v + o));
-
-	for(w=0; w<v; ++w)
-	{
-		memcpy(&finalvbodata[(long)w*9999], vbos[w], (long)9999 * sizeof(GLfloat));
-		free(vbos[w]);
-		memcpy(&finalcbodata[(long)w*9999], cbos[w], (long)9999 * sizeof(GLfloat));
-		free(cbos[w]);
-	}
-	memcpy(&finalvbodata[(long)v*9999], vbos[v], o*sizeof(GLfloat));
-	free(vbos[v]);
-	memcpy(&finalcbodata[(long)v*9999], cbos[v], o*sizeof(GLfloat));
-	free(cbos[v]);
-
-	long ebosize = (long)9999*c + i;
-	long vbosize = (long)9999*v + o;
-	long cbosize = (long)9999*v + o;
+	stack_trim(&elements);
 
 	lockWrite(chunk);
 
 	if(chunk->mesh.uploadnext)
-	{
-		free(chunk->mesh.vbodata);
-		free(chunk->mesh.ebodata);
-		free(chunk->mesh.cbodata);
-	}
+		stack_destroy(&(chunk->mesh.elements));
 
-	chunk->mesh.points = ebosize;
-
-	chunk->mesh.vbodata = finalvbodata;
-	chunk->mesh.ebodata = finalebodata;
-	chunk->mesh.cbodata = finalcbodata;
-
-	chunk->mesh.vbodatasize = vbosize;
-	chunk->mesh.ebodatasize = ebosize;
-	chunk->mesh.cbodatasize = cbosize;
+	chunk->mesh.elements = elements;
+	chunk->mesh.points = stack_numobjects(&elements);
 
 	chunk->iscurrent = 1;
 	chunk->mesh.uploadnext = 1;
@@ -942,7 +843,7 @@ chunk_loademptychunk(long3_t pos)
 void
 chunk_freechunk(chunk_t *chunk)
 {
-	glDeleteBuffers(BUFFERS_MAX, chunk->mesh.bufferobjs);
+	glDeleteBuffers(1, &(chunk->mesh.element_buffer));
 	octree_destroy(chunk->data);
 	SDL_DestroyMutex(chunk->externallock);
 	SDL_DestroyMutex(chunk->mutex_read);
@@ -964,9 +865,7 @@ chunk_recenter(chunk_t *chunk, long3_t *pos)
 
 	if(chunk->mesh.uploadnext)
 	{
-		free(chunk->mesh.vbodata);
-		free(chunk->mesh.ebodata);
-		free(chunk->mesh.cbodata);
+		stack_destroy(&chunk->mesh.elements);
 		chunk->mesh.uploadnext = 0;
 	}
 

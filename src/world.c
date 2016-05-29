@@ -380,6 +380,7 @@ void
 world_init(vec3_t pos)
 {
 	setworldcenter(pos);
+	chunk_initindexbuffers();
 
 	int3_t cpos;
 	for(cpos.x = 0; cpos.x<WORLDSIZE; ++cpos.x)
@@ -455,6 +456,8 @@ world_cleanup()
 	for(chunkindex.y=0; chunkindex.y<WORLDSIZE; ++chunkindex.y)
 	for(chunkindex.z=0; chunkindex.z<WORLDSIZE; ++chunkindex.z)
 		chunk_freechunk(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+
+	chunk_destroyindexbuffers();
 }
 
 void
