@@ -33,15 +33,35 @@ static SDL_Thread *remeshthreadD; //Only "instant" updates (fastest)
 struct {
 	chunk_t *chunk;
 	uint8_t instantremesh;
-} data[WORLDSIZE][WORLDSIZE][WORLDSIZE];
+} data[WORLD_CHUNKS_PER_EDGE][WORLD_CHUNKS_PER_EDGE][WORLD_CHUNKS_PER_EDGE];
+
+static inline long3_t
+get_worldpos_from_chunkpos(long3_t *cpos)
+{
+	long3_t ret;
+	ret.x = cpos->x * CHUNKSIZE;
+	ret.y = cpos->y * CHUNKSIZE;
+	ret.z = cpos->z * CHUNKSIZE;
+	return ret;
+}
+
+inline static long3_t
+get_worldpos_from_internalpos(long3_t *cpos, int x, int y, int z)
+{
+	long3_t ret;
+	ret.x = cpos->x * CHUNKSIZE + x;
+	ret.y = cpos->y * CHUNKSIZE + y;
+	ret.z = cpos->z * CHUNKSIZE + z;
+	return ret;
+}
 
 static inline int3_t
 getchunkindexofchunk(long3_t pos)
 {
 	int3_t icpo = {
-		MODULO(pos.x, WORLDSIZE),
-		MODULO(pos.y, WORLDSIZE),
-		MODULO(pos.z, WORLDSIZE)
+		MODULO(pos.x, WORLD_CHUNKS_PER_EDGE),
+		MODULO(pos.y, WORLD_CHUNKS_PER_EDGE),
+		MODULO(pos.z, WORLD_CHUNKS_PER_EDGE)
 	};
 	return icpo;
 }
@@ -49,9 +69,9 @@ getchunkindexofchunk(long3_t pos)
 static inline int
 shouldbequickloaded(long3_t pos)
 {
-	return worldscope.x <= pos.x && pos.x < worldscope.x + WORLDSIZE &&
-		worldscope.y <= pos.y && pos.y < worldscope.y + WORLDSIZE &&
-		worldscope.z <= pos.z && pos.z < worldscope.z + WORLDSIZE;
+	return worldscope.x <= pos.x && pos.x < worldscope.x + WORLD_CHUNKS_PER_EDGE &&
+		worldscope.y <= pos.y && pos.y < worldscope.y + WORLD_CHUNKS_PER_EDGE &&
+		worldscope.z <= pos.z && pos.z < worldscope.z + WORLD_CHUNKS_PER_EDGE;
 }
 
 static inline int
@@ -61,7 +81,7 @@ isquickloaded(long3_t pos, int3_t *chunkindex)
 	if(chunkindex)
 		*chunkindex = ci;
 
-	long3_t cpos = chunk_getpos(data[ci.x][ci.y][ci.z].chunk);
+	long3_t cpos = chunk_pos_get(data[ci.x][ci.y][ci.z].chunk);
 	return shouldbequickloaded(cpos) && !memcmp(&cpos, &pos, sizeof(long3_t));
 }
 
@@ -70,10 +90,10 @@ setworldcenter(vec3_t pos)
 {
 	worldcenterpos = pos;
 
-	worldcenter = world_getchunkposofworldpos(pos.x, pos.y, pos.z);
-	worldscope.x = worldcenter.x - WORLDSIZE/2;
-	worldscope.y = worldcenter.y - WORLDSIZE/2;
-	worldscope.z = worldcenter.z - WORLDSIZE/2;
+	worldcenter = world_get_chunkpos_of_worldpos(pos.x, pos.y, pos.z);
+	worldscope.x = worldcenter.x - WORLD_CHUNKS_PER_EDGE/2;
+	worldscope.y = worldcenter.y - WORLD_CHUNKS_PER_EDGE/2;
+	worldscope.z = worldcenter.z - WORLD_CHUNKS_PER_EDGE/2;
 }
 
 static void
@@ -89,7 +109,7 @@ remesh(int3_t *chunkindex)
 	chunk_t *chunk = data[chunkindex->x][chunkindex->y][chunkindex->z].chunk;
 
 	int3_t tempchunkindex;
-	long3_t tempcpos = chunk_getpos(chunk);
+	long3_t tempcpos = chunk_pos_get(chunk);
 
 	tempcpos.x++;
 	if(isquickloaded(tempcpos, &tempchunkindex))
@@ -139,7 +159,7 @@ queueremesh(int3_t *chunkindex, int instant)
 		data[chunkindex->x][chunkindex->y][chunkindex->z].instantremesh = 1;
 	}
 
-	chunk_setnotcurrent(data[chunkindex->x][chunkindex->y][chunkindex->z].chunk);
+	chunk_mesh_clear_current(data[chunkindex->x][chunkindex->y][chunkindex->z].chunk);
 	return;
 }
 
@@ -190,19 +210,19 @@ generationthreadfunc(void *ptr)
 
 						worldgen_genchunk(context, chunk, &cpos);
 
-						chunk_setnotcurrent(data[chunkindex.x == WORLDSIZE-1 ? 0 : chunkindex.x+1][chunkindex.y][chunkindex.z].chunk);
-						chunk_setnotcurrent(data[chunkindex.x == 0 ? WORLDSIZE-1 : chunkindex.x-1][chunkindex.y][chunkindex.z].chunk);
-						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y == WORLDSIZE-1 ? 0 : chunkindex.y+1][chunkindex.z].chunk);
-						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y == 0 ? WORLDSIZE-1 : chunkindex.y-1][chunkindex.z].chunk);
-						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z == WORLDSIZE-1 ? 0 : chunkindex.z+1].chunk);
-						chunk_setnotcurrent(data[chunkindex.x][chunkindex.y][chunkindex.z == 0 ? WORLDSIZE-1 : chunkindex.z-1].chunk);
+						chunk_mesh_clear_current(data[chunkindex.x == WORLD_CHUNKS_PER_EDGE-1 ? 0 : chunkindex.x+1][chunkindex.y][chunkindex.z].chunk);
+						chunk_mesh_clear_current(data[chunkindex.x == 0 ? WORLD_CHUNKS_PER_EDGE-1 : chunkindex.x-1][chunkindex.y][chunkindex.z].chunk);
+						chunk_mesh_clear_current(data[chunkindex.x][chunkindex.y == WORLD_CHUNKS_PER_EDGE-1 ? 0 : chunkindex.y+1][chunkindex.z].chunk);
+						chunk_mesh_clear_current(data[chunkindex.x][chunkindex.y == 0 ? WORLD_CHUNKS_PER_EDGE-1 : chunkindex.y-1][chunkindex.z].chunk);
+						chunk_mesh_clear_current(data[chunkindex.x][chunkindex.y][chunkindex.z == WORLD_CHUNKS_PER_EDGE-1 ? 0 : chunkindex.z+1].chunk);
+						chunk_mesh_clear_current(data[chunkindex.x][chunkindex.y][chunkindex.z == 0 ? WORLD_CHUNKS_PER_EDGE-1 : chunkindex.z-1].chunk);
 
 						if(counter)
 						{
 							++(*counter);
 
 							char string[] = "                    ";
-							float percent = (float)(*counter)/(WORLDSIZE*WORLDSIZE*WORLDSIZE);
+							float percent = (float)(*counter)/(WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE);
 							memset(string, '#', (sizeof(string) - 1) * percent);
 							printf("LOADING... [%s] %f%%\r", string, percent * 100.0f);
 							fflush(stdout);
@@ -225,20 +245,20 @@ remeshthreadfuncA(void *ptr)
 	while(!stopthreads)
 	{
 		int3_t i;
-		for(i.x = 0; i.x< WORLDSIZE; ++i.x)
+		for(i.x = 0; i.x< WORLD_CHUNKS_PER_EDGE; ++i.x)
 		{
 			if(stopthreads)
 				break;
-			for(i.y = 0; i.y< WORLDSIZE; ++i.y)
+			for(i.y = 0; i.y< WORLD_CHUNKS_PER_EDGE; ++i.y)
 			{
 				if(stopthreads)
 					break;
-				for(i.z = 0; i.z< WORLDSIZE; ++i.z)
+				for(i.z = 0; i.z< WORLD_CHUNKS_PER_EDGE; ++i.z)
 				{
 					if(stopthreads)
 						break;
 
-					if(!chunk_iscurrent(data[i.x][i.y][i.z].chunk))
+					if(!chunk_mesh_is_current(data[i.x][i.y][i.z].chunk))
 						remesh(&i);
 				}
 			}
@@ -258,14 +278,14 @@ remeshthreadfuncB(void *ptr)
 	{
 		long3_t i;
 		long3_t lowbound = {
-			worldcenter.x - WORLDSIZE/6,
-			worldcenter.y - WORLDSIZE/6,
-			worldcenter.z - WORLDSIZE/6
+			worldcenter.x - WORLD_CHUNKS_PER_EDGE/6,
+			worldcenter.y - WORLD_CHUNKS_PER_EDGE/6,
+			worldcenter.z - WORLD_CHUNKS_PER_EDGE/6
 		};
 		long3_t highbound = {
-			worldcenter.x + WORLDSIZE/6,
-			worldcenter.y + WORLDSIZE/6,
-			worldcenter.z + WORLDSIZE/6
+			worldcenter.x + WORLD_CHUNKS_PER_EDGE/6,
+			worldcenter.y + WORLD_CHUNKS_PER_EDGE/6,
+			worldcenter.z + WORLD_CHUNKS_PER_EDGE/6
 		};
 		for(i.x = lowbound.x; i.x< highbound.x; ++i.x)
 		{
@@ -281,7 +301,7 @@ remeshthreadfuncB(void *ptr)
 					if(stopthreads)
 						break;
 
-					if(!chunk_iscurrent(data[icpo.x][icpo.y][icpo.z].chunk))
+					if(!chunk_mesh_is_current(data[icpo.x][icpo.y][icpo.z].chunk))
 						remesh(&icpo);
 				}
 			}
@@ -299,27 +319,29 @@ remeshthreadfuncC(void *ptr)
 {
 	{
 		vec3_t i;
-		for(i.x = -WORLDSIZE; i.x < WORLDSIZE; ++i.x)
+		for(i.x = -WORLD_CHUNKS_PER_EDGE; i.x < WORLD_CHUNKS_PER_EDGE; ++i.x)
 		{
 			if(stopthreads)
 				break;
-			for(i.y = -WORLDSIZE; i.y < WORLDSIZE; ++i.y)
+			for(i.y = -WORLD_CHUNKS_PER_EDGE; i.y < WORLD_CHUNKS_PER_EDGE; ++i.y)
 			{
 				if(stopthreads)
 					break;
-				for(i.z = -WORLDSIZE; i.z < WORLDSIZE; ++i.z)
+				for(i.z = -WORLD_CHUNKS_PER_EDGE; i.z < WORLD_CHUNKS_PER_EDGE; ++i.z)
 				{
 					if(stopthreads)
 						break;
 
-					long3_t pos = world_raypos(&worldcenterpos, &i, 0, 1000);
-					pos = world_getchunkposofworldpos(pos.x, pos.y, pos.z);
+					vec3_t begin_point = worldcenterpos;
+					begin_point.y += PLAYER_EYEHEIGHT;
+
+					long3_t pos = world_ray_pos(&begin_point, &i, 0, 1000);
+					pos = world_get_chunkpos_of_worldpos(pos.x, pos.y, pos.z);
 
 					int3_t icpo = getchunkindexofchunk(pos);
 
-					if(!chunk_iscurrent(data[icpo.x][icpo.y][icpo.z].chunk))
+					if(!chunk_mesh_is_current(data[icpo.x][icpo.y][icpo.z].chunk))
 						remesh(&icpo);
-
 				}
 			}
 		}
@@ -339,15 +361,15 @@ remeshthreadfuncD(void *ptr)
 	{
 		uint32_t ticks = SDL_GetTicks();
 		int3_t i;
-		for(i.x = 0; i.x< WORLDSIZE; ++i.x)
+		for(i.x = 0; i.x< WORLD_CHUNKS_PER_EDGE; ++i.x)
 		{
 			if(stopthreads)
 				break;
-			for(i.y = 0; i.y< WORLDSIZE; ++i.y)
+			for(i.y = 0; i.y< WORLD_CHUNKS_PER_EDGE; ++i.y)
 			{
 				if(stopthreads)
 					break;
-				for(i.z = 0; i.z< WORLDSIZE; ++i.z)
+				for(i.z = 0; i.z< WORLD_CHUNKS_PER_EDGE; ++i.z)
 				{
 					if(stopthreads)
 						break;
@@ -369,7 +391,7 @@ remeshthreadfuncD(void *ptr)
 }
 
 void
-world_genseed()
+world_seed_gen()
 {
 	time_t t;
 	srand((unsigned) time(&t));
@@ -380,16 +402,16 @@ void
 world_init(vec3_t pos)
 {
 	setworldcenter(pos);
-	chunk_initindexbuffers();
+	chunk_static_init();
 
 	int3_t cpos;
-	for(cpos.x = 0; cpos.x<WORLDSIZE; ++cpos.x)
-	for(cpos.z = 0; cpos.z<WORLDSIZE; ++cpos.z)
-	for(cpos.y = 0; cpos.y<WORLDSIZE; ++cpos.y)
+	for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
+	for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
+	for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
 	{
 		long3_t long3max = {LONG_MAX, LONG_MAX, LONG_MAX};
 
-		data[cpos.x][cpos.y][cpos.z].chunk = chunk_loademptychunk(long3max);
+		data[cpos.x][cpos.y][cpos.z].chunk = chunk_load_empty(long3max);
 		data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
 	}
 
@@ -397,7 +419,7 @@ world_init(vec3_t pos)
 	int wgcounter = 0;
 	struct world_genthread_s wginfo = { 0, 0, 0,
 		{0, 0, 0},
-		{WORLDSIZE, WORLDSIZE, WORLDSIZE}
+		{WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE}
 	};
 	wginfo.initalized = SDL_CreateSemaphore(0);
 	wginfo.counter = &wgcounter;
@@ -408,10 +430,10 @@ world_init(vec3_t pos)
 	int i;
 	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
 	{
-		wginfo.low.x = (WORLDSIZE / (double)INIT_WORLDGEN_THREADS)*i;
-		wginfo.high.x = (WORLDSIZE / (double)INIT_WORLDGEN_THREADS)*(i+1);
+		wginfo.low.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*i;
+		wginfo.high.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*(i+1);
 
-		wginfo.context = worldgen_createcontext();
+		wginfo.context = worldgen_context_create();
 		wgcontexts[i] = wginfo.context;
 
 		wgthreads[i] = SDL_CreateThread(generationthreadfunc, "world_generation_init", &wginfo);
@@ -421,12 +443,12 @@ world_init(vec3_t pos)
 	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
 	{
 		SDL_WaitThread(wgthreads[i], 0);
-		worldgen_destroycontext(wgcontexts[i]);
+		worldgen_context_destroy(wgcontexts[i]);
 	}
 
 	wginfo.continuous = 1;
 	wginfo.low.x = 0;
-	wginfo.high.x = WORLDSIZE;
+	wginfo.high.x = WORLD_CHUNKS_PER_EDGE;
 	wginfo.context = 0;
 	wginfo.counter = 0;
 
@@ -452,12 +474,12 @@ world_cleanup()
 	SDL_WaitThread(remeshthreadD, 0);
 
 	int3_t chunkindex;
-	for(chunkindex.x=0; chunkindex.x<WORLDSIZE; ++chunkindex.x)
-	for(chunkindex.y=0; chunkindex.y<WORLDSIZE; ++chunkindex.y)
-	for(chunkindex.z=0; chunkindex.z<WORLDSIZE; ++chunkindex.z)
-		chunk_freechunk(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+	for(chunkindex.x=0; chunkindex.x<WORLD_CHUNKS_PER_EDGE; ++chunkindex.x)
+	for(chunkindex.y=0; chunkindex.y<WORLD_CHUNKS_PER_EDGE; ++chunkindex.y)
+	for(chunkindex.z=0; chunkindex.z<WORLD_CHUNKS_PER_EDGE; ++chunkindex.z)
+		chunk_free(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
 
-	chunk_destroyindexbuffers();
+	chunk_static_cleanup();
 }
 
 void
@@ -475,12 +497,13 @@ world_render(vec3_t pos, GLuint modelmatrix)
 
 	long points = 0;
 
-	for(x=0; x<WORLDSIZE; ++x)
-	for(y=0; y<WORLDSIZE; ++y)
-	for(z=0; z<WORLDSIZE; ++z)
+	for(x=0; x<WORLD_CHUNKS_PER_EDGE; ++x)
+	for(y=0; y<WORLD_CHUNKS_PER_EDGE; ++y)
+	for(z=0; z<WORLD_CHUNKS_PER_EDGE; ++z)
 	{
-		long3_t chunkpos = chunk_getworldpos(data[x][y][z].chunk);
-		mat4_t matrix = gettranslatematrix(chunkpos.x - pos.x, chunkpos.y - pos.y, chunkpos.z - pos.z);
+		long3_t chunkpos = chunk_pos_get(data[x][y][z].chunk);
+		long3_t worldpos = get_worldpos_from_chunkpos(&chunkpos);
+		mat4_t matrix = gettranslatematrix(worldpos.x - pos.x, worldpos.y - pos.y, worldpos.z - pos.z);
 		glUniformMatrix4fv(modelmatrix, 1, GL_FALSE, matrix.mat);
 
 		points += chunk_render(data[x][y][z].chunk);
@@ -491,15 +514,15 @@ world_render(vec3_t pos, GLuint modelmatrix)
 
 //TODO: loadnew
 block_t
-world_getblock(long x, long y, long z, int loadnew)
+world_block_get(long x, long y, long z, int loadnew)
 {
-	long3_t cpos = world_getchunkposofworldpos(x, y, z);
-	int3_t internalpos = world_getinternalposofworldpos(x,y,z);
+	long3_t cpos = world_get_chunkpos_of_worldpos(x, y, z);
+	int3_t internalpos = world_get_internalpos_of_worldpos(x,y,z);
 
 	int3_t icpo;
 
 	if(isquickloaded(cpos, &icpo))
-		return chunk_getblock(data[icpo.x][icpo.y][icpo.z].chunk, internalpos.x, internalpos.y, internalpos.z);
+		return chunk_block_get(data[icpo.x][icpo.y][icpo.z].chunk, internalpos.x, internalpos.y, internalpos.z);
 	block_t error;
 	error.id = ERR;
 	return error;
@@ -507,41 +530,41 @@ world_getblock(long x, long y, long z, int loadnew)
 
 //TODO: loadnew
 blockid_t
-world_getblockid(long x, long y, long z, int loadnew)
+world_block_get_id(long x, long y, long z, int loadnew)
 {
-	long3_t cpos = world_getchunkposofworldpos(x, y, z);
-	int3_t internalpos = world_getinternalposofworldpos(x,y,z);
+	long3_t cpos = world_get_chunkpos_of_worldpos(x, y, z);
+	int3_t internalpos = world_get_internalpos_of_worldpos(x,y,z);
 
 	int3_t icpo;
 	if(isquickloaded(cpos, &icpo))
-		return chunk_getblockid(data[icpo.x][icpo.y][icpo.z].chunk, internalpos.x, internalpos.y, internalpos.z);
+		return chunk_block_get_id(data[icpo.x][icpo.y][icpo.z].chunk, internalpos.x, internalpos.y, internalpos.z);
 
 	return ERR;
 }
 
 //TODO: loadnew
 int
-world_setblock(long x, long y, long z, block_t block, int update, int loadnew, int instant)
+world_block_set(long x, long y, long z, block_t block, int update, int loadnew, int instant)
 {
-	long3_t cpos = world_getchunkposofworldpos(x, y, z);
-	int3_t internalpos = world_getinternalposofworldpos(x, y, z);
+	long3_t cpos = world_get_chunkpos_of_worldpos(x, y, z);
+	int3_t internalpos = world_get_internalpos_of_worldpos(x, y, z);
 
 	int3_t chunkindex;
 	if(isquickloaded(cpos, &chunkindex))
 	{
 		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
-		chunk_setblock(chunk, internalpos.x, internalpos.y, internalpos.z, block);
+		chunk_block_set(chunk, internalpos.x, internalpos.y, internalpos.z, block);
 
 		if(update)
 		{
-			world_updatequeue(x,y,z, update-1, 0);
-			world_updatequeue(x+1,y,z, update-1, 0);
-			world_updatequeue(x,y+1,z, update-1, 0);
-			world_updatequeue(x,y,z+1, update-1, 0);
-			world_updatequeue(x-1,y,z, update-1, 0);
-			world_updatequeue(x,y-1,z, update-1, 0);
-			world_updatequeue(x,y,z-1, update-1, 0);
+			world_update_queue(x,y,z, update-1, 0);
+			world_update_queue(x+1,y,z, update-1, 0);
+			world_update_queue(x,y+1,z, update-1, 0);
+			world_update_queue(x,y,z+1, update-1, 0);
+			world_update_queue(x-1,y,z, update-1, 0);
+			world_update_queue(x,y-1,z, update-1, 0);
+			world_update_queue(x,y,z-1, update-1, 0);
 		}
 
 		queueremesh(&chunkindex, instant);
@@ -579,27 +602,27 @@ world_setblock(long x, long y, long z, block_t block, int update, int loadnew, i
 
 //TODO: loadnew
 int
-world_setblockid(long x, long y, long z, blockid_t id, int update, int loadnew, int instant)
+world_block_set_id(long x, long y, long z, blockid_t id, int update, int loadnew, int instant)
 {
-	long3_t cpos = world_getchunkposofworldpos(x, y, z);
-	int3_t internalpos = world_getinternalposofworldpos(x, y, z);
+	long3_t cpos = world_get_chunkpos_of_worldpos(x, y, z);
+	int3_t internalpos = world_get_internalpos_of_worldpos(x, y, z);
 
 	int3_t chunkindex;
 	if(isquickloaded(cpos, &chunkindex))
 	{
 		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
-		chunk_setblockid(chunk, internalpos.x, internalpos.y, internalpos.z, id);
+		chunk_block_set_id(chunk, internalpos.x, internalpos.y, internalpos.z, id);
 
 		if(update)
 		{
-			world_updatequeue(x,y,z, update-1, 0);
-			world_updatequeue(x+1,y,z, update-1, 0);
-			world_updatequeue(x,y+1,z, update-1, 0);
-			world_updatequeue(x,y,z+1, update-1, 0);
-			world_updatequeue(x-1,y,z, update-1, 0);
-			world_updatequeue(x,y-1,z, update-1, 0);
-			world_updatequeue(x,y,z-1, update-1, 0);
+			world_update_queue(x,y,z, update-1, 0);
+			world_update_queue(x+1,y,z, update-1, 0);
+			world_update_queue(x,y+1,z, update-1, 0);
+			world_update_queue(x,y,z+1, update-1, 0);
+			world_update_queue(x-1,y,z, update-1, 0);
+			world_update_queue(x,y-1,z, update-1, 0);
+			world_update_queue(x,y,z-1, update-1, 0);
 		}
 
 		queueremesh(&chunkindex, instant);
@@ -636,41 +659,41 @@ world_setblockid(long x, long y, long z, blockid_t id, int update, int loadnew, 
 }
 
 uint32_t
-world_getseed()
+world_get_seed()
 {
 	return seed;
 }
 
 void
-world_updatequeue(long x, long y, long z, uint8_t time, update_flags_t flags)
+world_update_queue(long x, long y, long z, uint8_t time, update_flags_t flags)
 {
-	long3_t cpos = world_getchunkposofworldpos(x, y, z);
-	int3_t internalpos = world_getinternalposofworldpos(x, y, z);
+	long3_t cpos = world_get_chunkpos_of_worldpos(x, y, z);
+	int3_t internalpos = world_get_internalpos_of_worldpos(x, y, z);
 
 	int3_t chunkindex;
 	if(isquickloaded(cpos, &chunkindex))
 	{
 		chunk_t *chunk = data[chunkindex.x][chunkindex.y][chunkindex.z].chunk;
 
-		chunk_updatequeue(chunk, internalpos.x, internalpos.y, internalpos.z, time, flags);
+		chunk_update_queue(chunk, internalpos.x, internalpos.y, internalpos.z, time, flags);
 	}
 }
 
 long
-world_updaterun()
+world_update_flush()
 {
 	long num = 0;
 	int x, y, z;
-	for(x=0; x<WORLDSIZE; ++x)
-	for(y=0; y<WORLDSIZE; ++y)
-	for(z=0; z<WORLDSIZE; ++z)
-		num += chunk_updaterun(data[x][y][z].chunk);
+	for(x=0; x<WORLD_CHUNKS_PER_EDGE; ++x)
+	for(y=0; y<WORLD_CHUNKS_PER_EDGE; ++y)
+	for(z=0; z<WORLD_CHUNKS_PER_EDGE; ++z)
+		num += chunk_update_run(data[x][y][z].chunk);
 
 	return num;
 }
 
 long
-world_gettrianglecount()
+world_get_trianglecount()
 {
 	return totalpoints / 3;
 }

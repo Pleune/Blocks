@@ -10,7 +10,7 @@ struct stack {
 	double resize_factor;
 
 	unsigned char *data;
-	unsigned char *top;
+	unsigned char *top; //non inclusive
 	unsigned char *end; //non inclusive
 };
 
@@ -20,7 +20,7 @@ void stack_destroy(struct stack *stack);
 void stack_trim(struct stack *stack);
 void stack_resize(struct stack *stack, size_t size);
 
-long stack_numobjects(struct stack *stack);
+long stack_objects_get_num(struct stack *stack);
 
 void stack_push(struct stack *stack, void *data);
 void stack_pop(struct stack *stack, void *data);

@@ -83,4 +83,4 @@ mat4_t getrotmatrix(float rx, float ry, float rz);
 mat4_t getprojectionmatrix(float fov, float aspect, float far, float near);
 mat4_t getviewmatrix(vec3_t eye, vec3_t target, vec3_t up);//lookat right-handed
 
-#endif //CUSTOMMATH_H
+#endif

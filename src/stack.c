@@ -53,7 +53,7 @@ stack_resize(struct stack *stack, size_t object_count)
 }
 
 long
-stack_numobjects(struct stack *stack)
+stack_objects_get_num(struct stack *stack)
 {
 	return stack->size / stack->object_size;
 }

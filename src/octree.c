@@ -68,7 +68,7 @@ static void
 set(int8_t x, int8_t y, int8_t z, octree_t *tree, block_t *data, int8_t level)
 {
 	int i;
-	if(level < CHUNKLEVELS)
+	if(level < CHUNK_LEVELS)
 	{
 		int8_t x_ = (x*2 % CHUNKSIZE);
 		int8_t y_ = (y*2 % CHUNKSIZE);
@@ -79,7 +79,7 @@ set(int8_t x, int8_t y, int8_t z, octree_t *tree, block_t *data, int8_t level)
 				return;
 			tree->isleaf = 0;
 			block_t block = tree->data.block;
-			
+
 			tree->data.children = malloc(sizeof(struct node_s) * 8);
 			for(i=0; i<8; i++)
 			{

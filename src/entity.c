@@ -42,32 +42,32 @@ entity_destroy(entity_t *entity)
 }
 
 void
-entity_setsize(entity_t *entity, double width, double height)
+entity_size_set(entity_t *entity, double width, double height)
 {
 	entity->w = width;
 	entity->h = height;
 }
 
 void
-entity_setfriction(entity_t *entity, vec3_t f)
+entity_friction_set(entity_t *entity, vec3_t f)
 {
 	entity->friction = f;
 }
 
 void
-entity_setpos(entity_t *entity, vec3_t pos)
+entity_pos_set(entity_t *entity, vec3_t pos)
 {
 	entity->pos = pos;
 }
 
 vec3_t
-entity_getpos(entity_t *entity)
+entity_pos_get(entity_t *entity)
 {
 	return entity->pos;
 }
 
 const vec3_t *
-entity_getposptr(entity_t *entity)
+entity_pos_get_ptr(entity_t *entity)
 {
 	return &(entity->pos);
 }
@@ -104,7 +104,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
-				if(block_issolid(world_getblock(b, y, z, 0).id))
+				if(BLOCK_PROPERTY_SOLID(world_block_get(b, y, z, 0).id))
 				{
 					entity->pos.x = b - halfw -.0001;
 					entity->velocity.x = 0;
@@ -123,7 +123,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
-				if(block_issolid(world_getblock(b, y, z, 0).id))
+				if(BLOCK_PROPERTY_SOLID(world_block_get(b, y, z, 0).id))
 				{
 					entity->pos.x = b + 1 + halfw + .0001;
 					entity->velocity.x = 0;
@@ -143,7 +143,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
-				if(block_issolid(world_getblock(x, b, z, 0).id))
+				if(BLOCK_PROPERTY_SOLID(world_block_get(x, b, z, 0).id))
 				{
 					entity->pos.y = b - entity->h - .0001;
 					entity->velocity.y = 0;
@@ -161,7 +161,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(z = floor(entity->pos.z - halfw); z < entity->pos.z + halfw; z++)
 			{
-				if(block_issolid(world_getblock(x, b, z, 0).id))
+				if(BLOCK_PROPERTY_SOLID(world_block_get(x, b, z, 0).id))
 				{
 					entity->pos.y = b + 1;
 					entity->velocity.y = 0;
@@ -182,7 +182,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
 			{
-				if(block_issolid(world_getblock(x, y, b, 0).id))
+				if(BLOCK_PROPERTY_SOLID(world_block_get(x, y, b, 0).id))
 				{
 					entity->pos.z = b - halfw - .0001;
 					entity->velocity.z = 0;
@@ -200,7 +200,7 @@ entity_move(entity_t *entity, vec3_t *delta)
 		{
 			for(x = floor(entity->pos.x - halfw); x < entity->pos.x + halfw; x++)
 			{
-				if(block_issolid(world_getblock(x, y, b, 0).id))
+				if(BLOCK_PROPERTY_SOLID(world_block_get(x, y, b, 0).id))
 				{
 					entity->pos.z = b + 1 + halfw + .0001;
 					entity->velocity.z = 0;
@@ -218,10 +218,10 @@ entity_update(entity_t *entity, vec3_t *forces, double dt)
 	entity->velocity.y += (forces->y/entity->m-GRAVITY)*dt;
 	entity->velocity.z += forces->z*dt/entity->m - entity->friction.z*entity->velocity.z*dt;
 	double mag = sqrt(entity->velocity.x*entity->velocity.x + entity->velocity.z*entity->velocity.z);
-	if(mag > SPEED)
+	if(mag > PLAYER_FLY_SPEED)
 	{
-		entity->velocity.x *= SPEED/mag;
-		entity->velocity.z *= SPEED/mag;
+		entity->velocity.x *= PLAYER_FLY_SPEED/mag;
+		entity->velocity.z *= PLAYER_FLY_SPEED/mag;
 	}
 
 

@@ -11,9 +11,6 @@
 #include "octree.h"
 #include "stack.h"
 
-typedef GLuint chunk_mesh_normal_index_t;
-#define CHUNK_MESH_NORMAL_INDEX_MAX ((CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1)*BLOCK_NUM_TYPES)
-
 struct mesh_s {
 	GLuint element_buffer;
 
@@ -24,23 +21,14 @@ struct mesh_s {
 	int uploadnext;
 };
 
-struct updatequeue_s {
-	struct updatequeue_s *next;
-	struct updatequeue_s *prev;
-
-	update_flags_t flags;
-
-	int3_t pos;
-	int time;
-};
-
-struct chunk_s {
+struct chunk {
 	long3_t pos;
+
 	octree_t *data;
 	block_t *rawblocks;
 
-	struct updatequeue_s *updates;
-	struct updatequeue_s *rawupdates;
+	struct update_queue *updates;
+	struct update_queue *rawupdates;
 
 	int iscompressed;
 
@@ -112,31 +100,31 @@ const static int faces[] = {
 0,0,0
 };
 
+typedef GLuint chunk_mesh_normal_index_t;
+#define CHUNK_MESH_NORMAL_INDEX_MAX ((CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1)*BLOCK_NUM_TYPES)
+
 static GLuint index_buffer_vertices = 0;
 static GLuint index_buffer_colors = 0;
 
-void
-lockRead(chunk_t *chunk)
+static void
+lock_read(chunk_t *chunk)
 {
 	SDL_LockMutex(chunk->mutex_read);
 	chunk->readers++;
-
 	if(chunk->readers == 1)
-	{
 		SDL_SemWait(chunk->sem_write);
-	}
+
 	SDL_UnlockMutex(chunk->mutex_read);
 }
 
-void
-unlockRead(chunk_t *chunk)
+static void
+unlock_read(chunk_t *chunk)
 {
 	SDL_LockMutex(chunk->mutex_read);
 	chunk->readers--;
 	if(chunk->readers == 0)
-	{
 		SDL_SemPost(chunk->sem_write);
-	}
+
 	if(chunk->readers < 0)
 	{
 		//TODO: error
@@ -146,20 +134,30 @@ unlockRead(chunk_t *chunk)
 	SDL_UnlockMutex(chunk->mutex_read);
 }
 
-void
-lockWrite(chunk_t *chunk)
+static void
+lock_write(chunk_t *chunk)
 {
 	SDL_SemWait(chunk->sem_write);
 }
 
-void
-unlockWrite(chunk_t *chunk)
+static void
+unlock_write(chunk_t *chunk)
 {
 	SDL_SemPost(chunk->sem_write);
 }
 
+inline static long3_t
+get_worldpos_from_internalpos(long3_t *cpos, int x, int y, int z)
+{
+	long3_t ret;
+	ret.x = cpos->x * CHUNKSIZE + x;
+	ret.y = cpos->y * CHUNKSIZE + y;
+	ret.z = cpos->z * CHUNKSIZE + z;
+	return ret;
+}
+
 static void
-init(chunk_t *chunk)
+init_chunk(chunk_t *chunk)
 {
 	glGenBuffers(1, &(chunk->mesh.element_buffer));
 	chunk->updates = 0;
@@ -173,8 +171,142 @@ init(chunk_t *chunk)
 	chunk->readers = 0;
 }
 
+static void
+update_queue_compressed(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags)
+{
+	struct update_queue *new = malloc(sizeof(struct update_queue));
+
+	new->pos.x = x;
+	new->pos.y = y;
+	new->pos.z = z;
+
+	new->time = time;
+	new->flags = flags;
+
+	if(chunk->updates)
+	{
+		struct update_queue *top = chunk->updates;
+		while(top->next)
+		{
+			if(new->pos.x == top->pos.x && new->pos.y == top->pos.y && new->pos.z == top->pos.z)
+			{
+				if(top->time > time)
+					top->time = time;
+				top->flags |= flags;
+				free(new);
+				return;
+			}
+			top = top->next;
+		}
+		top->next = new;
+		new->prev = top;
+		new->next = 0;
+	} else {
+		chunk->updates = new;
+		new->next = 0;
+		new->prev = 0;
+	}
+}
+
+static void
+compress(chunk_t *chunk)
+{
+	if(chunk->iscompressed)
+		return;
+
+	lock_write(chunk);
+	int x, y, z;
+	for(x=0; x<CHUNKSIZE; ++x)
+	for(y=0; y<CHUNKSIZE; ++y)
+	for(z=0; z<CHUNKSIZE; ++z)
+	{
+		octree_set(x, y, z, chunk->data, &chunk->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
+		struct update_queue *update = &chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+		if(update->time >= 0)
+		{
+			update_queue_compressed(chunk, x, y, z, update->time, update->flags);
+		}
+	}
+
+	chunk->iscompressed = 1;
+
+	unlock_write(chunk);
+
+	free(chunk->rawblocks);
+	free(chunk->rawupdates);
+	numuncompressed--;
+}
+
+static void
+uncompress(chunk_t *chunk)
+{
+	if(!chunk->iscompressed)
+		return;
+
+	chunk->rawblocks = malloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE* sizeof(block_t));
+	chunk->rawupdates = malloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE* sizeof(struct update_queue));
+
+	lock_write(chunk);
+
+	int x, y, z;
+	for(x=0; x<CHUNKSIZE; ++x)
+	for(y=0; y<CHUNKSIZE; ++y)
+	for(z=0; z<CHUNKSIZE; ++z)
+	{
+		chunk->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = octree_get(x, y, z, chunk->data);
+		chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].time = -1;
+	}
+
+	if(chunk->updates)
+	{
+		struct update_queue *node = chunk->updates;
+
+		while(node)
+		{
+			struct update_queue *next = node->next;
+
+			struct update_queue *raw = &chunk->rawupdates[node->pos.x + node->pos.y*CHUNKSIZE + node->pos.z*CHUNKSIZE*CHUNKSIZE];
+
+			raw->time = node->time;
+			raw->pos = node->pos;
+
+			free(node);
+
+			node = next;
+		}
+
+		chunk->updates = 0;
+	}
+
+	chunk->iscompressed = 0;
+
+	unlock_write(chunk);
+
+	numuncompressed++;
+}
+
+inline static block_t
+get_block(chunk_t *c, int x, int y, int z)
+{
+	block_t ret;
+	if(c->iscompressed)
+		ret = octree_get(x, y, z, c->data);
+	else
+		ret = c->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+	return ret;
+}
+
+inline static void
+set_block(chunk_t *c, int x, int y, int z, block_t b)
+{
+	if(c->iscompressed)
+		octree_set(x, y, z, c->data, &b);
+	else
+		c->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
+}
+
 void
-chunk_initindexbuffers()
+chunk_static_init()
 {
 	glGenBuffers(1, &index_buffer_vertices);
 	glGenBuffers(1, &index_buffer_colors);
@@ -215,164 +347,10 @@ chunk_initindexbuffers()
 }
 
 void
-chunk_destroyindexbuffers()
+chunk_static_cleanup()
 {
 	glDeleteBuffers(1, &index_buffer_vertices);
 	glDeleteBuffers(1, &index_buffer_colors);
-}
-
-long3_t
-chunk_getworldpos(chunk_t *chunk)
-{
-	long3_t ret;
-	ret.x = chunk->pos.x * CHUNKSIZE;
-	ret.y = chunk->pos.y * CHUNKSIZE;
-	ret.z = chunk->pos.z * CHUNKSIZE;
-	return ret;
-}
-
-long3_t
-chunk_getworldposfromchunkpos(long3_t cpos, int x, int y, int z)
-{
-	long3_t ret;
-	ret.x = cpos.x * CHUNKSIZE + x;
-	ret.y = cpos.y * CHUNKSIZE + y;
-	ret.z = cpos.z * CHUNKSIZE + z;
-	return ret;
-}
-
-static void
-updatequeue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags)
-{
-	struct updatequeue_s *new = malloc(sizeof(struct updatequeue_s));
-
-	new->pos.x = x;
-	new->pos.y = y;
-	new->pos.z = z;
-
-	new->time = time;
-	new->flags = flags;
-
-	if(chunk->updates)
-	{
-		struct updatequeue_s *top = chunk->updates;
-		while(top->next)
-		{
-			if(new->pos.x == top->pos.x && new->pos.y == top->pos.y && new->pos.z == top->pos.z)
-			{
-				if(top->time > time)
-					top->time = time;
-				top->flags |= flags;
-				free(new);
-				return;
-			}
-			top = top->next;
-		}
-		top->next = new;
-		new->prev = top;
-		new->next = 0;
-	} else {
-		chunk->updates = new;
-		new->next = 0;
-		new->prev = 0;
-	}
-}
-
-static void
-compress(chunk_t *chunk)
-{
-	if(chunk->iscompressed)
-		return;
-
-	lockWrite(chunk);
-	int x, y, z;
-	for(x=0; x<CHUNKSIZE; ++x)
-	for(y=0; y<CHUNKSIZE; ++y)
-	for(z=0; z<CHUNKSIZE; ++z)
-	{
-		octree_set(x, y, z, chunk->data, &chunk->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
-		struct updatequeue_s *update = &chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
-		if(update->time >= 0)
-		{
-			updatequeue(chunk, x, y, z, update->time, update->flags);
-		}
-	}
-
-	chunk->iscompressed = 1;
-
-	unlockWrite(chunk);
-
-	free(chunk->rawblocks);
-	free(chunk->rawupdates);
-	numuncompressed--;
-}
-
-static void
-uncompress(chunk_t *chunk)
-{
-	if(!chunk->iscompressed)
-		return;
-
-	chunk->rawblocks = malloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE* sizeof(block_t));
-	chunk->rawupdates = malloc(CHUNKSIZE*CHUNKSIZE*CHUNKSIZE* sizeof(struct updatequeue_s));
-
-	lockWrite(chunk);
-
-	int x, y, z;
-	for(x=0; x<CHUNKSIZE; ++x)
-	for(y=0; y<CHUNKSIZE; ++y)
-	for(z=0; z<CHUNKSIZE; ++z)
-	{
-		chunk->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = octree_get(x, y, z, chunk->data);
-		chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE].time = -1;
-	}
-
-	if(chunk->updates)
-	{
-		struct updatequeue_s *node = chunk->updates;
-
-		while(node)
-		{
-			struct updatequeue_s *next = node->next;
-
-			struct updatequeue_s *raw = &chunk->rawupdates[node->pos.x + node->pos.y*CHUNKSIZE + node->pos.z*CHUNKSIZE*CHUNKSIZE];
-
-			raw->time = node->time;
-			raw->pos = node->pos;
-
-			free(node);
-
-			node = next;
-		}
-
-		chunk->updates = 0;
-	}
-
-	chunk->iscompressed = 0;
-
-	unlockWrite(chunk);
-
-	numuncompressed++;
-}
-
-static block_t
-getblock(chunk_t *c, int x, int y, int z)
-{
-	block_t ret;
-	if(c->iscompressed)
-		ret = octree_get(x, y, z, c->data);
-	else
-		ret = c->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
-	return ret;
-}
-
-static void
-setblock(chunk_t *c, int x, int y, int z, block_t b)
-{
-	if(c->iscompressed)
-		octree_set(x, y, z, c->data, &b);
-	else
-		c->rawblocks[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE] = b;
 }
 
 long
@@ -380,7 +358,7 @@ chunk_render(chunk_t *chunk)
 {
 	if(chunk->mesh.uploadnext)
 	{
-		lockRead(chunk);
+		lock_read(chunk);
 		if(chunk->mesh.uploadnext)
 		{
 			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.element_buffer);
@@ -389,7 +367,7 @@ chunk_render(chunk_t *chunk)
 
 			chunk->mesh.uploadnext = 0;
 		}
-		unlockRead(chunk);
+		unlock_read(chunk);
 	}
 
 	if(chunk->mesh.points > 0)
@@ -418,31 +396,24 @@ chunk_render(chunk_t *chunk)
 	return chunk->mesh.points;
 }
 
-static inline void
-addpoint(struct stack *stack, int x, int y, int z, blockid_t blockid)
-{
-	chunk_mesh_normal_index_t index = x + y*(CHUNKSIZE+1) + z*(CHUNKSIZE+1)*(CHUNKSIZE+1) + blockid * (CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1);
-	stack_push(stack, &index);
-}
-
 void
 chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest)
 {
 	chunk_lock(chunk);
-	lockRead(chunk);
+	lock_read(chunk);
 
 	if(chunkabove)
-		lockRead(chunkabove);
+		lock_read(chunkabove);
 	if(chunkbelow)
-		lockRead(chunkbelow);
+		lock_read(chunkbelow);
 	if(chunknorth)
-		lockRead(chunknorth);
+		lock_read(chunknorth);
 	if(chunksouth)
-		lockRead(chunksouth);
+		lock_read(chunksouth);
 	if(chunkeast)
-		lockRead(chunkeast);
+		lock_read(chunkeast);
 	if(chunkwest)
-		lockRead(chunkwest);
+		lock_read(chunkwest);
 
 	struct stack elements;
 	stack_init(&elements, sizeof(chunk_mesh_normal_index_t), 1000, 2.0); //TODO: better constants
@@ -454,7 +425,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 		{
 			for(z=0; z<CHUNKSIZE; ++z)
 			{
-				block_t block = getblock(chunk, x, y, z);
+				block_t block = get_block(chunk, x, y, z);
 				if(block.id != AIR)
 				{
 					int top, bottom, south, north, east, west;
@@ -463,7 +434,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkabove)
 						{
-							block_t b = getblock(chunkabove, x,0,z);
+							block_t b = get_block(chunkabove, x,0,z);
 							if(b.id != AIR && (block.id != WATER || block.metadata.number == SIM_WATER_LEVELS))
 								top=0;
 							else
@@ -471,7 +442,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							top=1;
 					} else {
-						if(getblock(chunk, x,y+1,z).id && (block.id != WATER || block.metadata.number == SIM_WATER_LEVELS))
+						if(get_block(chunk, x,y+1,z).id && (block.id != WATER || block.metadata.number == SIM_WATER_LEVELS))
 							top = 0;
 						else
 							top = 1;
@@ -480,14 +451,14 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkbelow)
 						{
-							if(getblock(chunkbelow, x,CHUNKSIZE-1,z).id)
+							if(get_block(chunkbelow, x,CHUNKSIZE-1,z).id)
 								bottom=0;
 							else
 								bottom=1;
 						} else
 							bottom=1;
 					} else {
-						if(getblock(chunk, x,y-1,z).id)
+						if(get_block(chunk, x,y-1,z).id)
 							bottom = 0;
 						else
 							bottom = 1;
@@ -496,7 +467,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunksouth)
 						{
-							block_t b = getblock(chunksouth, x,y,0);
+							block_t b = get_block(chunksouth, x,y,0);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								south=0;
 							else
@@ -504,7 +475,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							south=1;
 					} else {
-						block_t b = getblock(chunk, x,y,z+1);
+						block_t b = get_block(chunk, x,y,z+1);
 						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							south = 0;
 						else
@@ -514,7 +485,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunknorth)
 						{
-							block_t b = getblock(chunknorth, x,y,CHUNKSIZE-1);
+							block_t b = get_block(chunknorth, x,y,CHUNKSIZE-1);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								north=0;
 							else
@@ -522,7 +493,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							north=1;
 					} else {
-						block_t b = getblock(chunk, x,y,z-1);
+						block_t b = get_block(chunk, x,y,z-1);
 						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							north = 0;
 						else
@@ -533,7 +504,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkeast)
 						{
-							block_t b = getblock(chunkeast, 0,y,z);
+							block_t b = get_block(chunkeast, 0,y,z);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								east=0;
 							else
@@ -541,7 +512,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							east=1;
 					} else {
-						block_t b = getblock(chunk, x+1,y,z);
+						block_t b = get_block(chunk, x+1,y,z);
 						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							east = 0;
 						else
@@ -551,7 +522,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 					{
 						if(chunkwest)
 						{
-							block_t b = getblock(chunkwest, CHUNKSIZE-1,y,z);
+							block_t b = get_block(chunkwest, CHUNKSIZE-1,y,z);
 							if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 								west=0;
 							else
@@ -559,7 +530,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 						} else
 							west=1;
 					} else {
-						block_t b = getblock(chunk, x-1,y,z);
+						block_t b = get_block(chunk, x-1,y,z);
 						if(b.id != AIR && (b.id != WATER || (block.id == WATER && b.metadata.number == block.metadata.number)))
 							west = 0;
 						else
@@ -587,7 +558,10 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 								int x_ = faces[q++] + x;
 								int y_ = faces[q++] + y;
 								int z_ = faces[q++] + z;
-								addpoint(&elements, x_, y_, z_, block.id);
+
+								//Add point to vbo
+								chunk_mesh_normal_index_t index = x_ + y_*(CHUNKSIZE+1) + z_*(CHUNKSIZE+1)*(CHUNKSIZE+1) + block.id * (CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1);
+								stack_push(&elements, &index);
 							}
 						} else {
 							q+=18;
@@ -599,34 +573,34 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	}
 
 	if(chunkabove)
-		unlockRead(chunkabove);
+		unlock_read(chunkabove);
 	if(chunkbelow)
-		unlockRead(chunkbelow);
+		unlock_read(chunkbelow);
 	if(chunknorth)
-		unlockRead(chunknorth);
+		unlock_read(chunknorth);
 	if(chunksouth)
-		unlockRead(chunksouth);
+		unlock_read(chunksouth);
 	if(chunkeast)
-		unlockRead(chunkeast);
+		unlock_read(chunkeast);
 	if(chunkwest)
-		unlockRead(chunkwest);
+		unlock_read(chunkwest);
 
-	unlockRead(chunk);
+	unlock_read(chunk);
 
 	stack_trim(&elements);
 
-	lockWrite(chunk);
+	lock_write(chunk);
 
 	if(chunk->mesh.uploadnext)
 		stack_destroy(&(chunk->mesh.elements));
 
 	chunk->mesh.elements = elements;
-	chunk->mesh.points = stack_numobjects(&elements);
+	chunk->mesh.points = stack_objects_get_num(&elements);
 
 	chunk->iscurrent = 1;
 	chunk->mesh.uploadnext = 1;
 
-	unlockWrite(chunk);
+	unlock_write(chunk);
 	chunk_unlock(chunk);
 }
 
@@ -645,35 +619,35 @@ chunk_unlock(chunk_t *chunk)
 }
 
 int
-chunk_iscurrent(chunk_t *chunk)
+chunk_mesh_is_current(chunk_t *chunk)
 {
-	lockRead(chunk);
+	lock_read(chunk);
 	int ret = chunk->iscurrent;
 	if(ret)
 	{
-		unlockRead(chunk);
+		unlock_read(chunk);
 		return 1;
 	} else {
 		ret = chunk->iscurrent;
-		unlockRead(chunk);
+		unlock_read(chunk);
 		return ret;
 	}
 }
 
 void
-chunk_setnotcurrent(chunk_t *chunk)
+chunk_mesh_clear_current(chunk_t *chunk)
 {
 	chunk->iscurrent = 0;
 }
 
 void
-chunk_clearmesh(chunk_t *chunk)
+chunk_mesh_clear(chunk_t *chunk)
 {
 	chunk->mesh.points = 0;
 }
 
 block_t
-chunk_getblock(chunk_t *c, int x, int y, int z)
+chunk_block_get(chunk_t *c, int x, int y, int z)
 {
 	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
 	{
@@ -684,59 +658,53 @@ chunk_getblock(chunk_t *c, int x, int y, int z)
 
 	block_t ret;
 
-	lockRead(c);
-	ret = getblock(c, x, y, z);
-	unlockRead(c);
+	lock_read(c);
+	ret = get_block(c, x, y, z);
+	unlock_read(c);
 
 	return ret;
 }
 
 blockid_t
-chunk_getblockid(chunk_t *c, int x, int y, int z)
+chunk_block_get_id(chunk_t *c, int x, int y, int z)
 {
-	return chunk_getblock(c, x, y, z).id;
+	return chunk_block_get(c, x, y, z).id;
 }
 
 void
-chunk_setblock(chunk_t *c, int x, int y, int z, block_t b)
+chunk_block_set(chunk_t *c, int x, int y, int z, block_t b)
 {
 	if(MIN(MIN(x,y),z) < 0 || MAX(MAX(x,y),z) >= CHUNKSIZE)
 		return;
 
-	lockWrite(c);
-		setblock(c, x, y, z, b);
-	unlockWrite(c);
+	lock_write(c);
+		set_block(c, x, y, z, b);
+	unlock_write(c);
 }
 
 void
-chunk_setblockid(chunk_t *c, int x, int y, int z, blockid_t id)
+chunk_block_set_id(chunk_t *c, int x, int y, int z, blockid_t id)
 {
 	block_t b;
 	b.id = id;
-	chunk_setblock(c, x, y, z, b);
-}
-
-void
-chunk_setair(chunk_t *c, int x, int y, int z)
-{
-	chunk_setblockid(c, x, y, z, AIR);
+	chunk_block_set(c, x, y, z, b);
 }
 
 long3_t
-chunk_getpos(chunk_t *chunk)
+chunk_pos_get(chunk_t *chunk)
 {
 	return chunk->pos;
 }
 
 void
-chunk_updatequeue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags)
+chunk_update_queue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags)
 {
-	lockWrite(chunk);
+	lock_write(chunk);
 	if(chunk->iscompressed)
 	{
-		updatequeue(chunk, x, y, z, time, flags);
+		update_queue_compressed(chunk, x, y, z, time, flags);
 	} else {
-		struct updatequeue_s *update = &(chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
+		struct update_queue *update = &(chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE]);
 		if(update->time >= 0)
 		{
 			update->flags |= flags;
@@ -746,11 +714,11 @@ chunk_updatequeue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t 
 			update->flags = flags;
 		}
 	}
-	unlockWrite(chunk);
+	unlock_write(chunk);
 }
 
 long
-chunk_updaterun(chunk_t *chunk)
+chunk_update_run(chunk_t *chunk)
 {
 	long num = 0;
 
@@ -758,11 +726,11 @@ chunk_updaterun(chunk_t *chunk)
 	{
 		if(chunk->updates)
 		{
-			struct updatequeue_s *node = chunk->updates;
+			struct update_queue *node = chunk->updates;
 
 			while(node)
 			{
-				struct updatequeue_s *next = node->next;
+				struct update_queue *next = node->next;
 				if(node->time == 0)
 				{
 					if(chunk->updates == node)
@@ -773,14 +741,14 @@ chunk_updaterun(chunk_t *chunk)
 					if(node->prev != 0)
 						node->prev->next = node->next;
 
-					long3_t pos = chunk_getworldposfromchunkpos(
-							chunk->pos,
+					long3_t pos = get_worldpos_from_internalpos(
+							&(chunk->pos),
 							node->pos.x,
 							node->pos.y,
 							node->pos.z
 						);
 
-					block_updaterun(chunk_getblock(chunk, node->pos.x, node->pos.y, node->pos.z), pos, node->flags);
+					update_run(chunk_block_get(chunk, node->pos.x, node->pos.y, node->pos.z), pos, node->flags);
 					num++;
 
 					free(node);
@@ -796,19 +764,19 @@ chunk_updaterun(chunk_t *chunk)
 		for(y=0; y<CHUNKSIZE; ++y)
 		for(z=0; z<CHUNKSIZE; ++z)
 		{
-			struct updatequeue_s *node = &chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
+			struct update_queue *node = &chunk->rawupdates[x + y*CHUNKSIZE + z*CHUNKSIZE*CHUNKSIZE];
 			if(node->time >= 0)
 			{
 				node->time--;
 				if(node->time == -1)
 				{
-					long3_t pos = chunk_getworldposfromchunkpos(
-							chunk->pos,
+					long3_t pos = get_worldpos_from_internalpos(
+							&(chunk->pos),
 							x, y, z
 						);
 
-					block_t block = chunk_getblock(chunk, x, y, z);
-					block_updaterun(block, pos, node->flags);
+					block_t block = chunk_block_get(chunk, x, y, z);
+					update_run(block, pos, node->flags);
 					num++;
 				}
 			}
@@ -828,20 +796,20 @@ chunk_updaterun(chunk_t *chunk)
 }
 
 chunk_t *
-chunk_loademptychunk(long3_t pos)
+chunk_load_empty(long3_t pos)
 {
 	chunk_t *chunk = malloc(sizeof(chunk_t));
 
 	chunk->pos = pos;
 	chunk->data = octree_create();
 
-	init(chunk);
+	init_chunk(chunk);
 
 	return chunk;
 }
 
 void
-chunk_freechunk(chunk_t *chunk)
+chunk_free(chunk_t *chunk)
 {
 	glDeleteBuffers(1, &(chunk->mesh.element_buffer));
 	octree_destroy(chunk->data);
@@ -854,7 +822,7 @@ chunk_freechunk(chunk_t *chunk)
 int
 chunk_recenter(chunk_t *chunk, long3_t *pos)
 {
-	lockWrite(chunk);
+	lock_write(chunk);
 	if(!chunk->iscompressed)
 	{
 		chunk->iscompressed = 1;
@@ -874,14 +842,14 @@ chunk_recenter(chunk_t *chunk, long3_t *pos)
 	chunk->pos = *pos;
 	octree_zero(chunk->data);
 	chunk->iscurrent = 0;
-	unlockWrite(chunk);
+	unlock_write(chunk);
 	return 0;//never loads from disk
 }
 
 void
-chunk_zerochunk(chunk_t *chunk)
+chunk_fill_air(chunk_t *chunk)
 {
-	lockWrite(chunk);
+	lock_write(chunk);
 	octree_zero(chunk->data);
-	unlockWrite(chunk);
+	unlock_write(chunk);
 }

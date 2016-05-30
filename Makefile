@@ -33,7 +33,7 @@ $(OUTPUTDIR)$(NAME): $(OBJS)
 	gcc $(LFLAGS) -o $(OUTPUTDIR)$(NAME) $(OBJS) $(LIBS)
 
 check-syntax:
-	gcc -I $(INCDIR) -s -o nul -S $(CHK_SOURCES)
+	gcc -I $(INCDIR) -s -o /dev/null -S $(CHK_SOURCES)
 
 .PHONY: clean
 clean:

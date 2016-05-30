@@ -10,7 +10,7 @@
 //FUNCTION DEFS****
 
 static void cleanup();//shuts everything down for a reboot
-static void init();//contains the startup code
+static void init_chunk();//contains the startup code
 static void runevent(enum states s, enum events e);
 static void push(enum states newstate);
 static void pop();
@@ -42,7 +42,7 @@ static SDL_GameController *controller = NULL;
 int
 main(int argc, char *argv[])
 {
-	init();
+	init_chunk();
 	while(isrunning)
 	{
 		SDL_Event e;
@@ -50,15 +50,15 @@ main(int argc, char *argv[])
 		{
 			if(e.type == SDL_QUIT)
 			{
-				exitgame();
+				state_exit();
 			} else if(e.type == SDL_WINDOWEVENT)
 			{
 				if(e.window.event == SDL_WINDOWEVENT_RESIZED)
 				{
-					updatewindowbounds(e.window.data1, e.window.data2);
+					state_window_update(e.window.data1, e.window.data2);
 					windoww = e.window.data1;
 					windowh = e.window.data2;
-					centermouse();
+					state_mouse_center();
 				}
 			}
 			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
@@ -84,14 +84,14 @@ main(int argc, char *argv[])
 }
 
 void
-state_queuepush(enum states state)
+state_queue_push(enum states state)
 {
 	if(queueforpush == MAX_STATES)
 		queueforpush = state;
 }
 
 void
-state_queuepop()
+state_queue_pop()
 {
 	if(!queueforpop)
 		queueforpop = 1;
@@ -164,12 +164,12 @@ cleanup()
 	SDL_Quit();
 }
 
-static void init()
+static void init_chunk()
 {
 	printf("STATUS: initalizing the program\n");
 
 	if(SDL_Init(SDL_INIT_EVERYTHING))
-		//SDL2 init failed
+		//SDL2 init_chunk failed
 		fail("SDL_Init(SDL_INIT_EVERYTHING)");
 
 	win = SDL_CreateWindow("Blocks", 100, 100, 640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
@@ -222,7 +222,7 @@ static void init()
 }
 
 void
-exitgame()
+state_exit()
 {
 	//cleanup before closing.
 	printf("STATUS: exiting the program.\n");
@@ -230,7 +230,7 @@ exitgame()
 }
 
 void
-updatewindowbounds(int w, int h)
+state_window_update(int w, int h)
 {
 	glViewport(0, 0, w, h);
 	windoww = w;
@@ -238,33 +238,32 @@ updatewindowbounds(int w, int h)
 }
 
 void
-getwindowsize(int *w, int*h)
+state_window_get_size(int *w, int*h)
 {
 	*w = windoww;
 	*h = windowh;
 }
 
 void
-swapwindow()
+state_window_swap()
 {
 	SDL_GL_SwapWindow(win);
 }
 
 char *
-getbasepath()
+state_basepath_get()
 {
 	return basepath;
 }
 
 void
-centermouse()
+state_mouse_center()
 {
 	SDL_WarpMouseInWindow(win, windoww/2, windowh/2);
 }
 
 int
-hascontroller()
+state_has_controller()
 {
 	return controller ? 1 : 0;
 }
-

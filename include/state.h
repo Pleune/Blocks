@@ -19,16 +19,18 @@ void state_menu_event(void *ptr);
 
 extern void (*const statetable[MAX_STATES][MAX_EVENTS]) (void *ptr);
 
-void state_queuepush(enum states state);
-void state_queuepop();
+void state_queue_push(enum states state);
+void state_queue_pop();
 
-void exitgame();
+void state_exit();
 
-void updatewindowbounds(int w, int h);
-void getwindowsize(int *w, int* h);
-void swapwindow();
-char *getbasepath();
-void centermouse();
-int hascontroller();
+void state_window_update(int w, int h);
+void state_window_get_size(int *w, int* h);
+void state_window_swap();
+
+char *state_basepath_get();
+
+void state_mouse_center();
+int state_has_controller();
 
 #endif

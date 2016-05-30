@@ -5,7 +5,7 @@
 #include "world.h"
 
 long3_t
-world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
+world_ray_pos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 {
 	long3_t p;
 	p.x = floorf(start->x);
@@ -61,7 +61,7 @@ world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 		{
 			max.x += delta.x;
 			p.x += dirx;
-			if(block_issolid(world_getblock(p.x,p.y,p.z,0).id))
+			if(BLOCK_PROPERTY_SOLID(world_block_get(p.x,p.y,p.z,0).id))
 			{
 				if(before)
 					p.x -= dirx;
@@ -72,7 +72,7 @@ world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 		{
 			max.y += delta.y;
 			p.y += diry;
-			if(block_issolid(world_getblock(p.x,p.y,p.z,0).id))
+			if(BLOCK_PROPERTY_SOLID(world_block_get(p.x,p.y,p.z,0).id))
 			{
 				if(before)
 					p.y -= diry;
@@ -83,7 +83,7 @@ world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 		{
 			max.z += delta.z;
 			p.z += dirz;
-			if(block_issolid(world_getblock(p.x,p.y,p.z,0).id))
+			if(BLOCK_PROPERTY_SOLID(world_block_get(p.x,p.y,p.z,0).id))
 			{
 				if(before)
 					p.z -= dirz;
@@ -96,18 +96,18 @@ world_raypos(const vec3_t *start, const vec3_t *direction, int before, int dist)
 }
 
 void
-world_rayadd(const vec3_t *start, const vec3_t *direction, block_t block, int update, int before, int dist)
+world_ray_set(const vec3_t *start, const vec3_t *direction, block_t block, int update, int before, int dist)
 {
-	long3_t p = world_raypos(start, direction, before, dist);
+	long3_t p = world_ray_pos(start, direction, before, dist);
 
-	if(!block_issolid(world_getblock(p.x,p.y,p.z,0).id) || !block.id)
-		world_setblock(p.x, p.y, p.z, block, update, 0, 1);
+	if(!BLOCK_PROPERTY_SOLID(world_block_get(p.x,p.y,p.z,0).id) || !block.id)
+		world_block_set(p.x, p.y, p.z, block, update, 0, 1);
 }
 
 void
-world_raydel(const vec3_t* start, const vec3_t *direction, int update, int dist)
+world_ray_del(const vec3_t* start, const vec3_t *direction, int update, int dist)
 {
 	block_t b;
 	b.id = AIR;
-	world_rayadd(start, direction, b, update, 0, dist);
+	world_ray_set(start, direction, b, update, 0, dist);
 }

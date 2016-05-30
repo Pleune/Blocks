@@ -7,7 +7,7 @@
 #include "state.h"
 
 void
-gl_loadprogram(GLuint *program, char *vertexshadername, char *fragmentshadername)
+gl_program_load(GLuint *program, char *vertexshadername, char *fragmentshadername)
 {
 	GLuint vertexshader = glCreateShader(GL_VERTEX_SHADER);
 	GLuint fragmentshader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -19,7 +19,7 @@ gl_loadprogram(GLuint *program, char *vertexshadername, char *fragmentshadername
 	const char *intermediary;
 
 	file = (char *)calloc(1024, sizeof(char));
-	strncat(file, getbasepath(), 1024);
+	strncat(file, state_basepath_get(), 1024);
 	strncat(file, vertexshadername, 1024 - strlen(file));
 
 	input_file = fopen(file, "rb");
@@ -40,7 +40,7 @@ gl_loadprogram(GLuint *program, char *vertexshadername, char *fragmentshadername
 	free(file_contents);
 
 	file = (char *)calloc(1024, sizeof(char));
-	strncat(file, getbasepath(), 1024);
+	strncat(file, state_basepath_get(), 1024);
 	strncat(file, fragmentshadername, 1024 - strlen(file));
 
 	input_file = fopen(file, "rb");

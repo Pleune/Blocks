@@ -36,10 +36,10 @@ state_menu_event(void *ptr)
 		switch(e->key.keysym.sym)
 		{
 			case SDLK_p:
-				state_queuepush(GAME);
+				state_queue_push(GAME);
 				break;
 			case SDLK_ESCAPE:
-				state_queuepop();
+				state_queue_pop();
 				break;
 			default:
 				break;

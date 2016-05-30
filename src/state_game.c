@@ -15,7 +15,7 @@
 #include "worldgen.h"
 
 #define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
-#define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049 
+#define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049
 #define GPU_MEMORY_INFO_EVICTED_MEMORY_NVX 0x904B
 
 static int windoww = 0;
@@ -75,7 +75,7 @@ update(uint32_t dt)
 {
 	if(!updating)
 		return;
-	long num = world_updaterun();
+	long num = world_update_flush();
 	if(num)
 		printf("u:%li\n", num);
 }
@@ -107,11 +107,11 @@ deadzone(double d)
 void
 state_game_init(void *ptr)
 {
-	getwindowsize(&windoww, &windowh);
+	state_window_get_size(&windoww, &windowh);
 
 	//load shaders 'n stuff
-	gl_loadprogram(&drawprogram, "shaders/vs", "shaders/fs");
-	gl_loadprogram(&ppprogram, "shaders/pvs", "shaders/pfs");
+	gl_program_load(&drawprogram, "shaders/vs", "shaders/fs");
+	gl_program_load(&ppprogram, "shaders/pvs", "shaders/pfs");
 
 	modelmatrix = glGetUniformLocation(drawprogram, "MODEL");
 	viewprojectionmatrix = glGetUniformLocation(drawprogram, "VP");
@@ -169,10 +169,10 @@ state_game_init(void *ptr)
 
 	rotx = 0;
 	roty = 0;
-	world_genseed();
+	world_seed_gen();
 	vec3_t spawn = {0, 0, 0};
 
-	spawn.y = worldgen_getheightfrompos(0, 0, 0)+1.1;
+	spawn.y = worldgen_get_height_of_pos(0, 0, 0)+1.1;
 
 	int spawntries = 0;
 	while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
@@ -180,7 +180,7 @@ state_game_init(void *ptr)
 		spawntries++;
 		spawn.x = (double)(rand()%10000) - 5000;
 		spawn.z = (double)(rand()%10000) - 5000;
-		spawn.y = worldgen_getheightfrompos(0, spawn.x, spawn.z)+1.1;
+		spawn.y = worldgen_get_height_of_pos(0, spawn.x, spawn.z)+1.1;
 		printf("spawn retry %i x: %f z: %f h: %f\n", spawntries, spawn.x, spawn.z, spawn.y);
 	}
 	spawn.x += .5;
@@ -190,10 +190,10 @@ state_game_init(void *ptr)
 	printf("h: %f\n", spawn.y);
 	world_init(spawn);
 	pos = entity_create(spawn.x, spawn.y, spawn.z, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MASS);
-	posptr = entity_getposptr(pos);
+	posptr = entity_pos_get_ptr(pos);
 	vec3_t friction = {PLAYER_FRICTION,PLAYER_FRICTION,PLAYER_FRICTION};
-	entity_setfriction(pos, friction);
-	centermouse();
+	entity_friction_set(pos, friction);
+	state_mouse_center();
 	SDL_ShowCursor(0);
 
 	ticks = SDL_GetTicks();
@@ -213,7 +213,7 @@ input(uint32_t dt)
 
 	if(takeinput)
 	{
-		if(hascontroller() && usecontroller)
+		if(state_has_controller() && usecontroller)
 		{
 			inputvec.x = leftstick.x;
 			inputvec.z = leftstick.y;
@@ -232,10 +232,10 @@ input(uint32_t dt)
 				inputvec.y -= 1;
 			if(keyboard[SDL_SCANCODE_SPACE])
 				inputvec.y += 1;
-		
+
 			int mousex, mousey;
 			SDL_GetMouseState(&mousex, &mousey);
-			centermouse();
+			state_mouse_center();
 			double deltamousex = mousex - windoww/2;
 			double deltamousey = mousey - windowh/2;
 
@@ -268,14 +268,14 @@ input(uint32_t dt)
 	{
 		if(flying)
 		{
-			rotatevec.x *= SPEED * dt / 1000.0;
-			rotatevec.y *= SPEED * dt / 1000.0;
-			rotatevec.z *= SPEED * dt / 1000.0;
+			rotatevec.x *= PLAYER_FLY_SPEED * dt / 1000.0;
+			rotatevec.y *= PLAYER_FLY_SPEED * dt / 1000.0;
+			rotatevec.z *= PLAYER_FLY_SPEED * dt / 1000.0;
 			entity_move(pos, &rotatevec);
 		} else {
-			rotatevec.x *= FORCE;
+			rotatevec.x *= PLAYER_WALK_MAX_FORCE;
 			rotatevec.y = 0;
-			rotatevec.z *= FORCE;
+			rotatevec.z *= PLAYER_WALK_MAX_FORCE;
 			entity_update(pos, &rotatevec, dt/1000.0);
 		}
 	}
@@ -285,11 +285,11 @@ input(uint32_t dt)
 		block_t b;
 		b.id = WATER;
 		b.metadata.number = SIM_WATER_LEVELS;
-		world_rayadd(&headpos, &forwardcamera, b, 1, 1, 1000);
+		world_ray_set(&headpos, &forwardcamera, b, 1, 1, 1000);
 	}
 	if(keyboard[SDL_SCANCODE_E])
 	{
-		world_raydel(&headpos, &forwardcamera, 1, 1000);
+		world_ray_del(&headpos, &forwardcamera, 1, 1000);
 	}
 	if(keyboard[SDL_SCANCODE_C])
 	{
@@ -297,7 +297,7 @@ input(uint32_t dt)
 		for(dir.x = -1; dir.x < 1; dir.x += .3)
 		for(dir.y = -1; dir.y < 0; dir.y += .3)
 		for(dir.z = -1; dir.z < 1; dir.z += .3)
-			world_raydel(&headpos, &dir, 1, 50);
+			world_ray_del(&headpos, &dir, 1, 50);
 	}
 
 	headpos = *posptr;
@@ -314,10 +314,10 @@ state_game_event(void *ptr)
 		switch(e.key.keysym.sym)
 		{
 			case SDLK_ESCAPE:
-				state_queuepop();
+				state_queue_pop();
 			break;
 			case SDLK_SPACE:
-				entity_jump(pos, JUMPSPEED);
+				entity_jump(pos, PLAYER_JUMPSPEED);
 			break;
 			case SDLK_v:
 				lines = !lines;
@@ -331,8 +331,8 @@ state_game_event(void *ptr)
 			case SDLK_t:
 			{
 				vec3_t top = *posptr;
-				top.y = worldgen_getheightfrompos(0, posptr->x, posptr->z)+1;
-				entity_setpos(pos, top);
+				top.y = worldgen_get_height_of_pos(0, posptr->x, posptr->z)+1;
+				entity_pos_set(pos, top);
 			break;
 			}
 			case SDLK_f:
@@ -353,13 +353,13 @@ state_game_event(void *ptr)
 			break;
 		}
 	}
-	
+
 	else if(e.type == SDL_CONTROLLERBUTTONDOWN)
 	{
 		switch(e.cbutton.button)
 		{
 			case SDL_CONTROLLER_BUTTON_A:
-				entity_jump(pos, JUMPSPEED);
+				entity_jump(pos, PLAYER_JUMPSPEED);
 				break;
 		}
 	}
@@ -389,18 +389,18 @@ state_game_event(void *ptr)
 		{
 			block_t b;
 			b.id = WATER_GEN;
-			world_rayadd(&headpos, &forwardcamera, b, 1, 1, 1000);
+			world_ray_set(&headpos, &forwardcamera, b, 1, 1, 1000);
 		}
 		else if(e.button.button == SDL_BUTTON_RIGHT)
 		{
-			world_raydel(&headpos, &forwardcamera, 1, 1000);
+			world_ray_del(&headpos, &forwardcamera, 1, 1000);
 		}
 	}
 	else if(e.type == SDL_WINDOWEVENT)
 	{
 		if(e.window.event == SDL_WINDOWEVENT_RESIZED)
 		{
-			getwindowsize(&windoww, &windowh);
+			state_window_get_size(&windoww, &windowh);
 
 			glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
 
@@ -429,20 +429,20 @@ render(uint32_t dt)
 		info("FPS: %i", frame);
 
 		GLint total_mem_kb = 0;
-		glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, 
+		glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX,
 		&total_mem_kb);
- 
+
 		GLint cur_avail_mem_kb = 0;
-		glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX, 
+		glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX,
 		&cur_avail_mem_kb);
- 
+
 		GLint cur_evicted_mem_kb = 0;
-		glGetIntegerv(GPU_MEMORY_INFO_EVICTED_MEMORY_NVX, 
+		glGetIntegerv(GPU_MEMORY_INFO_EVICTED_MEMORY_NVX,
 		&cur_evicted_mem_kb);
 
 		printf("MEM AVAIL: %i\t /%imb\n", cur_avail_mem_kb/1000, total_mem_kb/1000);
 		printf("           %imb evicted\n", cur_evicted_mem_kb/1000);
-		printf("%li triangles\n", world_gettrianglecount());
+		printf("%li triangles\n", world_get_trianglecount());
 
 		frame=0;
 	}
@@ -495,7 +495,7 @@ render(uint32_t dt)
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
-	swapwindow();
+	state_window_swap();
 }
 
 void

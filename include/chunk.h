@@ -9,12 +9,19 @@
 #include "update.h"
 #include "cat.h"
 
-#define CHUNKSIZE (int) CAT(0x1p, CHUNKLEVELS)
+#define CHUNKSIZE (int) CAT(0x1p, CHUNK_LEVELS)
 
-typedef struct chunk_s chunk_t;
+typedef struct chunk chunk_t;
 
-void chunk_initindexbuffers();
-void chunk_destroyindexbuffers();
+void chunk_static_init();
+void chunk_static_cleanup();
+
+chunk_t *chunk_load_empty(long3_t pos);
+void chunk_free(chunk_t *chunk);
+void chunk_fill_air(chunk_t *chunk);
+
+long3_t chunk_pos_get(chunk_t *chunk);
+int chunk_recenter(chunk_t *chunk, long3_t *pos);
 
 long chunk_render(chunk_t *chunk);
 void chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest);
@@ -22,29 +29,16 @@ void chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chun
 void chunk_lock(chunk_t *chunk);
 void chunk_unlock(chunk_t *chunk);
 
-int chunk_iscurrent(chunk_t *chunk);
-void chunk_setnotcurrent(chunk_t *chunk);
+int chunk_mesh_is_current(chunk_t *chunk);
+void chunk_mesh_clear_current(chunk_t *chunk);
+void chunk_mesh_clear(chunk_t *chunk);
 
-void chunk_clearmesh(chunk_t *chunk);
+block_t chunk_block_get(chunk_t *c, int x, int y, int z);
+blockid_t chunk_block_get_id(chunk_t *c, int x, int y, int z);
+void chunk_block_set(chunk_t *c, int x, int y, int z, block_t b);
+void chunk_block_set_id(chunk_t *c, int x, int y, int z, blockid_t id);
 
-block_t chunk_getblock(chunk_t *c, int x, int y, int z);
-blockid_t chunk_getblockid(chunk_t *c, int x, int y, int z);
-void chunk_setblock(chunk_t *c, int x, int y, int z, block_t b);
-void chunk_setblockid(chunk_t *c, int x, int y, int z, blockid_t id);
-void chunk_setair(chunk_t *c, int x, int y, int z);
+void chunk_update_queue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags);
+long chunk_update_run(chunk_t *chunk);
 
-long3_t chunk_getpos(chunk_t *chunk);
-long3_t chunk_getworldpos(chunk_t *chunk);
-long3_t chunk_getworldposfromchunkpos(long3_t cpos, int x, int y, int z);
-
-void chunk_updatequeue(chunk_t *chunk, int x, int y, int z, int time, update_flags_t flags);
-long chunk_updaterun(chunk_t *chunk);
-
-chunk_t *chunk_loademptychunk(long3_t pos);
-void chunk_freechunk(chunk_t *chunk);
-
-int chunk_recenter(chunk_t *chunk, long3_t *pos);
-
-void chunk_zerochunk(chunk_t *chunk);
-
-#endif //CHUNK_H
+#endif
