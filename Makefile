@@ -32,6 +32,9 @@ $(BUILDDIR)%.o:	$(SRCDIR)%.c
 $(OUTPUTDIR)$(NAME): $(OBJS)
 	gcc $(LFLAGS) -o $(OUTPUTDIR)$(NAME) $(OBJS) $(LIBS)
 
+check-syntax:
+	gcc -I $(INCDIR) -s -o nul -S $(CHK_SOURCES)
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)* $(OUTPUTDIR)blocks
