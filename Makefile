@@ -7,7 +7,6 @@ LFLAGS:= -g
 LIBS:=-lm -lSDL2 -lGLEW
 
 SRCDIR=$(ROOT)src/
-INCDIR=$(ROOT)include/
 LIBDIR=$(ROOT)lib/
 BUILDDIR=$(ROOT)build/
 OUTPUTDIR=$(ROOT)bin/
@@ -24,16 +23,16 @@ all:	$(OUTPUTDIR)$(NAME)
 -include $(OBJS:.o=.d)
 
 $(BUILDDIR)%.d:	$(SRCDIR)%.c
-	$(CC) -M -I $(INCDIR) $< |  sed 's,$*\.o[ :]*,\$(BUILDDIR)$*\.o : ,g' > $@
+	$(CC) -M $< |  sed 's,$*\.o[ :]*,\$(BUILDDIR)$*\.o : ,g' > $@
 
 $(BUILDDIR)%.o:	$(SRCDIR)%.c
-	gcc $(CFLAGS) -I $(INCDIR) -c $(CFLAGS) $< -o $@
+	gcc $(CFLAGS) -c $(CFLAGS) $< -o $@
 
 $(OUTPUTDIR)$(NAME): $(OBJS)
 	gcc $(LFLAGS) -o $(OUTPUTDIR)$(NAME) $(OBJS) $(LIBS)
 
 check-syntax:
-	gcc -I $(INCDIR) -s -o /dev/null -S $(CHK_SOURCES)
+	gcc -s -o /dev/null -S $(CHK_SOURCES)
 
 .PHONY: clean
 clean:
