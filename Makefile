@@ -2,9 +2,9 @@ CC=gcc
 
 ROOT=./
 
-CFLAGS:= -Wall -O3 -g
-LFLAGS:= -g
-LIBS:=-lm -lSDL2 -lGLEW
+CFLAGS:= -Wall -O3 -g $(shell sdl2-config --cflags)
+LFLAGS:= -g $(shell sdl2-config --libs)
+LIBS:=-lm -lSDL2 -lSDL2_ttf -lGLEW -lGL
 
 SRCDIR=$(ROOT)src/
 LIBDIR=$(ROOT)lib/
@@ -23,10 +23,10 @@ all:	$(OUTPUTDIR)$(NAME)
 -include $(OBJS:.o=.d)
 
 $(BUILDDIR)%.d:	$(SRCDIR)%.c
-	$(CC) -M $< |  sed 's,$*\.o[ :]*,\$(BUILDDIR)$*\.o : ,g' > $@
+	gcc $(CFLAGS) -M $< |  sed 's,$*\.o[ :]*,\$(BUILDDIR)$*\.o : ,g' > $@
 
 $(BUILDDIR)%.o:	$(SRCDIR)%.c
-	gcc $(CFLAGS) -c $(CFLAGS) $< -o $@
+	gcc $(CFLAGS) -c $< -o $@
 
 $(OUTPUTDIR)$(NAME): $(OBJS)
 	gcc $(LFLAGS) -o $(OUTPUTDIR)$(NAME) $(OBJS) $(LIBS)
