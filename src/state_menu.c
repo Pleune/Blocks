@@ -1,7 +1,7 @@
 #include "state.h"
 
 #include <stdio.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 void
 state_menu_init(void *ptr)

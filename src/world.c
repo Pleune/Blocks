@@ -7,7 +7,7 @@
 #include <time.h>
 #include <limits.h>
 
-#include <SDL2/SDL_timer.h>
+#include <SDL_timer.h>
 
 #include "custommath.h"
 #include "defines.h"

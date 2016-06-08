@@ -3,7 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <GL/glew.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include "gl.h"
 #include "state.h"
 #include "custommath.h"

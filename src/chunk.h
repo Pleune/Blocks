@@ -1,7 +1,7 @@
 #ifndef CHUNK_H
 #define CHUNK_H
 
-#include <SDL2/SDL_thread.h>
+#include <SDL_thread.h>
 
 #include "defines.h"
 #include "custommath.h"
