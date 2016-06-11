@@ -1,16 +1,18 @@
 #include <stdio.h>
 
 #include <SDL.h>
+#include <SDL_ttf.h>
 #include <GL/glew.h>
 
 #include "state.h"
+#include "textbox.h"
 
 #define STACK_MAX 255
 
 //FUNCTION DEFS****
 
 static void cleanup();//shuts everything down for a reboot
-static void init_chunk();//contains the startup code
+static void init();//contains the startup code
 static void runevent(enum states s, enum events e);
 static void push(enum states newstate);
 static void pop();
@@ -42,7 +44,7 @@ static SDL_GameController *controller = NULL;
 int
 main(int argc, char *argv[])
 {
-	init_chunk();
+	init();
 	while(isrunning)
 	{
 		SDL_Event e;
@@ -58,7 +60,7 @@ main(int argc, char *argv[])
 					state_window_update(e.window.data1, e.window.data2);
 					windoww = e.window.data1;
 					windowh = e.window.data2;
-					state_mouse_center();
+					//state_mouse_center();
 				}
 			}
 			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
@@ -157,14 +159,16 @@ cleanup()
 {
 	printf("STATUS: cleaning up for either an exit or a reboot\n");
 
-	free(basepath);
+	textbox_static_cleanup();
+	TTF_Quit();
 	SDL_GameControllerClose(controller);
 	SDL_GL_DeleteContext(glcontext);
 	SDL_DestroyWindow(win);
 	SDL_Quit();
+	free(basepath);
 }
 
-static void init_chunk()
+static void init()
 {
 	printf("STATUS: initalizing the program\n");
 
@@ -209,7 +213,9 @@ static void init_chunk()
 
 	glClearColor(0,0,0,1);
 	glFrontFace(GL_CCW);
-//	glEnable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
 	glClear(GL_COLOR_BUFFER_BIT);
 	SDL_GL_SwapWindow(win);
@@ -218,6 +224,10 @@ static void init_chunk()
 
 	stack.instances[MENUMAIN] = 1;
 	stack.top = 0;
+
+	TTF_Init();
+	textbox_static_init();
+
 	runevent(MENUMAIN, INITALIZE);
 }
 

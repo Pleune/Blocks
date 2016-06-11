@@ -5,7 +5,7 @@ precision mediump float;
 in vec3 colors;
 in vec3 vp;
 
-out vec3 color;
+out vec4 color;
 
 void main(){
 	vec3 offset;
@@ -22,6 +22,6 @@ void main(){
 
 	float o = min( min(max(offset.x, offset.y), max(offset.y, offset.z)), max(offset.z, offset.x));
 
-	color = colors;// * vec3(min(o + 0.5, 1.0));
+	color = vec4(colors, 1.0f);// * vec3(min(o + 0.5, 1.0));
 
 }

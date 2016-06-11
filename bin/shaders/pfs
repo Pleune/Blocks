@@ -3,7 +3,7 @@
 precision mediump float;
 
 in vec2 Texcoord;
-out vec3 color;
+out vec4 color;
 
 uniform sampler2D tex;
 uniform sampler2D depth;
@@ -58,8 +58,8 @@ void main()
 
 	float fTotalSum = sqrt((fSumX + fSumY) * 9.0);
 
-	color = texture2D(tex, Texcoord).rgb * vec3(1.0 - fTotalSum);
+	color = vec4(texture2D(tex, Texcoord).rgb * vec3(1.0 - fTotalSum), 1.0f);
 
 	if(Texcoord.x < 0.501 && Texcoord.x > 0.499 && Texcoord.y < 0.501 && Texcoord.y > 0.499)
-		color = vec3(1.0);
+		color = vec4(1.0);
 }

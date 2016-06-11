@@ -3,6 +3,7 @@
 
 #include <GL/glew.h>
 
-void gl_program_load(GLuint *program, char *vertexshadername, char *fragmentshadername);
+void gl_program_load_str(GLuint *program, const char *vertexshader_src, const char *fragmentshader_src);
+void gl_program_load_file(GLuint *program, char *vertexshadername, char *fragmentshadername);
 
 #endif

@@ -110,8 +110,8 @@ state_game_init(void *ptr)
 	state_window_get_size(&windoww, &windowh);
 
 	//load shaders 'n stuff
-	gl_program_load(&drawprogram, "shaders/vs", "shaders/fs");
-	gl_program_load(&ppprogram, "shaders/pvs", "shaders/pfs");
+	gl_program_load_file(&drawprogram, "shaders/vs", "shaders/fs");
+	gl_program_load_file(&ppprogram, "shaders/pvs", "shaders/pfs");
 
 	modelmatrix = glGetUniformLocation(drawprogram, "MODEL");
 	viewprojectionmatrix = glGetUniformLocation(drawprogram, "VP");
