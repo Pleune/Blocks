@@ -19,7 +19,7 @@
 #define GPU_MEMORY_INFO_EVICTED_MEMORY_NVX 0x904B
 
 static int windoww = 0;
-int windowh = 0;
+static int windowh = 0;
 
 static GLuint drawprogram;
 static GLuint viewprojectionmatrix;
@@ -27,7 +27,9 @@ static GLuint modelmatrix;
 
 static GLuint ppprogram;
 static GLuint pppointbuffer;
-static GLuint pppointbufferid;
+static GLuint postprocess_uniform_tex;
+static GLuint postprocess_uniform_depth;
+static GLuint postprocess_uniform_window_szie;
 
 struct {
 	GLuint framebuffer;
@@ -115,7 +117,9 @@ state_game_init(void *ptr)
 
 	modelmatrix = glGetUniformLocation(drawprogram, "MODEL");
 	viewprojectionmatrix = glGetUniformLocation(drawprogram, "VP");
-	pppointbufferid = glGetUniformLocation(ppprogram, "tex");
+	postprocess_uniform_tex = glGetUniformLocation(ppprogram, "tex");
+	postprocess_uniform_depth = glGetUniformLocation(ppprogram, "depth");
+	postprocess_uniform_window_szie = glGetUniformLocation(ppprogram, "window_size");
 
 	//generate the post processing framebuffer
 	glGenFramebuffers(1, &renderbuffer.framebuffer);
@@ -477,15 +481,18 @@ render(uint32_t dt)
 	//render to screen here
 	if(pp)
 	{
+		glUseProgram(ppprogram);
+
+		GLfloat window_vec[2] = {windoww, windowh};
+		glUniform2fv(postprocess_uniform_window_szie, 1, window_vec);
+
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glDisable(GL_DEPTH_TEST);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glUseProgram(ppprogram);
 		glBindBuffer(GL_ARRAY_BUFFER, pppointbuffer);
 		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(0);
-
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);

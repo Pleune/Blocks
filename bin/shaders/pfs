@@ -7,19 +7,10 @@ out vec4 color;
 
 uniform sampler2D tex;
 uniform sampler2D depth;
-
-// Width of Image.
-//uniform float fWidth;
-// Height of Image.
-//uniform float fHeight;
-// Indicating cartoon effect is enabled or not.
-//uniform float fCartoonEffect;
+uniform vec2 window_size;
 
 void main()
 {
-	float fWidth = 1920.0f;
-	float fHeight = 1080.0f;
-
 	// X directional search matrix.
 	mat3 GX = mat3( -1.0, 0.0, 1.0,
 		-2.0, 0.0, 2.0,
@@ -36,7 +27,7 @@ void main()
 	{
 		for(float J=-1.0; J<=1.0; J = J + 1.0)
 		{
-			vec2 fTemp = vec2(Texcoord) + vec2(I/fWidth,J/fHeight);
+			vec2 fTemp = vec2(Texcoord) + vec2(I/window_size.x,J/window_size.y);
 			float fTempSum = texture2D( depth, fTemp).b;
 			fSumX = fSumX + ( fTempSum * GX[int(I+1.0)][int(J+1.0)]);
 			fSumY = fSumY + ( fTempSum * GY[int(I+1.0)][int(J+1.0)]);
