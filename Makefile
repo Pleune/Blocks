@@ -2,9 +2,8 @@ CC=gcc
 
 ROOT=./
 
-CFLAGS:= -Wall -O3 -g $(shell sdl2-config --cflags)
-LFLAGS:= -g $(shell sdl2-config --libs)
-LIBS:=-lm -lSDL2 -lSDL2_ttf -lGLEW -lGL
+CFLAGS:= -Wall -O3 -g $(shell pkg-config --cflags sdl2 SDL2_ttf gl glew)
+LFLAGS:= -g -lm $(shell pkg-config --libs sdl2 SDL2_ttf gl glew)
 
 SRCDIR=$(ROOT)src/
 LIBDIR=$(ROOT)lib/
@@ -29,7 +28,7 @@ $(BUILDDIR)%.o:	$(SRCDIR)%.c
 	gcc $(CFLAGS) -c $< -o $@
 
 $(OUTPUTDIR)$(NAME): $(OBJS)
-	gcc $(LFLAGS) -o $(OUTPUTDIR)$(NAME) $(OBJS) $(LIBS)
+	gcc $(LFLAGS) -o $(OUTPUTDIR)$(NAME) $(OBJS)
 
 check-syntax:
 	gcc -s -o /dev/null -S $(CHK_SOURCES)
