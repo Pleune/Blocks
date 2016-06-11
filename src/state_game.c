@@ -13,6 +13,7 @@
 #include "defines.h"
 #include "entity.h"
 #include "worldgen.h"
+#include "textbox.h"
 
 #define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
 #define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049
@@ -30,6 +31,8 @@ static GLuint pppointbuffer;
 static GLuint postprocess_uniform_tex;
 static GLuint postprocess_uniform_depth;
 static GLuint postprocess_uniform_window_szie;
+
+static textbox_t *textbox_fps;
 
 struct {
 	GLuint framebuffer;
@@ -204,6 +207,8 @@ state_game_init(void *ptr)
 
 	updatesem = SDL_CreateSemaphore(0);
 	updatethread = SDL_CreateThread(updatethreadfunc, "updatethread", 0);
+
+	textbox_fps = textbox_create(10, 10, 200, 100,"0fps", STANDARD);
 }
 
 static void
@@ -429,6 +434,11 @@ render(uint32_t dt)
 	frame++;
 	if(oneseccond >= 1000)
 	{
+		static char buffer[32];
+
+		snprintf(buffer, 32, "%ifps", frame);
+		textbox_set_txt(textbox_fps, buffer);
+
 		oneseccond -= 1000;
 		info("FPS: %i", frame);
 
@@ -502,6 +512,9 @@ render(uint32_t dt)
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
+
+	textbox_render(textbox_fps);
+
 	state_window_swap();
 }
 
@@ -545,4 +558,5 @@ state_game_close(void *ptr)
 	SDL_DestroySemaphore(updatesem);
 	entity_destroy(pos);
 	world_cleanup();
+	textbox_destroy(textbox_fps);
 }
