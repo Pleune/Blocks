@@ -43,6 +43,9 @@ struct textbox {
 
    	GLuint vertices_buff;
 	GLint vertices_num;
+
+	GLfloat color[4];
+
 	enum font font;
 };
 
@@ -52,18 +55,19 @@ static struct font_info_ttf ttf_info[TEXTBOX_NUM_FONTS] = {
 static struct font_info_render render_info[TEXTBOX_NUM_FONTS];
 
 static GLuint glprogram;
-static GLuint uniform_tex;
+static GLuint uniform_texture;
 static GLuint uniform_window_size;
+static GLuint uniform_color;
 
 const static char *shader_vertex = "\
 #version 100\n\
 precision mediump float;\n\
 attribute vec2 pos;\n\
-attribute vec2 Tex;\n\
+attribute vec2 texcoord_vert;\n\
+varying vec2 texcoord_frag;\n\
 uniform vec2 window_size;\n\
-varying vec2 Texcoord;\n\
 void main() {\n\
-	Texcoord = Tex;\n\
+	texcoord_frag = texcoord_vert;\n\
     vec2 p = pos/window_size;\n\
     p.y = 1.0 - p.y;\n\
     p = p * vec2(2,2) - vec2(1,1);\n\
@@ -74,12 +78,12 @@ void main() {\n\
 const static char *shader_fragment = "\
 #version 100\n\
 precision mediump float;\n\
-varying vec2 Texcoord;\n\
-uniform sampler2D tex;\n\
+varying vec2 texcoord_frag;\n\
+uniform sampler2D texture;\n\
+uniform vec4 color;\n\
 void main()\n\
 {\n\
-    vec4 texcolor = texture2D(tex, Texcoord);\n\
-    gl_FragColor = texcolor;\n\
+    gl_FragColor = texture2D(texture, texcoord_frag) * color;\n\
 }\
 ";
 
@@ -158,8 +162,9 @@ void
 textbox_static_init()
 {
 	gl_program_load_str(&glprogram, shader_vertex, shader_fragment);
-	uniform_tex = glGetUniformLocation(glprogram, "tex");
+	uniform_texture = glGetUniformLocation(glprogram, "texture");
 	uniform_window_size = glGetUniformLocation(glprogram, "window_size");
+	uniform_color = glGetUniformLocation(glprogram, "color");
 
 	int i;
 	for(i=0; i<TEXTBOX_NUM_FONTS; i++)
@@ -185,6 +190,11 @@ textbox_create(int x, int y, int w, int h, const char* txt, enum font font)
 	textbox->h = h;
 
 	textbox->font = font;
+
+	textbox->color[0] = 1.0f;
+	textbox->color[1] = 1.0f;
+	textbox->color[2] = 1.0f;
+	textbox->color[3] = 1.0f;
 
 	glGenBuffers(1, &textbox->vertices_buff);
 
@@ -255,13 +265,22 @@ textbox_set_txt(textbox_t *textbox, const char *txt)
 }
 
 void
+textbox_set_color(textbox_t* textbox, float r, float g, float b, float a)
+{
+	textbox->color[0] = r;
+	textbox->color[1] = g;
+	textbox->color[2] = b;
+	textbox->color[3] = a;
+}
+
+void
 textbox_render(textbox_t* textbox)
 {
 	glDisable(GL_DEPTH_TEST);
 	glUseProgram(glprogram);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, render_info[textbox->font].gl.texture);
-	glUniform1i(uniform_tex, 0);
+	glUniform1i(uniform_texture, 0);
 
 	int window_w, window_h;
 	state_window_get_size(&window_w, &window_h);
@@ -269,6 +288,7 @@ textbox_render(textbox_t* textbox)
 	GLfloat window_vec[2] = {window_w, window_h};
 
 	glUniform2fv(uniform_window_size, 1, window_vec);
+	glUniform4fv(uniform_color, 1, textbox->color);
 
 	glBindBuffer(GL_ARRAY_BUFFER, textbox->vertices_buff);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,4 * sizeof(GLfloat), 0);
