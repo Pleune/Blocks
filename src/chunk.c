@@ -10,6 +10,7 @@
 #include "minmax.h"
 #include "octree.h"
 #include "stack.h"
+#include "noise.h"
 
 struct mesh_s {
 	GLuint element_buffer;
@@ -322,15 +323,15 @@ chunk_static_init()
 	for(y = 0; y<CHUNKSIZE+1; ++y)
 	for(x = 0; x<CHUNKSIZE+1; ++x)
 	{
-		vertices[i] = x;
+		vertices[i] = x + ((int)(noise3D(x%(CHUNKSIZE), y%(CHUNKSIZE), z%(CHUNKSIZE), 1) % 100) - 50) * (RENDER_WOBBLE / 100.0f);
 		colors[i] = block_properties[id].color.x;
 		++i;
 
-		vertices[i] = y;
+		vertices[i] = y + ((int)(noise3D(y%(CHUNKSIZE), z%(CHUNKSIZE), x%(CHUNKSIZE), 1) % 100) - 50) * (RENDER_WOBBLE / 100.0f);
 		colors[i] = block_properties[id].color.y;
 		++i;
 
-		vertices[i] = z;
+		vertices[i] = z + ((int)(noise3D(z%(CHUNKSIZE), x%(CHUNKSIZE), y%(CHUNKSIZE), 1) % 100) - 50) * (RENDER_WOBBLE / 100.0f);
 		colors[i] = block_properties[id].color.z;
 		++i;
 	}

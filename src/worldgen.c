@@ -6,6 +6,7 @@
 #include "custommath.h"
 #include "defines.h"
 #include "modulo.h"
+#include "noise.h"
 
 #define DIAMONDSQUARESIZE (int) CAT(0x1p, WORLDGEN_DIAMONDSQUARE_LEVELS)
 
@@ -20,24 +21,6 @@ worldgen_t defaultcontext = {
 	{LONG_MAX,LONG_MAX,LONG_MAX},
 	{LONG_MAX,LONG_MAX,LONG_MAX}
 };
-
-static uint32_t
-hash( uint32_t a)
-{
-	a = (a+0x7ed55d16) + (a<<12);
-	a = (a^0xc761c23c) ^ (a>>19);
-	a = (a+0x165667b1) + (a<<5);
-	a = (a+0xd3a2646c) ^ (a<<9);
-	a = (a+0xfd7046c5) + (a<<3);
-	a = (a^0xb55a4f09) ^ (a>>16);
-	return a;
-}
-
-static uint32_t
-noise(uint32_t x, uint32_t y, uint32_t seed)
-{
-	return hash(((hash(x)<<16) ^ hash(y)) + seed);
-}
 
 /**
  * flattens the world out around y = 0
@@ -96,7 +79,7 @@ pound(double *data, size_t size, long3_t pos, uint32_t seed, int scale, int leve
 						data[(x+d_) + (z-d_)*size] +
 						data[(x+d_) + (z+d_)*size]
 						) / 4.0;
-				data[x + z*size] += (double)((noise(pos.x + x*scale, pos.z + z*scale, seed)%100)/100.0 - weight(data[x + z*size]))*r;
+				data[x + z*size] += (double)((noise2D(pos.x + x*scale, pos.z + z*scale, seed)%100)/100.0 - weight(data[x + z*size]))*r;
 			}
 		}
 
@@ -122,9 +105,9 @@ pound(double *data, size_t size, long3_t pos, uint32_t seed, int scale, int leve
 				}
 
 				data[x + z*size] /= notedge ? 4.0 : 2.0;
-				data[x + z*size] += (double)((noise(pos.x + x*scale, pos.z + z*scale, seed)%100)/100.0 - weight(data[x + z*size]))*r;
+				data[x + z*size] += (double)((noise2D(pos.x + x*scale, pos.z + z*scale, seed)%100)/100.0 - weight(data[x + z*size]))*r;
 				data[z + x*size] /= notedge ? 4.0 : 2.0;
-				data[z + x*size] += (double)((noise(pos.x + z*scale, pos.z + x*scale, seed)%100)/100.0 - weight(data[z + x*size]))*r;
+				data[z + x*size] += (double)((noise2D(pos.x + z*scale, pos.z + x*scale, seed)%100)/100.0 - weight(data[z + x*size]))*r;
 			}
 		}
 	}
@@ -159,25 +142,25 @@ setheightmapfromcpos(worldgen_t *context, long3_t cpos)
 			context->lastdiasquareblockpos = newdiasquareblockpos;
 
 			metaheightmap[0] =
-				((noise(
+				((noise2D(
 					newdiasquareblockpos.x,
 					newdiasquareblockpos.z,
 					seed
 					)%100)/100.0 - .5) * (DIAMONDSQUARESIZE*WORLDGEN_RANGE);
 			metaheightmap[DIAMONDSQUARESIZE] =
-				((noise(
+				((noise2D(
 					newdiasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE,
 					newdiasquareblockpos.z,
 					seed
 					)%100)/100.0 - .5) * (DIAMONDSQUARESIZE*WORLDGEN_RANGE);
 			metaheightmap[(DIAMONDSQUARESIZE+1)*DIAMONDSQUARESIZE] =
-				((noise(
+				((noise2D(
 					newdiasquareblockpos.x,
 					newdiasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE,
 					seed
 					)%100)/100.0 - .5) * (DIAMONDSQUARESIZE*WORLDGEN_RANGE);
 			metaheightmap[DIAMONDSQUARESIZE + (DIAMONDSQUARESIZE+1)*DIAMONDSQUARESIZE] =
-				((noise(
+				((noise2D(
 					newdiasquareblockpos.x + DIAMONDSQUARESIZE*CHUNKSIZE,
 					newdiasquareblockpos.z + DIAMONDSQUARESIZE*CHUNKSIZE,
 					seed
