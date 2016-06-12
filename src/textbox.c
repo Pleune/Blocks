@@ -56,33 +56,30 @@ static GLuint uniform_tex;
 static GLuint uniform_window_size;
 
 const static char *shader_vertex = "\
-#version 300 es\n\
+#version 100\n\
 precision mediump float;\n\
-layout(location = 0) in vec2 pos;\n\
-layout(location = 1) in vec2 Tex;\n\
+attribute vec2 pos;\n\
+attribute vec2 Tex;\n\
 uniform vec2 window_size;\n\
-out vec2 Texcoord;\n\
+varying vec2 Texcoord;\n\
 void main() {\n\
 	Texcoord = Tex;\n\
     vec2 p = pos/window_size;\n\
-    p.y = 1.0f - p.y;\n\
+    p.y = 1.0 - p.y;\n\
     p = p * vec2(2,2) - vec2(1,1);\n\
 	gl_Position = vec4(p, 0.0, 1.0);\n\
 }\
 ";
 
 const static char *shader_fragment = "\
-#version 300 es\n\
+#version 100\n\
 precision mediump float;\n\
-in vec2 Texcoord;\n\
-out vec4 color;\n\
+varying vec2 Texcoord;\n\
 uniform sampler2D tex;\n\
 void main()\n\
 {\n\
-    vec4 texcolor = texture(tex, Texcoord);\n\
-//	if(texcolor.a < 0.1)\n\
-//        discard;\n\
-    color = texcolor;\n\
+    vec4 texcolor = texture2D(tex, Texcoord);\n\
+    gl_FragColor = texcolor;\n\
 }\
 ";
 
