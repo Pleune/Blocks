@@ -58,6 +58,7 @@ static GLuint glprogram;
 static GLuint uniform_texture;
 static GLuint uniform_window_size;
 static GLuint uniform_color;
+static GLuint uniform_offset;
 
 const static char *shader_vertex = "\
 #version 100\n\
@@ -66,9 +67,10 @@ attribute vec2 pos;\n\
 attribute vec2 texcoord_vert;\n\
 varying vec2 texcoord_frag;\n\
 uniform vec2 window_size;\n\
+uniform vec2 offset;\n\
 void main() {\n\
 	texcoord_frag = texcoord_vert;\n\
-    vec2 p = pos/window_size;\n\
+    vec2 p = (pos + offset)/window_size;\n\
     p.y = 1.0 - p.y;\n\
     p = p * vec2(2,2) - vec2(1,1);\n\
 	gl_Position = vec4(p, 0.0, 1.0);\n\
@@ -165,6 +167,7 @@ textbox_static_init()
 	uniform_texture = glGetUniformLocation(glprogram, "texture");
 	uniform_window_size = glGetUniformLocation(glprogram, "window_size");
 	uniform_color = glGetUniformLocation(glprogram, "color");
+	uniform_offset = glGetUniformLocation(glprogram, "offset");
 
 	int i;
 	for(i=0; i<TEXTBOX_NUM_FONTS; i++)
@@ -243,17 +246,35 @@ textbox_set_txt(textbox_t *textbox, const char *txt)
 	int entire_h = render_info[textbox->font].gl.h;
 
 	int num_points = 0;
-	int x = textbox->x;
-	int y = textbox->y;
+	int x = 0;
+	int y = 0;
 	size_t i;
 	for(i=0; txt[i] != 0; i++)
 	{
 		int char_w = render_info[textbox->font].c[(unsigned char) txt[i]].w;
 		int char_h = entire_h;
 
-		add_char(&points, x, y, char_w, char_h, &render_info[textbox->font], txt[i]);
-		num_points += 6;
-		x += char_w;
+		char sym = txt[i];
+
+		if(sym == '\n')
+		{
+			x = 0;
+			y += char_h;
+		} else {
+			if(char_w == 0)
+			{
+				sym = SYM_ERROR;
+				char_w = render_info[textbox->font].c[(unsigned char) SYM_ERROR].w;
+			}
+			if(x + char_w > textbox->w)
+			{
+				x = 0;
+				y += char_h;
+			}
+			add_char(&points, x, y, char_w, char_h, &render_info[textbox->font], sym);
+			num_points += 6;
+			x += char_w;
+		}
 	}
 
 	textbox->vertices_num = num_points;
@@ -274,6 +295,13 @@ textbox_set_color(textbox_t* textbox, float r, float g, float b, float a)
 }
 
 void
+textbox_set_pos(textbox_t* textbox, int x, int y)
+{
+	textbox->x = x;
+	textbox->y = y;
+}
+
+void
 textbox_render(textbox_t* textbox)
 {
 	glDisable(GL_DEPTH_TEST);
@@ -285,9 +313,11 @@ textbox_render(textbox_t* textbox)
 	int window_w, window_h;
 	state_window_get_size(&window_w, &window_h);
 
-	GLfloat window_vec[2] = {window_w, window_h};
-
-	glUniform2fv(uniform_window_size, 1, window_vec);
+	GLfloat vec[2] = {window_w, window_h};
+	glUniform2fv(uniform_window_size, 1, vec);
+	vec[0] = textbox->x;
+	vec[1] = textbox->y;
+	glUniform2fv(uniform_offset, 1, vec);
 	glUniform4fv(uniform_color, 1, textbox->color);
 
 	glBindBuffer(GL_ARRAY_BUFFER, textbox->vertices_buff);

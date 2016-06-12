@@ -17,7 +17,7 @@ state_menu_init(void *ptr)
 	printf("p to play, ESC to quit\n");
 	glClearColor(0, 0, 0, 1);
 
-	text = textbox_create(10,10,100,100,"A B C D E F G this is a TeSt!!!! !@^*$%&!@",STANDARD);
+	text = textbox_create(10,10,140,100,"A B C D E F G\nthis is a TeSt!!!! !@^*$%&!@",STANDARD);
 	textbox_set_color(text, 0, 1, .5, 1);
 }
 

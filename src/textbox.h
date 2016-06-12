@@ -16,6 +16,7 @@ void textbox_destroy(textbox_t *textbox);
 
 void textbox_set_txt(textbox_t *textbox, const char *txt);
 void textbox_set_color(textbox_t *textbox, float r, float g, float b, float a);
+void textbox_set_pos(textbox_t *textbox, int x, int y);
 
 void textbox_render(textbox_t *textbox);
 
