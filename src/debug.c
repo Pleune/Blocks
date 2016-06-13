@@ -28,6 +28,17 @@ error(const char *s, ... )
 }
 
 void
+warn(const char *s, ... )
+{
+	fprintf(stderr, "[WARNING]: ");
+	va_list argptr;
+	va_start(argptr, s);
+	vfprintf(stderr, s, argptr);
+	va_end(argptr);
+	fputc('\n', stderr);
+}
+
+void
 info(const char *s, ... )
 {
 	fprintf(stderr, "[INFO]: ");

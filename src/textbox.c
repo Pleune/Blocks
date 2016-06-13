@@ -9,30 +9,10 @@
 #include "state.h"
 #include "debug.h"
 #include "gl.h"
-#include "stack.h"
-
-#define SYM_ERROR 'E'
-
-struct charcter {
-	int w;
-	int x;
-	unsigned char index;
-};
-
-struct font_info_render {
-	struct charcter c[255];
-
-	struct {
-		GLuint texture;
-		int w;
-		int h;
-	} gl;
-};
 
 struct font_info_ttf {
 	const char *name;
 	const char *path;
-	int pt;
 };
 
 struct textbox {
@@ -41,23 +21,98 @@ struct textbox {
 	int x;
 	int y;
 
+	enum textbox_font textbox_font;
+	enum textbox_font_size size;
+	enum textbox_flags flags;
+	SDL_Color color;
+
    	GLuint vertices_buff;
-	GLint vertices_num;
+	GLuint texture;
 
-	GLfloat color[4];
 
-	enum font font;
+	char *txt;
 };
 
 static struct font_info_ttf ttf_info[TEXTBOX_NUM_FONTS] = {
-	[STANDARD] = {"Standard", "resources/fonts/Roboto/Roboto-Regular.ttf", 16}
+	[TEXTBOX_FONT_ROBOTO_REGULAR] = {
+		"Roboto-Regular",
+		"resources/fonts/Roboto/Roboto-Regular.ttf"},
+	[TEXTBOX_FONT_ROBOTO_MEDIUM] = {
+		"Roboto-Medium",
+		"resources/fonts/Roboto/Roboto-Medium.ttf"},
+	[TEXTBOX_FONT_ROBOTO_ITALIC] = {
+		"Roboto-Italic",
+		"resources/fonts/Roboto/Roboto-Italic.ttf"},
+	[TEXTBOX_FONT_ROBOTO_BOLD] = {
+		"Roboto-Bold",
+		"resources/fonts/Roboto/Roboto-Bold.ttf"},
+	[TEXTBOX_FONT_ROBOTO_THIN] = {
+		"Roboto-Thin",
+		"resources/fonts/Roboto/Roboto-Thin.ttf"},
+	[TEXTBOX_FONT_ROBOTO_LIGHT] = {
+		"Roboto-Light",
+		"resources/fonts/Roboto/Roboto-Light.ttf"},
+	[TEXTBOX_FONT_ROBOTO_BLACK] = {
+		"Roboto-Black",
+		"resources/fonts/Roboto/Roboto-Black.ttf"},
+	[TEXTBOX_FONT_ROBOTO_BLACKITALIC] = {
+		"Roboto-BlackItalic",
+		"resources/fonts/Roboto/Roboto-BlackItalic.ttf"},
+	[TEXTBOX_FONT_ROBOTO_LIGHTITALIC] = {
+		"Roboto-LightItalic",
+		"resources/fonts/Roboto/Roboto-LightItalic.ttf"},
+	[TEXTBOX_FONT_ROBOTO_THINITALIC] = {
+		"Roboto-ThinItalic",
+		"resources/fonts/Roboto/Roboto-ThinItalic.ttf"},
+	[TEXTBOX_FONT_ROBOTO_BOLDITALIC] = {
+		"Roboto-BoldItalic",
+		"resources/fonts/Roboto/Roboto-BoldItalic.ttf"},
+	[TEXTBOX_FONT_ROBOTO_MEDIUMITALIC] = {
+		"Roboto-MediumItalic",
+		"resources/fonts/Roboto/Roboto-MediumItalic.ttf"},
+
+
+	[TEXTBOX_FONT_ROBOTOCONDENSED_REGULAR] = {
+		"RobotoCondensed-Regular",
+		"resources/fonts/Roboto/RobotoCondensed-Regular.ttf"},
+	[TEXTBOX_FONT_ROBOTOCONDENSED_ITALIC] = {
+		"RobotoCondensed-Italic",
+		"resources/fonts/Roboto/RobotoCondensed-Italic.ttf"},
+	[TEXTBOX_FONT_ROBOTOCONDENSED_BOLD] = {
+		"RobotoCondensed-Bold",
+		"resources/fonts/Roboto/RobotoCondensed-Bold.ttf"},
+	[TEXTBOX_FONT_ROBOTOCONDENSED_LIGHT] = {
+		"RobotoCondensed-Light",
+		"resources/fonts/Roboto/RobotoCondensed-Light.ttf"},
+	[TEXTBOX_FONT_ROBOTOCONDENSED_BOLDITALIC] = {
+		"RobotoCondensed-BoldItalic",
+		"resources/fonts/Roboto/RobotoCondensed-BoldItalic.ttf"},
+	[TEXTBOX_FONT_ROBOTOCONDENSED_LIGHTITALIC] = {
+		"RobotoCondensed-LightItalic",
+		"resources/fonts/Roboto/RobotoCondensed-LightItalic.ttf"}
 };
-static struct font_info_render render_info[TEXTBOX_NUM_FONTS];
+
+static int size_lookup[TEXTBOX_NUM_SIZES] = {
+	[TEXTBOX_FONT_SIZE_SMALL] = 10,
+	[TEXTBOX_FONT_SIZE_MEDIUM] = 18,
+	[TEXTBOX_FONT_SIZE_LARGE] = 28,
+	[TEXTBOX_FONT_SIZE_HUGE] = 60,
+};
+
+const SDL_Color textbox_colors[] = {
+	{255, 255, 255, 255},
+	{  0,   0,   0, 255},
+	{255,   0,   0, 255},
+	{255, 125,   0, 255},
+	{255, 255,   0, 255},
+	{  0, 255,   0, 255},
+	{  0,   0, 255, 255},
+	{125,   0, 255, 255}
+};
 
 static GLuint glprogram;
 static GLuint uniform_texture;
 static GLuint uniform_window_size;
-static GLuint uniform_color;
 static GLuint uniform_offset;
 
 const static char *shader_vertex = "\
@@ -82,83 +137,11 @@ const static char *shader_fragment = "\
 precision mediump float;\n\
 varying vec2 texcoord_frag;\n\
 uniform sampler2D texture;\n\
-uniform vec4 color;\n\
 void main()\n\
 {\n\
-    gl_FragColor = texture2D(texture, texcoord_frag) * color;\n\
+    gl_FragColor = texture2D(texture, texcoord_frag);\n\
 }\
 ";
-
-static void
-load_font(struct font_info_ttf *ttf_info, struct font_info_render *render_info)
-{
-	char *file = calloc(1024, sizeof(char));
-	strncat(file, state_basepath_get(), 1024);
-	strncat(file, ttf_info->path, 1024 - strlen(file));
-
-	TTF_Font *font = TTF_OpenFont(file, ttf_info->pt);
-
-	if(!font)
-		fail("Unable to load font: %s", file);
-
-	const static char charcters[] = "a b b c d e f g h i j k l m n o p q r s t u v w x y z A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 1 2 3 4 5 6 7 8 9 0 ! @ # $ % ^ & * ( ) - _ = + [ { ] } \\ | , . < > / ? ; : ' \" ` ~  ";
-	const static SDL_Color background = { 255, 255, 255, 255};
-
-	TTF_SetFontKerning(font, 0);
-
-	SDL_Surface *surface = TTF_RenderText_Blended(font, charcters, background);
-
-	info("BitsPerPixel %i", surface->format->BitsPerPixel);
-	info("Rmask %08x", surface->format->Rmask);
-	info("Gmask %08x", surface->format->Gmask);
-	info("Bmask %08x", surface->format->Bmask);
-	info("Amask %08x", surface->format->Amask);
-
-	memset(render_info, 0, sizeof(struct font_info_render));
-
-	glGenTextures(1, &(render_info->gl.texture));
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, render_info->gl.texture);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	size_t size = surface->w * surface->h;
-
-	size_t i;
-	for(i=0; i<size; ++i)
-	{
-		uint32_t color = ((uint32_t *)(surface->pixels))[i];
-		uint32_t tmp = (color << 8) | (color >> 24);
-
-		((uint32_t *)(surface->pixels))[i] = tmp;
-	}
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, surface->w, surface->h,
-				 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, surface->pixels);
-
-	render_info->gl.h = surface->h;
-	render_info->gl.w = surface->w;
-
-	int width_build = 1;
-	for(i=0; i<sizeof(charcters); i++)
-	{
-		struct charcter *c = &render_info->c[(unsigned char) charcters[i]];
-
-		TTF_GlyphMetrics(font, charcters[i], 0,0,0,0, &c->w);
-		c->x = width_build;
-		width_build += c->w;
-	}
-
-	SDL_FreeSurface(surface);
-	TTF_CloseFont(font);
-}
-
-static void
-unload_font(struct font_info_render *render_info)
-{
-   	glDeleteTextures(1, &render_info->gl.texture);
-}
 
 void
 textbox_static_init()
@@ -166,24 +149,22 @@ textbox_static_init()
 	gl_program_load_str(&glprogram, shader_vertex, shader_fragment);
 	uniform_texture = glGetUniformLocation(glprogram, "texture");
 	uniform_window_size = glGetUniformLocation(glprogram, "window_size");
-	uniform_color = glGetUniformLocation(glprogram, "color");
 	uniform_offset = glGetUniformLocation(glprogram, "offset");
-
-	int i;
-	for(i=0; i<TEXTBOX_NUM_FONTS; i++)
-		load_font(&ttf_info[i], &render_info[i]);
 }
 
 void
 textbox_static_cleanup()
 {
-	int i;
-	for(i=0; i<TEXTBOX_NUM_FONTS; i++)
-		unload_font(&render_info[i]);
 }
 
 textbox_t *
-textbox_create(int x, int y, int w, int h, const char* txt, enum font font)
+textbox_create(
+	int x, int y, int w, int h,
+	const char* txt,
+	const SDL_Color *color,
+	enum textbox_font textbox_font,
+	enum textbox_font_size size,
+	enum textbox_flags flags)
 {
 	textbox_t *textbox = malloc(sizeof(textbox_t));
 
@@ -192,14 +173,18 @@ textbox_create(int x, int y, int w, int h, const char* txt, enum font font)
 	textbox->w = w;
 	textbox->h = h;
 
-	textbox->font = font;
+	textbox->textbox_font = textbox_font;
+	textbox->size = size;
 
-	textbox->color[0] = 1.0f;
-	textbox->color[1] = 1.0f;
-	textbox->color[2] = 1.0f;
-	textbox->color[3] = 1.0f;
+	if(color)
+		textbox->color = *color;
+	else
+		textbox->color = *TEXTBOX_COLOR_WHITE;
+
+	textbox->flags = flags;
 
 	glGenBuffers(1, &textbox->vertices_buff);
+	glGenTextures(1, &textbox->texture);
 
 	textbox_set_txt(textbox, txt);
 
@@ -210,88 +195,93 @@ void
 textbox_destroy(struct textbox* textbox)
 {
 	glDeleteBuffers(1, &textbox->vertices_buff);
+	glDeleteTextures(1, &textbox->texture);
 	free(textbox);
-}
-
-static inline void
-add_point(struct stack *buffer, GLfloat x, GLfloat y, GLfloat u, GLfloat v)
-{
-	stack_push(buffer, &x);
-	stack_push(buffer, &y);
-	stack_push(buffer, &u);
-	stack_push(buffer, &v);
-}
-
-static inline void
-add_char(struct stack *buffer, GLfloat x, GLfloat y, GLfloat w, GLfloat h, struct font_info_render *render_info, unsigned char c)
-{
-	GLfloat char_x = render_info->c[c].x / (GLfloat)render_info->gl.w;
-	GLfloat char_w = render_info->c[c].w / (GLfloat)render_info->gl.w;
-
-	add_point(buffer, x, y, char_x, 0);
-	add_point(buffer, x, y+h, char_x, 1);
-	add_point(buffer, x+w, y, char_x + char_w, 0);
-
-	add_point(buffer, x+w, y+h, char_x + char_w, 1);
-	add_point(buffer, x+w, y, char_x + char_w, 0);
-	add_point(buffer, x, y+h, char_x, 1);
 }
 
 void
 textbox_set_txt(textbox_t *textbox, const char *txt)
 {
-	struct stack points;
-	stack_init(&points, sizeof(GLfloat), 100, 5);
-
-	int entire_h = render_info[textbox->font].gl.h;
-
-	int num_points = 0;
-	int x = 0;
-	int y = 0;
-	size_t i;
-	for(i=0; txt[i] != 0; i++)
+	if(txt != textbox->txt)
 	{
-		int char_w = render_info[textbox->font].c[(unsigned char) txt[i]].w;
-		int char_h = entire_h;
-
-		char sym = txt[i];
-
-		if(sym == '\n')
-		{
-			x = 0;
-			y += char_h;
-		} else {
-			if(char_w == 0)
-			{
-				sym = SYM_ERROR;
-				char_w = render_info[textbox->font].c[(unsigned char) SYM_ERROR].w;
-			}
-			if(x + char_w > textbox->w)
-			{
-				x = 0;
-				y += char_h;
-			}
-			add_char(&points, x, y, char_w, char_h, &render_info[textbox->font], sym);
-			num_points += 6;
-			x += char_w;
-		}
+		size_t txt_size = strlen(txt) + 1;
+		textbox->txt = malloc(txt_size);
+		memcpy(textbox->txt, txt, txt_size);
 	}
 
-	textbox->vertices_num = num_points;
+	char *file = calloc(1024, sizeof(char));
+	strncat(file, state_basepath_get(), 1024);
+	strncat(file, ttf_info[textbox->textbox_font].path, 1024 - strlen(file));
 
+	TTF_Font *font_sdl = TTF_OpenFont(file, size_lookup[textbox->size]);
+
+	if(!font_sdl)
+		fail("Unable to load textbox_font: %s", file);
+
+	SDL_Surface *surface = TTF_RenderText_Blended_Wrapped(font_sdl, txt, textbox->color, textbox->w);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textbox->texture);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	size_t texture_size = surface->w * surface->h;
+
+	size_t i;
+	for(i=0; i<texture_size; ++i)
+	{
+		uint32_t color = ((uint32_t *)(surface->pixels))[i];
+		uint32_t tmp = (color << 8) | (color >> 24);
+
+		((uint32_t *)(surface->pixels))[i] = tmp;
+	}
+
+	if(textbox->w < surface->w)
+		warn("Textbox: string \"%s\" wider (by %ipx) than textbox", textbox->txt, surface->w - textbox->h);
+
+	if(textbox->h < surface->h)
+		warn("Textbox: string \"%s\" taller (by %ipx) than textbox", textbox->txt, surface->h - textbox->h);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, surface->w, surface->h,
+				 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, surface->pixels);
+
+	struct {
+		GLfloat x;
+		GLfloat y;
+	} offset = { 0, 0 };
+
+	if(textbox->flags & TEXTBOX_FLAG_CENTER_H)
+		offset.x = (textbox->w - surface->w) / 2.0f;
+
+	if(textbox->flags & TEXTBOX_FLAG_CENTER_V)
+		offset.y = (textbox->h - surface->h) / 2.0f;
+
+	GLfloat vertices_data[] = {
+		offset.x, offset.y, 0, 0,
+		offset.x, offset.y + surface->h, 0, 1,
+		offset.x + surface->w, offset.y, 1, 0,
+
+		offset.x + surface->w, offset.y + surface->h, 1, 1,
+		offset.x + surface->w, offset.y, 1, 0,
+		offset.x, offset.y + surface->h, 0, 1
+	};
 	glBindBuffer(GL_ARRAY_BUFFER, textbox->vertices_buff);
-	glBufferData(GL_ARRAY_BUFFER, 4 * num_points * sizeof(GLfloat), points.data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(GLfloat), vertices_data, GL_STATIC_DRAW);
 
-	stack_destroy(&points);
+	SDL_FreeSurface(surface);
+	TTF_CloseFont(font_sdl);
 }
 
 void
 textbox_set_color(textbox_t* textbox, float r, float g, float b, float a)
 {
-	textbox->color[0] = r;
-	textbox->color[1] = g;
-	textbox->color[2] = b;
-	textbox->color[3] = a;
+	textbox->color.r = r * 255;
+	textbox->color.g = g * 255;
+	textbox->color.b = b * 255;
+	textbox->color.a = a * 255;
+
+	textbox_set_txt(textbox, textbox->txt);
 }
 
 void
@@ -307,7 +297,7 @@ textbox_render(textbox_t* textbox)
 	glDisable(GL_DEPTH_TEST);
 	glUseProgram(glprogram);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, render_info[textbox->font].gl.texture);
+	glBindTexture(GL_TEXTURE_2D, textbox->texture);
 	glUniform1i(uniform_texture, 0);
 
 	int window_w, window_h;
@@ -318,7 +308,6 @@ textbox_render(textbox_t* textbox)
 	vec[0] = textbox->x;
 	vec[1] = textbox->y;
 	glUniform2fv(uniform_offset, 1, vec);
-	glUniform4fv(uniform_color, 1, textbox->color);
 
 	glBindBuffer(GL_ARRAY_BUFFER, textbox->vertices_buff);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,4 * sizeof(GLfloat), 0);
@@ -328,5 +317,5 @@ textbox_render(textbox_t* textbox)
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 
-	glDrawArrays(GL_TRIANGLES, 0, textbox->vertices_num);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 }

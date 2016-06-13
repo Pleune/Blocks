@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <SDL.h>
+#include <GL/glew.h>
 
 #include "textbox.h"
 
@@ -9,7 +10,8 @@ static uint32_t ticks = 0;
 static uint32_t fpsmax = 60;
 static int fpscap = 1;
 
-static textbox_t *text;
+static textbox_t *textbox_title;
+static textbox_t *textbox_play;
 
 void
 state_menu_init(void *ptr)
@@ -17,8 +19,21 @@ state_menu_init(void *ptr)
 	printf("p to play, ESC to quit\n");
 	glClearColor(0, 0, 0, 1);
 
-	text = textbox_create(10,10,140,100,"A B C D E F G\nthis is a TeSt!!!! !@^*$%&!@",STANDARD);
-	textbox_set_color(text, 0, 1, .5, 1);
+	textbox_title = textbox_create(
+		10, 10, 300, 100,
+		"BLOCKS",
+		TEXTBOX_COLOR_GREEN,
+		TEXTBOX_FONT_ROBOTO_BOLDITALIC,
+		TEXTBOX_FONT_SIZE_HUGE,
+		TEXTBOX_FLAG_CENTER_H);
+
+	textbox_play = textbox_create(
+		80, 80, 300, 100,
+		"Press 'P' to play!",
+		TEXTBOX_COLOR_BLUE,
+		TEXTBOX_FONT_ROBOTO_REGULAR,
+		TEXTBOX_FONT_SIZE_MEDIUM,
+		0);
 }
 
 void
@@ -30,7 +45,8 @@ state_menu_run(void *ptr)
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	textbox_render(text);
+	textbox_render(textbox_title);
+	textbox_render(textbox_play);
 
 	state_window_swap();
 
@@ -71,5 +87,6 @@ state_menu_event(void *ptr)
 void
 state_menu_close(void *ptr)
 {
-	textbox_destroy(text);
+	textbox_destroy(textbox_title);
+	textbox_destroy(textbox_play);
 }

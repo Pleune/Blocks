@@ -3,6 +3,7 @@
 
 void fail(const char *s, ... );
 void error(const char *s, ... );
+void warn(const char *s, ... );
 void info(const char *s, ... );
 
 #endif
