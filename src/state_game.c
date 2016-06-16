@@ -1,9 +1,12 @@
 #include "state.h"
+#include "state_game.h"
+
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
 #include <GL/glew.h>
 #include <SDL.h>
+
 #include "gl.h"
 #include "state.h"
 #include "custommath.h"
@@ -48,6 +51,8 @@ static vec3_t forwardcamera;
 static vec3_t headpos;
 
 static uint32_t ticks = 0;
+static uint32_t newticks = 0;
+static uint32_t dt = 0;
 
 const static vec3_t up = {0,1,0};
 const static vec3_t zero = {0,0,0};
@@ -76,13 +81,20 @@ static SDL_sem *updatesem;
 static int stopupdatethread;
 
 void
-update(uint32_t dt)
+state_game_update()
 {
-	if(!updating)
-		return;
-	long num = world_update_flush();
-	if(num)
-		printf("u:%li\n", num);
+	newticks = SDL_GetTicks();
+	dt = ticks ? newticks - ticks : 0;
+	ticks = newticks;
+
+	static uint32_t updatebuild = 0;
+	updatebuild += dt;
+	if(updatebuild >= 20)
+	{
+		updatebuild -= 20;
+		SDL_SemTryWait(updatesem);
+		SDL_SemPost(updatesem);
+	}
 }
 
 static int
@@ -94,7 +106,12 @@ updatethreadfunc(void *ptr)
 		SDL_SemWait(updatesem);
 		if(stopupdatethread)
 			break;
-		update(20);
+		if(updating)
+		{
+			long num = world_update_flush();
+			if(num)
+				printf("u:%li\n", num);
+		}
 	}
 	return 0;
 
@@ -188,7 +205,7 @@ state_game_init(void *ptr)
 		spawn.x = (double)(rand()%10000) - 5000;
 		spawn.z = (double)(rand()%10000) - 5000;
 		spawn.y = worldgen_get_height_of_pos(0, spawn.x, spawn.z)+1.1;
-		printf("spawn retry %i x: %f z: %f h: %f\n", spawntries, spawn.x, spawn.z, spawn.y);
+		info("spawn retry %i x: %f z: %f h: %f", spawntries, spawn.x, spawn.z, spawn.y);
 	}
 	spawn.x += .5;
 	spawn.z += .5;
@@ -212,7 +229,7 @@ state_game_init(void *ptr)
 }
 
 static void
-input(uint32_t dt)
+input()
 {
 	SDL_PumpEvents();
 
@@ -328,6 +345,9 @@ state_game_event(void *ptr)
 			case SDLK_SPACE:
 				entity_jump(pos, PLAYER_JUMPSPEED);
 			break;
+			case SDLK_i:
+				state_queue_push(INVENTORY);
+			break;
 			case SDLK_v:
 				lines = !lines;
 			break;
@@ -425,8 +445,8 @@ state_game_event(void *ptr)
 	}
 }
 
-static void
-render(uint32_t dt)
+void
+state_game_render()
 {
 	static uint32_t oneseccond = 0;
 	oneseccond += dt;
@@ -440,9 +460,8 @@ render(uint32_t dt)
 		textbox_set_txt(textbox_fps, buffer);
 
 		oneseccond -= 1000;
-		info("FPS: %i", frame);
 
-		GLint total_mem_kb = 0;
+		/*GLint total_mem_kb = 0;
 		glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX,
 		&total_mem_kb);
 
@@ -456,7 +475,7 @@ render(uint32_t dt)
 
 		printf("MEM AVAIL: %i\t /%imb\n", cur_avail_mem_kb/1000, total_mem_kb/1000);
 		printf("           %imb evicted\n", cur_evicted_mem_kb/1000);
-		printf("%li triangles\n", world_get_trianglecount());
+		printf("%li triangles\n", world_get_trianglecount());*/
 
 		frame=0;
 	}
@@ -514,28 +533,15 @@ render(uint32_t dt)
 	}
 
 	textbox_render(textbox_fps);
-
-	state_window_swap();
 }
 
 void
 state_game_run(void *ptr)
 {
-	uint32_t newticks = SDL_GetTicks();
-	uint32_t dt = ticks ? newticks - ticks : 0;
-	ticks = newticks;
-
-	static uint32_t updatebuild = 0;
-	updatebuild += dt;
-	if(updatebuild >= 20)
-	{
-		updatebuild -= 20;
-		SDL_SemTryWait(updatesem);
-		SDL_SemPost(updatesem);
-	}
-
-	input(dt);
-	render(dt);
+	state_game_update();
+	input();
+	state_game_render();
+	state_window_swap();
 
 	if(fpscap)
 	{
@@ -559,4 +565,18 @@ state_game_close(void *ptr)
 	entity_destroy(pos);
 	world_cleanup();
 	textbox_destroy(textbox_fps);
+	SDL_ShowCursor(1);
+}
+
+void
+state_game_pause(void *ptr)
+{
+	SDL_ShowCursor(1);
+}
+
+void
+state_game_resume(void *ptr)
+{
+	state_mouse_center();
+	SDL_ShowCursor(0);
 }

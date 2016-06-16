@@ -1,37 +1,26 @@
-#include <stdio.h>
-
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <GL/glew.h>
 
 #include "state.h"
 #include "textbox.h"
-
-#define STACK_MAX 255
-
-//FUNCTION DEFS****
-
-static void cleanup();//shuts everything down for a reboot
-static void init();//contains the startup code
-static void runevent(enum states s, enum events e);
-static void push(enum states newstate);
-static void pop();
+#include "debug.h"
 
 static int isrunning = 1;
 
+#define STACK_MAX 255
 struct statestack_s {
 	enum states states[STACK_MAX];
 	int instances[MAX_STATES];
 	int top;
 };
 
-struct statestack_s stack = { {0} };
+struct statestack_s stack = { {0}, {0}, 0 };
 #define CURRENTSTATE (stack.states[stack.top])
 
 int queueforpop = 0;
 enum states queueforpush = MAX_STATES;
 
-//the main window
 SDL_Window *win;
 SDL_GLContext glcontext;
 
@@ -41,64 +30,6 @@ char *basepath;
 
 static SDL_GameController *controller = NULL;
 
-int
-main(int argc, char *argv[])
-{
-	init();
-	while(isrunning)
-	{
-		SDL_Event e;
-		while(SDL_PollEvent(&e))
-		{
-			if(e.type == SDL_QUIT)
-			{
-				state_exit();
-			} else if(e.type == SDL_WINDOWEVENT)
-			{
-				if(e.window.event == SDL_WINDOWEVENT_RESIZED)
-				{
-					state_window_update(e.window.data1, e.window.data2);
-					windoww = e.window.data1;
-					windowh = e.window.data2;
-					//state_mouse_center();
-				}
-			}
-			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
-		}
-		runevent(CURRENTSTATE, RUN);
-
-		if(queueforpop)
-		{
-			queueforpop = 0;
-			pop();
-		}
-		if(queueforpush != MAX_STATES)
-		{
-			enum states state = queueforpush;
-			queueforpush = MAX_STATES;
-			push(state);
-		}
-	}
-
-	cleanup();
-
-	return 0;
-}
-
-void
-state_queue_push(enum states state)
-{
-	if(queueforpush == MAX_STATES)
-		queueforpush = state;
-}
-
-void
-state_queue_pop()
-{
-	if(!queueforpop)
-		queueforpop = 1;
-}
-
 static void
 runevent(enum states s, enum events e)
 {
@@ -107,16 +38,9 @@ runevent(enum states s, enum events e)
 }
 
 static void
-fail(const char *msg)
-{
-	printf("FAILED: %s\n", msg);
-	exit(-2);
-}
-
-static void
 push(enum states newstate)
 {
-	printf("STATUS: push state %i onto %i\n", newstate, CURRENTSTATE);
+	info("state engine: push state %i onto %i", newstate, CURRENTSTATE);
 
 	runevent(CURRENTSTATE, PAUSE);
 
@@ -136,7 +60,7 @@ push(enum states newstate)
 static void
 pop()
 {
-	printf("STATUS: pop state %i\n", CURRENTSTATE);
+	info("state engine: pop state %i", CURRENTSTATE);
 
 	stack.instances[CURRENTSTATE]--;
 
@@ -157,7 +81,7 @@ pop()
 static void
 cleanup()
 {
-	printf("STATUS: cleaning up for either an exit or a reboot\n");
+	info("state engine: cleaning up for either an exit or a reboot");
 
 	textbox_static_cleanup();
 	TTF_Quit();
@@ -170,7 +94,7 @@ cleanup()
 
 static void init()
 {
-	printf("STATUS: initalizing the program\n");
+	info("state engine: initalizing the program");
 
 	if(SDL_Init(SDL_INIT_EVERYTHING))
 		//SDL2 init_chunk failed
@@ -187,10 +111,10 @@ static void init()
 			controller = SDL_GameControllerOpen(i);
 			if(controller)
 			{
-				printf("Game controller found\n");
+				info("Game controller found.");
 				break;
 			} else {
-				fprintf(stderr, "Could not open gamecontroller %i: %s\n", i, SDL_GetError());
+				warn("Could not open gamecontroller %i: %s", i, SDL_GetError());
 			}
 		}
 	}
@@ -231,11 +155,81 @@ static void init()
 	runevent(MENUMAIN, INITALIZE);
 }
 
+int
+main(int argc, char *argv[])
+{
+	init();
+	while(isrunning)
+	{
+		SDL_Event e;
+		while(SDL_PollEvent(&e))
+		{
+			if(e.type == SDL_QUIT)
+			{
+				state_exit();
+			} else if(e.type == SDL_WINDOWEVENT)
+			{
+				if(e.window.event == SDL_WINDOWEVENT_RESIZED)
+				{
+					state_window_update(e.window.data1, e.window.data2);
+					windoww = e.window.data1;
+					windowh = e.window.data2;
+				}
+			}
+			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
+		}
+		runevent(CURRENTSTATE, RUN);
+
+		if(queueforpop)
+		{
+			queueforpop = 0;
+			pop();
+		}
+		if(queueforpush != MAX_STATES)
+		{
+			enum states state = queueforpush;
+			queueforpush = MAX_STATES;
+			push(state);
+		}
+	}
+
+	while(stack.top > 0)
+		pop();
+
+	cleanup();
+
+	return 0;
+}
+
+void
+state_queue_push(enum states state)
+{
+	if(queueforpush == MAX_STATES)
+		queueforpush = state;
+	else
+		error("Too manu state_queue_push()");
+}
+
+void
+state_queue_pop()
+{
+	if(!queueforpop)
+		queueforpop = 1;
+	else
+		error("Too many state_queue_pop()");
+}
+
+int
+state_is_initalized(enum states state)
+{
+	return stack.instances[state];
+}
+
 void
 state_exit()
 {
 	//cleanup before closing.
-	printf("STATUS: exiting the program.\n");
+	info("Exiting the program");
 	isrunning = 0;
 }
 

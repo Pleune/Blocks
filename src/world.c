@@ -225,6 +225,8 @@ generationthreadfunc(void *ptr)
 							float percent = (float)(*counter)/(WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE);
 							memset(string, '#', (sizeof(string) - 1) * percent);
 							printf("LOADING... [%s] %f%%\r", string, percent * 100.0f);
+							if(*counter == (WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE))
+								putchar('\n');
 							fflush(stdout);
 						}
 					}
