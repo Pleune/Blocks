@@ -127,6 +127,23 @@ deadzone(double d)
 }
 
 void
+state_game_window_resize()
+{
+	state_window_get_size(&windoww, &windowh);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
+
+	glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_FLOAT, 0);
+
+	glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+
+	if(!pp)
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void
 state_game_init(void *ptr)
 {
 	state_window_get_size(&windoww, &windowh);
@@ -428,20 +445,7 @@ state_game_event(void *ptr)
 	else if(e.type == SDL_WINDOWEVENT)
 	{
 		if(e.window.event == SDL_WINDOWEVENT_RESIZED)
-		{
-			state_window_get_size(&windoww, &windowh);
-
-			glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.framebuffer);
-
-			glBindTexture(GL_TEXTURE_2D, renderbuffer.colorbuffer);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, windoww, windowh, 0, GL_RGB, GL_FLOAT, 0);
-
-			glBindTexture(GL_TEXTURE_2D, renderbuffer.depthbuffer);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windoww, windowh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-
-			if(!pp)
-				glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		}
+			state_game_window_resize();
 	}
 }
 
@@ -577,6 +581,13 @@ state_game_pause(void *ptr)
 void
 state_game_resume(void *ptr)
 {
+	int old_windoww = windoww;
+	int old_windowh = windowh;
+	state_window_get_size(&windoww, &windowh);
+
+	if(windoww != old_windoww || windowh != old_windowh)
+		state_game_window_resize();
+
 	state_mouse_center();
 	SDL_ShowCursor(0);
 }

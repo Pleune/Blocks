@@ -91,6 +91,7 @@ state_inventory_event(void *ptr)
 	{
 		if(e->window.event == SDL_WINDOWEVENT_RESIZED)
 		{
+			state_game_window_resize();
 		}
 	}
 }

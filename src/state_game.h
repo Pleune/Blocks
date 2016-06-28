@@ -3,5 +3,6 @@
 
 void state_game_update();
 void state_game_render();
+void state_game_window_resize();
 
 #endif

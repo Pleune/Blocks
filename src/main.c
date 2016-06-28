@@ -170,11 +170,7 @@ main(int argc, char *argv[])
 			} else if(e.type == SDL_WINDOWEVENT)
 			{
 				if(e.window.event == SDL_WINDOWEVENT_RESIZED)
-				{
 					state_window_update(e.window.data1, e.window.data2);
-					windoww = e.window.data1;
-					windowh = e.window.data2;
-				}
 			}
 			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
 		}
