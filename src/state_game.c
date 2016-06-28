@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 #include <math.h>
 #include <GL/glew.h>
 #include <SDL.h>
@@ -110,7 +111,7 @@ updatethreadfunc(void *ptr)
 		{
 			long num = world_update_flush();
 			if(num)
-				printf("u:%li\n", num);
+				info("u:%li", num);
 		}
 	}
 	return 0;
@@ -228,7 +229,7 @@ state_game_init(void *ptr)
 	spawn.z += .5;
 	if(spawn.y < 0)
 		spawn.y = 0.1;
-	printf("h: %f\n", spawn.y);
+	info("h: %f\n", spawn.y);
 	world_init(spawn);
 	pos = entity_create(spawn.x, spawn.y, spawn.z, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MASS);
 	posptr = entity_pos_get_ptr(pos);
@@ -372,7 +373,7 @@ state_game_event(void *ptr)
 				takeinput = !takeinput;
 			break;
 			case SDLK_c:
-				printf("Coords x: %f y: %f z: %f \n", posptr->x, posptr->y, posptr->z);
+				info("Coords x: %f y: %f z: %f \n", posptr->x, posptr->y, posptr->z);
 			break;
 			case SDLK_t:
 			{
@@ -386,7 +387,7 @@ state_game_event(void *ptr)
 			break;
 			case SDLK_u:
 				updating = !updating;
-				printf("UPDATING: %i\n", updating);
+				info("UPDATING: %i\n", updating);
 			break;
 			case SDLK_p:
 				pp = !pp;

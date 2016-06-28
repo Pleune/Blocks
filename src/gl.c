@@ -99,7 +99,9 @@ gl_program_load_file(GLuint *program, char *vertexshadername, char *fragmentshad
 	fclose(input_file);
 	fragmentshader_src[input_file_size] = 0;
 
+	info("loading %s and %s ...", vertexshadername, fragmentshadername);
 	gl_program_load_str(program,vertexshader_src,fragmentshader_src);
+	info("loading %s and %s complete", vertexshadername, fragmentshadername);
 
 	free(vertexshader_src);
 	free(fragmentshader_src);

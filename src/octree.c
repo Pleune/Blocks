@@ -1,5 +1,8 @@
 #include "octree.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "modulo.h"
 
 struct node_s {

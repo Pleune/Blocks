@@ -1,5 +1,6 @@
 #include "state.h"
 
+#include <stdlib.h>
 #include <SDL.h>
 #include <GL/glew.h>
 

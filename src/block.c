@@ -1,6 +1,4 @@
 #include "block.h"
-#include "world.h"
-#include "custommath.h"
 
 const struct block_properties block_properties[BLOCK_NUM_TYPES] = {
 	[AIR] = {0, {0,0,0}, "Air"},

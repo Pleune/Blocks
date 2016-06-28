@@ -1,7 +1,9 @@
 #include "worldgen.h"
 
+#include <stdlib.h>
 #include <math.h>
 #include <limits.h>
+
 #include "world.h"
 #include "custommath.h"
 #include "defines.h"

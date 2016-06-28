@@ -2,6 +2,8 @@
 #define WORLD_H
 
 #include <GL/glew.h>
+#include <stdlib.h>
+#include <math.h>
 
 #include "custommath.h"
 #include "block.h"

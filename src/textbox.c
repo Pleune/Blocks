@@ -1,6 +1,7 @@
 #include "textbox.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -114,6 +115,8 @@ static GLuint glprogram;
 static GLuint uniform_texture;
 static GLuint uniform_window_size;
 static GLuint uniform_offset;
+static GLuint attribute_pos;
+static GLuint attribute_texcoord_vert;
 
 const static char *shader_vertex = "\
 #version 100\n\
@@ -127,7 +130,7 @@ void main() {\n\
 	texcoord_frag = texcoord_vert;\n\
     vec2 p = (pos + offset)/window_size;\n\
     p.y = 1.0 - p.y;\n\
-    p = p * vec2(2,2) - vec2(1,1);\n\
+    p = p * vec2(2.0,2.0) - vec2(1.0,1.0);\n\
 	gl_Position = vec4(p, 0.0, 1.0);\n\
 }\
 ";
@@ -150,6 +153,8 @@ textbox_static_init()
 	uniform_texture = glGetUniformLocation(glprogram, "texture");
 	uniform_window_size = glGetUniformLocation(glprogram, "window_size");
 	uniform_offset = glGetUniformLocation(glprogram, "offset");
+	attribute_pos = glGetAttribLocation(glprogram, "pos");
+	attribute_texcoord_vert = glGetAttribLocation(glprogram, "texcoord_vert");
 }
 
 void
@@ -266,6 +271,7 @@ textbox_set_txt(textbox_t *textbox, const char *txt)
 		offset.x + surface->w, offset.y, 1, 0,
 		offset.x, offset.y + surface->h, 0, 1
 	};
+
 	glBindBuffer(GL_ARRAY_BUFFER, textbox->vertices_buff);
 	glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(GLfloat), vertices_data, GL_STATIC_DRAW);
 
@@ -310,12 +316,12 @@ textbox_render(textbox_t* textbox)
 	glUniform2fv(uniform_offset, 1, vec);
 
 	glBindBuffer(GL_ARRAY_BUFFER, textbox->vertices_buff);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,4 * sizeof(GLfloat), 0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
+	glVertexAttribPointer(attribute_pos, 2, GL_FLOAT, GL_FALSE,4 * sizeof(GLfloat), 0);
+	glVertexAttribPointer(attribute_texcoord_vert, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(attribute_pos);
+	glEnableVertexAttribArray(attribute_texcoord_vert);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
