@@ -110,8 +110,8 @@ updatethreadfunc(void *ptr)
 		if(updating)
 		{
 			long num = world_update_flush();
-			if(num)
-				info("u:%li", num);
+			if(num > 1500)
+				info("%li updates this cycle", num);
 		}
 	}
 	return 0;

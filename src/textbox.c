@@ -5,7 +5,6 @@
 
 #include <SDL.h>
 #include <SDL_ttf.h>
-#include <GL/glew.h>
 
 #include "state.h"
 #include "debug.h"
@@ -14,24 +13,6 @@
 struct font_info_ttf {
 	const char *name;
 	const char *path;
-};
-
-struct textbox {
-	int w;
-	int h;
-	int x;
-	int y;
-
-	enum textbox_font textbox_font;
-	enum textbox_font_size size;
-	enum textbox_flags flags;
-	SDL_Color color;
-
-   	GLuint vertices_buff;
-	GLuint texture;
-
-
-	char *txt;
 };
 
 static struct font_info_ttf ttf_info[TEXTBOX_NUM_FONTS] = {
@@ -171,7 +152,7 @@ textbox_create(
 	enum textbox_font_size size,
 	enum textbox_flags flags)
 {
-	textbox_t *textbox = malloc(sizeof(textbox_t));
+	textbox_t *textbox = malloc(sizeof(struct textbox));
 
 	textbox->x = x;
 	textbox->y = y;
@@ -197,7 +178,7 @@ textbox_create(
 }
 
 void
-textbox_destroy(struct textbox* textbox)
+textbox_destroy(textbox_t* textbox)
 {
 	glDeleteBuffers(1, &textbox->vertices_buff);
 	glDeleteTextures(1, &textbox->texture);
@@ -280,13 +261,9 @@ textbox_set_txt(textbox_t *textbox, const char *txt)
 }
 
 void
-textbox_set_color(textbox_t* textbox, float r, float g, float b, float a)
+textbox_set_color(textbox_t* textbox, const SDL_Color *color)
 {
-	textbox->color.r = r * 255;
-	textbox->color.g = g * 255;
-	textbox->color.b = b * 255;
-	textbox->color.a = a * 255;
-
+	textbox->color = *color;
 	textbox_set_txt(textbox, textbox->txt);
 }
 

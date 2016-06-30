@@ -3,8 +3,7 @@
 
 #include <stdint.h>
 #include <SDL.h>
-
-typedef struct textbox textbox_t;
+#include <GL/glew.h>
 
 enum textbox_font {
 	TEXTBOX_FONT_ROBOTO_REGULAR,
@@ -53,6 +52,23 @@ extern const SDL_Color textbox_colors[];
 #define TEXTBOX_COLOR_BLUE (&textbox_colors[6])
 #define TEXTBOX_COLOR_PURPLE (&textbox_colors[7])
 
+typedef struct textbox {
+	int w;
+	int h;
+	int x;
+	int y;
+
+	enum textbox_font textbox_font;
+	enum textbox_font_size size;
+	enum textbox_flags flags;
+	SDL_Color color;
+
+   	GLuint vertices_buff;
+	GLuint texture;
+
+	char *txt;
+} textbox_t;
+
 void textbox_static_init();
 void textbox_static_cleanup();
 
@@ -67,7 +83,7 @@ textbox_t *textbox_create(
 void textbox_destroy(textbox_t *textbox);
 
 void textbox_set_txt(textbox_t *textbox, const char *txt);
-void textbox_set_color(textbox_t *textbox, float r, float g, float b, float a);
+void textbox_set_color(textbox_t *textbox, const SDL_Color *color);
 void textbox_set_pos(textbox_t *textbox, int x, int y);
 
 void textbox_render(textbox_t *textbox);
