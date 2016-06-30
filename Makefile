@@ -1,19 +1,19 @@
 CC=gcc
 ROOT=./
 
-CFLAGS:= -Wall -O3 -g --std=c99
-LFLAGS:= --std=c99 -g
+CFLAGS:=
+LFLAGS:=
 LIBS:=
 
 ifeq ($(OS),Windows_NT)
-	CFLAGS:= $(shell pkg-config --cflags sdl2 SDL2_ttf glew)
-	LFLAGS:=
+	CFLAGS:= -Wall -O3 -g$(shell pkg-config --cflags sdl2 SDL2_ttf glew)
+	LFLAGS:= -g
 	LIBS:= $(shell pkg-config --libs sdl2 SDL2_ttf glew) -lopengl32 -lm -mconsole
 else
 #	UNAME_S := $(shell uname -s)
 #	ifeq ($(UNAME_S),Linux)
-		CFLAGS:= $(shell pkg-config --cflags sdl2 SDL2_ttf gl glew)
-		LFLAGS:=
+		CFLAGS:= -g -O3 -Wall $(shell pkg-config --cflags sdl2 SDL2_ttf gl glew)
+		LFLAGS:= -g
 		LIBS:= -lm $(shell pkg-config --libs sdl2 SDL2_ttf gl glew)
 #	endif
 #	ifeq ($(UNAME_S),Darwin)
