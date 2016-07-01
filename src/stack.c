@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "debug.h"
+
 inline static void
 resize(struct stack *stack, size_t size)
 {
@@ -11,12 +13,9 @@ resize(struct stack *stack, size_t size)
 	stack->size = size;
 	unsigned char *new_data = realloc(stack->data, size);
 	if(!new_data)
-	{
-		//TODO: error
-		printf("!!! ERROR 0!!!\n");
-	} else {
+		fail("stack resize realloc fail");
+	else
 		stack->data = new_data;
-	}
 
 	stack->top = offset + stack->data;
 	stack->end = stack->data + size;
@@ -30,10 +29,8 @@ stack_init(struct stack *stack, size_t object_size, size_t object_count, double 
 
 	stack->data = malloc(stack->size);
 	if(!stack->data)
-	{
-		//TODO: error
-		printf("!!! ERROR 1!!!\n");
-	}
+		fail("stack_init malloc failed");
+
 	stack->top = stack->data;
 	stack->end = stack->data + stack->size;
 
@@ -68,12 +65,9 @@ stack_trim(struct stack *stack)
 
 	unsigned char *new_data = realloc(stack->data, stack->size);
 	if(!new_data)
-	{
-		//TODO: error
-		printf("!!! ERROR 2!!! %li\n", stack->size);
-	} else {
+		error("stack_trim realloc failed");
+	else
 		stack->data = new_data;
-	}
 
 	stack->end = stack->data + stack->size;
 }
@@ -95,11 +89,26 @@ stack_pop(struct stack *stack, void *data)
 {
 	if(stack->top == stack->data)
 	{
-		//TODO: error
-		printf("!!! ERROR 3!!!\n");
+		error("stack_pop no elements to pop");
 		return;
 	}
 
 	memcpy(data, stack->top, stack->object_size);
 	stack->top -= stack->object_size;
+}
+
+void
+stack_push_mult(struct stack* stack, void* data, size_t count)
+{
+	size_t current_size = stack->size;
+	size_t needed_size = (stack->top - stack->data) + stack->object_size*count;
+
+	while(current_size < needed_size)
+		current_size *= stack->resize_factor;
+
+	if(current_size > stack->size)
+		resize(stack, current_size);
+
+	memcpy(stack->top, data, stack->object_size * count);
+	stack->top += stack->object_size * count;
 }

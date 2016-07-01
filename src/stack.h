@@ -25,4 +25,6 @@ long stack_objects_get_num(struct stack *stack);
 void stack_push(struct stack *stack, void *data);
 void stack_pop(struct stack *stack, void *data);
 
+void stack_push_mult(struct stack *stack, void *data, size_t count);
+
 #endif
