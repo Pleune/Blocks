@@ -93,8 +93,8 @@ stack_pop(struct stack *stack, void *data)
 		return;
 	}
 
-	memcpy(data, stack->top, stack->object_size);
 	stack->top -= stack->object_size;
+	memcpy(data, stack->top, stack->object_size);
 }
 
 void
@@ -103,7 +103,7 @@ stack_push_mult(struct stack* stack, void* data, size_t count)
 	size_t current_size = stack->size;
 	size_t needed_size = (stack->top - stack->data) + stack->object_size*count;
 
-	while(current_size < needed_size)
+	while(current_size <= needed_size)
 		current_size *= stack->resize_factor;
 
 	if(current_size > stack->size)

@@ -11,6 +11,8 @@
 #include "octree.h"
 #include "stack.h"
 #include "noise.h"
+#include "save.h"
+#include "debug.h"
 
 struct mesh_s {
 	GLuint element_buffer;
@@ -20,6 +22,15 @@ struct mesh_s {
 	long points;
 
 	int uploadnext;
+};
+
+struct update_queue {
+	struct update_queue *next;
+
+	update_flags_t flags;
+
+	int3_t pos;
+	int time;
 };
 
 struct chunk {
@@ -200,12 +211,10 @@ update_queue_compressed(chunk_t *chunk, int x, int y, int z, int time, update_fl
 			top = top->next;
 		}
 		top->next = new;
-		new->prev = top;
 		new->next = 0;
 	} else {
 		chunk->updates = new;
 		new->next = 0;
-		new->prev = 0;
 	}
 }
 
@@ -728,6 +737,7 @@ chunk_update_run(chunk_t *chunk)
 		if(chunk->updates)
 		{
 			struct update_queue *node = chunk->updates;
+			struct update_queue *prev = 0;
 
 			while(node)
 			{
@@ -737,10 +747,8 @@ chunk_update_run(chunk_t *chunk)
 					if(chunk->updates == node)
 						chunk->updates = node->next;
 
-					if(node->next != 0)
-						node->next->prev = node->prev;
-					if(node->prev != 0)
-						node->prev->next = node->next;
+					if(prev != 0)
+						prev->next = node->next;
 
 					long3_t pos = get_worldpos_from_internalpos(
 							&(chunk->pos),
@@ -755,6 +763,7 @@ chunk_update_run(chunk_t *chunk)
 					free(node);
 				} else {
 					node->time--;
+					prev = node;
 				}
 				node = next;
 			}
@@ -824,6 +833,7 @@ int
 chunk_recenter(chunk_t *chunk, long3_t *pos)
 {
 	lock_write(chunk);
+
 	if(!chunk->iscompressed)
 	{
 		chunk->iscompressed = 1;
@@ -853,4 +863,129 @@ chunk_fill_air(chunk_t *chunk)
 	lock_write(chunk);
 	octree_zero(chunk->data);
 	unlock_write(chunk);
+}
+
+size_t
+update_dump(struct update_queue *queue, unsigned char **data)
+{
+	//TODO: constants
+	struct stack stack;
+	stack_init(&stack, 1, 100, 2.0);
+
+	struct update_queue *this = queue;
+	while(this)
+	{
+		save_write_uint16(&stack, this->flags);
+		save_write_uint32(&stack, this->pos.x);
+		save_write_uint32(&stack, this->pos.y);
+		save_write_uint32(&stack, this->pos.z);
+		save_write_uint32(&stack, this->time);
+
+		this = this->next;
+	}
+
+	stack_trim(&stack);
+	*data = stack.data;
+
+	return stack.size;
+}
+
+struct update_queue *
+update_read(unsigned char *data, size_t size)
+{
+	struct update_queue *begin = 0;
+	struct update_queue *prev = 0;
+
+	size_t count = 0;
+	for(count=0; count<size; count+=18)
+	{
+		struct update_queue *update = malloc(sizeof(struct update_queue));
+		data += save_read_uint16(data, &update->flags, sizeof(update->flags));
+		data += save_read_uint32(data, &update->pos.x, sizeof(update->pos.x));
+		data += save_read_uint32(data, &update->pos.y, sizeof(update->pos.y));
+		data += save_read_uint32(data, &update->pos.z, sizeof(update->pos.z));
+		data += save_read_uint32(data, &update->time, sizeof(update->time));
+
+		if(begin == 0)
+			begin = update;
+
+		if(prev)
+			prev->next = update;
+
+		prev = update;
+	}
+
+	if(prev)
+		prev->next = 0;
+
+	return begin;
+}
+
+size_t
+chunk_dump(chunk_t *chunk, unsigned char **data)
+{
+	unsigned char *octree_data;
+	size_t octree_size;
+
+	unsigned char *updates_data = 0;
+	size_t updates_size = 0;
+
+	if(!chunk->iscompressed)
+		compress(chunk);
+
+	lock_read(chunk);
+
+	octree_size = octree_dump(chunk->data, &octree_data);
+	updates_size = update_dump(chunk->updates, &updates_data);
+
+	unlock_read(chunk);
+
+	//TODO: constants
+	struct stack stack;
+	stack_init(&stack, 1, 10000, 2.0);
+	stack_push_mult(&stack, "CHUNK.v000", 10);
+
+	save_write_uint64(&stack, octree_size);
+	save_write_uint64(&stack, updates_size);
+	save_write_uint64(&stack, chunk->pos.x);
+	save_write_uint64(&stack, chunk->pos.y);
+	save_write_uint64(&stack, chunk->pos.z);
+	stack_push_mult(&stack, octree_data, octree_size);
+	free(octree_data);
+	stack_push_mult(&stack, updates_data, updates_size);
+	free(updates_data);
+
+	stack_trim(&stack);
+
+	*data = stack.data;
+	return octree_size;
+}
+
+chunk_t *
+chunk_read(unsigned char *data)
+{
+	chunk_t *ret = malloc(sizeof(chunk_t));
+	init_chunk(ret);
+	if(strncmp((char *)data, "CHUNK.v000", 10) != 0)
+	{
+		error("reading chunk wrong version");
+		free(ret);
+		return 0;
+	}
+
+	size_t octree_size;
+	size_t updates_size;
+
+	data += 10;
+	data += save_read_uint64(data, &octree_size, sizeof(octree_size));
+	data += save_read_uint64(data, &updates_size, sizeof(updates_size));
+	data += save_read_uint64(data, &ret->pos.x, sizeof(ret->pos.x));
+	data += save_read_uint64(data, &ret->pos.y, sizeof(ret->pos.y));
+	data += save_read_uint64(data, &ret->pos.z, sizeof(ret->pos.z));
+
+	ret->data = octree_read(data);
+	data += octree_size;
+	ret->updates = update_read(data, updates_size);
+
+	return ret;
 }

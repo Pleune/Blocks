@@ -15,6 +15,7 @@ void world_cleanup();
 
 void world_seed_gen();
 uint32_t world_get_seed();
+void world_set_seed(uint32_t new_seed);
 
 void world_render(vec3_t pos, GLuint modelmatrix);
 

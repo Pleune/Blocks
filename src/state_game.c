@@ -211,11 +211,11 @@ state_game_init(void *ptr)
 
 	rotx = 0;
 	roty = 0;
-	world_seed_gen();
+	world_set_seed(0);
 	vec3_t spawn = {0, 0, 0};
 
 	spawn.y = worldgen_get_height_of_pos(0, 0, 0)+1.1;
-
+	/*
 	int spawntries = 0;
 	while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
 	{
@@ -225,6 +225,7 @@ state_game_init(void *ptr)
 		spawn.y = worldgen_get_height_of_pos(0, spawn.x, spawn.z)+1.1;
 		info("spawn retry %i x: %f z: %f h: %f", spawntries, spawn.x, spawn.z, spawn.y);
 	}
+	*/
 	spawn.x += .5;
 	spawn.z += .5;
 	if(spawn.y < 0)
@@ -327,7 +328,7 @@ input()
 	if(keyboard[SDL_SCANCODE_R])
 	{
 		block_t b;
-		b.id = WATER;
+		b.id = SAND;
 		b.metadata.number = SIM_WATER_LEVELS;
 		world_ray_set(&headpos, &forwardcamera, b, 1, 1, 1000);
 	}

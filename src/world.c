@@ -16,6 +16,8 @@
 #include "worldgen.h"
 #include "blockpick.h"
 
+#include "debug.h"
+
 static long3_t worldscope = {0, 0, 0};
 static vec3_t worldcenterpos = {0, 0, 0};
 static long3_t worldcenter = {0, 0, 0};
@@ -30,9 +32,13 @@ static SDL_Thread *remeshthreadB; //center of world (faster)
 static SDL_Thread *remeshthreadC; //Only "raycasted" updates (fasterer)
 static SDL_Thread *remeshthreadD; //Only "instant" updates (fastest)
 
+static int firstrun = 1;
+
 struct {
 	chunk_t *chunk;
 	uint8_t instantremesh;
+	unsigned char *save_data;
+	size_t save_size;
 } data[WORLD_CHUNKS_PER_EDGE][WORLD_CHUNKS_PER_EDGE][WORLD_CHUNKS_PER_EDGE];
 
 static inline long3_t
@@ -406,15 +412,28 @@ world_init(vec3_t pos)
 	setworldcenter(pos);
 	chunk_static_init();
 
-	int3_t cpos;
-	for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
-	for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
-	for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
+	if(firstrun)
 	{
-		long3_t long3max = {LONG_MAX, LONG_MAX, LONG_MAX};
+		int3_t cpos;
+		for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
+		for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
+		for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
+		{
+			long3_t long3max = {LONG_MAX, LONG_MAX, LONG_MAX};
 
-		data[cpos.x][cpos.y][cpos.z].chunk = chunk_load_empty(long3max);
-		data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
+			data[cpos.x][cpos.y][cpos.z].chunk = chunk_load_empty(long3max);
+			data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
+		}
+	} else {
+		int3_t cpos;
+		for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
+		for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
+		for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
+		{
+			data[cpos.x][cpos.y][cpos.z].chunk = chunk_read(data[cpos.x][cpos.y][cpos.z].save_data);
+			free(data[cpos.x][cpos.y][cpos.z].save_data);
+			data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
+		}
 	}
 
 	stopthreads = 0;
@@ -429,6 +448,8 @@ world_init(vec3_t pos)
 	SDL_Thread *wgthreads[INIT_WORLDGEN_THREADS];
 	worldgen_t *wgcontexts[INIT_WORLDGEN_THREADS];
 
+	if(firstrun)
+	{
 	int i;
 	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
 	{
@@ -447,6 +468,7 @@ world_init(vec3_t pos)
 		SDL_WaitThread(wgthreads[i], 0);
 		worldgen_context_destroy(wgcontexts[i]);
 	}
+	}
 
 	wginfo.continuous = 1;
 	wginfo.low.x = 0;
@@ -462,6 +484,8 @@ world_init(vec3_t pos)
 	remeshthreadB = SDL_CreateThread(remeshthreadfuncB, "world_remeshB", 0);
 	remeshthreadC = SDL_CreateThread(remeshthreadfuncC, "world_remeshC", 0);
 	remeshthreadD = SDL_CreateThread(remeshthreadfuncD, "world_remeshD", 0);
+
+	firstrun = 0;
 }
 
 void
@@ -474,6 +498,19 @@ world_cleanup()
 	SDL_WaitThread(remeshthreadB, 0);
 	SDL_WaitThread(remeshthreadC, 0);
 	SDL_WaitThread(remeshthreadD, 0);
+
+	size_t sizetot = 0;
+
+	int3_t cpos;
+	for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
+	for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
+	for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
+	{
+   		data[cpos.x][cpos.y][cpos.z].save_size = chunk_dump(data[cpos.x][cpos.y][cpos.z].chunk, &data[cpos.x][cpos.y][cpos.z].save_data);
+		sizetot += data[cpos.x][cpos.y][cpos.z].save_size;
+	}
+
+	info("total region size: %li", sizetot);
 
 	int3_t chunkindex;
 	for(chunkindex.x=0; chunkindex.x<WORLD_CHUNKS_PER_EDGE; ++chunkindex.x)
@@ -664,6 +701,12 @@ uint32_t
 world_get_seed()
 {
 	return seed;
+}
+
+void
+world_set_seed(uint32_t new_seed)
+{
+	seed = new_seed;
 }
 
 void

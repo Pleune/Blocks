@@ -6,6 +6,7 @@
 #include "modulo.h"
 #include "stack.h"
 #include "debug.h"
+#include "save.h"
 
 struct node_s {
 	int8_t isleaf;
@@ -139,21 +140,8 @@ write_leaf(octree_t *tree, struct stack *stack)
 	static char static_B = 'L';
 	stack_push(stack, &static_B);
 
-	unsigned char tmp;
-	tmp = tree->data.block.id;
-	stack_push(stack, &tmp);
-	tmp = tree->data.block.id >> 8;
-	stack_push(stack, &tmp);
-
-	tmp = tree->data.block.metadata.number;
-	stack_push(stack, &tmp);
-	tmp = tree->data.block.metadata.number >> 8;
-	stack_push(stack, &tmp);
-	tmp = tree->data.block.metadata.number >> 16;
-	stack_push(stack, &tmp);
-	tmp = tree->data.block.metadata.number >> 24;
-	stack_push(stack, &tmp);
-
+	save_write_uint16(stack, tree->data.block.id);
+	save_write_uint32(stack, tree->data.block.metadata.number);
 }
 
 void
@@ -199,16 +187,10 @@ read_nonleaf(octree_t *tree, unsigned char *data)
 size_t
 read_leaf(octree_t *tree, unsigned char *data)
 {
-	unsigned char *index = data + 1;
 	tree->isleaf = 1;
-	tree->data.block.id =
-		(enum block_id)(index[0]) |
-		(enum block_id)(index[1]) << 8;
-	tree->data.block.metadata.number =
-		(enum block_id)(index[2]) |
-		(enum block_id)(index[3]) << 8 |
-		(enum block_id)(index[4]) << 16 |
-		(enum block_id)(index[5]) << 24;
+	tree->data.block.id = 0;
+	save_read_uint16(data+1, &tree->data.block.id, sizeof(tree->data.block.id));
+	save_read_uint32(data+3, &tree->data.block.metadata.number, sizeof(tree->data.block.metadata.number));
 
 	return 7;
 }

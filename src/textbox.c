@@ -172,6 +172,8 @@ textbox_create(
 	glGenBuffers(1, &textbox->vertices_buff);
 	glGenTextures(1, &textbox->texture);
 
+	textbox->txt = 0;
+
 	textbox_set_txt(textbox, txt);
 
 	return textbox;
