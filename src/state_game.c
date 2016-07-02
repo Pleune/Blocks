@@ -147,6 +147,15 @@ state_game_window_resize()
 void
 state_game_init(void *ptr)
 {
+	if(!world_is_initalized())
+	{
+		error("state_game started before world_init()");
+		state_queue_fail();
+		return;
+	}
+
+	pos = world_get_player();
+
 	state_window_get_size(&windoww, &windowh);
 
 	//load shaders 'n stuff
@@ -211,28 +220,7 @@ state_game_init(void *ptr)
 
 	rotx = 0;
 	roty = 0;
-	world_set_seed(0);
-	vec3_t spawn = {0, 0, 0};
 
-	spawn.y = worldgen_get_height_of_pos(0, 0, 0)+1.1;
-	/*
-	int spawntries = 0;
-	while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
-	{
-		spawntries++;
-		spawn.x = (double)(rand()%10000) - 5000;
-		spawn.z = (double)(rand()%10000) - 5000;
-		spawn.y = worldgen_get_height_of_pos(0, spawn.x, spawn.z)+1.1;
-		info("spawn retry %i x: %f z: %f h: %f", spawntries, spawn.x, spawn.z, spawn.y);
-	}
-	*/
-	spawn.x += .5;
-	spawn.z += .5;
-	if(spawn.y < 0)
-		spawn.y = 0.1;
-	info("h: %f\n", spawn.y);
-	world_init(spawn);
-	pos = entity_create(spawn.x, spawn.y, spawn.z, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MASS);
 	posptr = entity_pos_get_ptr(pos);
 	vec3_t friction = {PLAYER_FRICTION,PLAYER_FRICTION,PLAYER_FRICTION};
 	entity_friction_set(pos, friction);
@@ -568,7 +556,6 @@ state_game_close(void *ptr)
 	SDL_SemPost(updatesem);
 	SDL_WaitThread(updatethread, 0);
 	SDL_DestroySemaphore(updatesem);
-	entity_destroy(pos);
 	world_cleanup();
 	textbox_destroy(textbox_fps);
 	SDL_ShowCursor(1);

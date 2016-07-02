@@ -15,6 +15,7 @@
 #include "modulo.h"
 #include "worldgen.h"
 #include "blockpick.h"
+#include "entity.h"
 
 #include "debug.h"
 
@@ -31,6 +32,8 @@ static SDL_Thread *remeshthreadA; //entire world (slow)
 static SDL_Thread *remeshthreadB; //center of world (faster)
 static SDL_Thread *remeshthreadC; //Only "raycasted" updates (fasterer)
 static SDL_Thread *remeshthreadD; //Only "instant" updates (fastest)
+
+static entity_t *player = 0;
 
 static int firstrun = 1;
 
@@ -398,6 +401,18 @@ remeshthreadfuncD(void *ptr)
 	return 0;
 }
 
+int
+world_is_initalized()
+{
+	return player ? 1 : 0;
+}
+
+entity_t *
+world_get_player()
+{
+	return player;
+}
+
 void
 world_seed_gen()
 {
@@ -409,8 +424,16 @@ world_seed_gen()
 void
 world_init(vec3_t pos)
 {
+	if(world_is_initalized())
+	{
+		error("world_initalized() already initalized");
+		return;
+	}
+
 	setworldcenter(pos);
 	chunk_static_init();
+
+	player = entity_create(pos.x, pos.y, pos.z, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MASS);
 
 	if(firstrun)
 	{
@@ -440,7 +463,8 @@ world_init(vec3_t pos)
 	int wgcounter = 0;
 	struct world_genthread_s wginfo = { 0, 0, 0,
 		{0, 0, 0},
-		{WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE}
+		{WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE},
+		0
 	};
 	wginfo.initalized = SDL_CreateSemaphore(0);
 	wginfo.counter = &wgcounter;
@@ -491,6 +515,12 @@ world_init(vec3_t pos)
 void
 world_cleanup()
 {
+	if(world_is_initalized())
+	{
+		error("world_cleanup() called twice");
+		return;
+	}
+
 	stopthreads=1;
 
 	SDL_WaitThread(generationthread, 0);
@@ -517,6 +547,9 @@ world_cleanup()
 	for(chunkindex.y=0; chunkindex.y<WORLD_CHUNKS_PER_EDGE; ++chunkindex.y)
 	for(chunkindex.z=0; chunkindex.z<WORLD_CHUNKS_PER_EDGE; ++chunkindex.z)
 		chunk_free(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
+
+	entity_destroy(player);
+	player = 0;
 
 	chunk_static_cleanup();
 }

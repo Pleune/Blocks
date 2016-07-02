@@ -21,6 +21,7 @@ static struct statestack_s stack = { {0}, {0}, 0 };
 #define CURRENTSTATE (stack.states[stack.top])
 
 static int queueforpop = 0;
+static int queueforfail = 0;
 static enum states queueforpush = MAX_STATES;
 static void *pushptr = 0;
 
@@ -55,7 +56,23 @@ push(enum states newstate)
 	if(stack.top < STACK_MAX)
 		stack.states[stack.top] = newstate;
 	else
-		exit(-1);
+		fail("state stack full");
+}
+
+static void
+failedinit()
+{
+	info("state engine: fail state %i", CURRENTSTATE);
+
+	stack.instances[CURRENTSTATE]--;
+
+	stack.top--;
+	if(stack.top >= 0)
+		stack.states[stack.top + 1] = 0;
+	else
+		isrunning = 0;
+
+	runevent(CURRENTSTATE, RESUME, 0);
 }
 
 static void
@@ -173,20 +190,25 @@ main(int argc, char *argv[])
 				if(e.window.event == SDL_WINDOWEVENT_RESIZED)
 					state_window_update(e.window.data1, e.window.data2);
 			}
-			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
+			runevent(CURRENTSTATE, SDLEVENT, &e);
 		}
 		runevent(CURRENTSTATE, RUN, 0);
 
-		if(queueforpop)
-		{
-			queueforpop = 0;
-			pop();
-		}
 		if(queueforpush != MAX_STATES)
 		{
 			enum states state = queueforpush;
 			queueforpush = MAX_STATES;
 			push(state);
+		}
+		if(queueforfail)
+		{
+			queueforfail = 0;
+			failedinit();
+		}
+		if(queueforpop)
+		{
+			queueforpop = 0;
+			pop();
 		}
 	}
 
@@ -217,6 +239,17 @@ state_queue_pop()
 		queueforpop = 1;
 	else
 		error("Too many state_queue_pop()");
+}
+
+void
+state_queue_fail()
+{
+	if(!queueforfail)
+		queueforfail = 1;
+	else
+		error("Too many state_queue_fail()");
+
+	queueforpop = 0;
 }
 
 int

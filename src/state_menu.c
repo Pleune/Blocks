@@ -82,7 +82,7 @@ state_menu_event(void *ptr)
 	if(e->type == INTERFACE_MOUSECLICKEVENT)
 	{
 		if(e->user.code == ui_play)
-			state_queue_push(GAME, 0);
+			state_queue_push(WORLD_NEW, 0);
 		if(e->user.code == ui_quit)
 			state_queue_pop();
 	}

@@ -16,6 +16,7 @@ void state_game_resume(void *ptr);
 
 void state_world_load(void *ptr);
 void state_world_new(void *ptr);
+void state_world_cleanup(void *ptr);
 
 void state_menu_init(void *ptr);
 void state_menu_run(void *ptr);
@@ -31,6 +32,7 @@ extern void (*const statetable[MAX_STATES][MAX_EVENTS]) (void *ptr);
 
 void state_queue_push(enum states state, void *ptr);
 void state_queue_pop();
+void state_queue_fail(); //exits state w/o cleanup
 
 inline static void
 state_queue_switch(enum states state, void *ptr)

@@ -9,9 +9,13 @@
 #include "block.h"
 #include "modulo.h"
 #include "chunk.h"
+#include "entity.h"
 
 void world_init(vec3_t pos);
 void world_cleanup();
+
+int world_is_initalized();
+entity_t *world_get_player();
 
 void world_seed_gen();
 uint32_t world_get_seed();
