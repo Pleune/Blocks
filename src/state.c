@@ -9,6 +9,22 @@ void (*const statetable[MAX_STATES][MAX_EVENTS]) (void *ptr) = {
 		[RESUME] = state_menu_init,
 		[SDLEVENT] = state_menu_event
 	},
+	[WORLD_LOAD] = {
+		[INITALIZE] = state_world_load,
+		[RUN] = 0,
+		[CLOSE] = 0,
+		[PAUSE] = 0,
+		[RESUME] = 0,
+		[SDLEVENT] = 0
+	},
+	[WORLD_NEW] = {
+		[INITALIZE] = state_world_new,
+		[RUN] = 0,
+		[CLOSE] = 0,
+		[PAUSE] = 0,
+		[RESUME] = 0,
+		[SDLEVENT] = 0
+	},
 	[GAME] = {
 		[INITALIZE] = state_game_init,
 		[RUN] = state_game_run,

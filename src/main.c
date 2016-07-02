@@ -17,26 +17,25 @@ struct statestack_s {
 	int top;
 };
 
-struct statestack_s stack = { {0}, {0}, 0 };
+static struct statestack_s stack = { {0}, {0}, 0 };
 #define CURRENTSTATE (stack.states[stack.top])
 
-int queueforpop = 0;
-enum states queueforpush = MAX_STATES;
+static int queueforpop = 0;
+static enum states queueforpush = MAX_STATES;
+static void *pushptr = 0;
 
-SDL_Window *win;
-SDL_GLContext glcontext;
-
+static SDL_Window *win;
+static SDL_GLContext glcontext;
 static int windoww, windowh;
-
-char *basepath;
+static char *basepath;
 
 static SDL_GameController *controller = NULL;
 
 static void
-runevent(enum states s, enum events e)
+runevent(enum states s, enum events e, void *ptr)
 {
 	if(statetable[s][e])
-		(*statetable[s][e]) (0);
+		(*statetable[s][e]) (ptr);
 }
 
 static void
@@ -44,12 +43,12 @@ push(enum states newstate)
 {
 	info("state engine: push state %i onto %i", newstate, CURRENTSTATE);
 
-	runevent(CURRENTSTATE, PAUSE);
+	runevent(CURRENTSTATE, PAUSE, pushptr);
 
 	if(stack.instances[newstate] == 0)
-		runevent(newstate, INITALIZE);
+		runevent(newstate, INITALIZE, pushptr);
 	else
-		runevent(newstate, RESUME);
+		runevent(newstate, RESUME, pushptr);
 
 	stack.instances[newstate]++;
 	stack.top++;
@@ -67,9 +66,9 @@ pop()
 	stack.instances[CURRENTSTATE]--;
 
 	if(stack.instances[CURRENTSTATE] == 0)
-		runevent(CURRENTSTATE, CLOSE);
+		runevent(CURRENTSTATE, CLOSE, 0);
 	else
-		runevent(CURRENTSTATE, PAUSE);
+		runevent(CURRENTSTATE, PAUSE, 0);
 
 	stack.top--;
 	if(stack.top >= 0)
@@ -77,7 +76,7 @@ pop()
 	else
 		isrunning = 0;
 
-	runevent(CURRENTSTATE, RESUME);
+	runevent(CURRENTSTATE, RESUME, 0);
 }
 
 static void
@@ -154,7 +153,7 @@ static void init()
 	TTF_Init();
 	textbox_static_init();
 
-	runevent(MENUMAIN, INITALIZE);
+	runevent(MENUMAIN, INITALIZE, 0);
 }
 
 int
@@ -176,7 +175,7 @@ main(int argc, char *argv[])
 			}
 			(*statetable[CURRENTSTATE][SDLEVENT]) (&e);
 		}
-		runevent(CURRENTSTATE, RUN);
+		runevent(CURRENTSTATE, RUN, 0);
 
 		if(queueforpop)
 		{
@@ -200,12 +199,15 @@ main(int argc, char *argv[])
 }
 
 void
-state_queue_push(enum states state)
+state_queue_push(enum states state, void *ptr)
 {
 	if(queueforpush == MAX_STATES)
+	{
+		pushptr = ptr;
 		queueforpush = state;
-	else
+	} else {
 		error("Too manu state_queue_push()");
+	}
 }
 
 void

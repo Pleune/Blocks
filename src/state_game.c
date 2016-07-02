@@ -365,7 +365,7 @@ state_game_event(void *ptr)
 				entity_jump(pos, PLAYER_JUMPSPEED);
 			break;
 			case SDLK_i:
-				state_queue_push(INVENTORY);
+				state_queue_push(INVENTORY, 0);
 			break;
 			case SDLK_v:
 				lines = !lines;
