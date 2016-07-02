@@ -421,13 +421,76 @@ world_seed_gen()
 	seed = rand();
 }
 
-void
-world_init(vec3_t pos)
+int
+generate_new_world_func(void *ptr)
+{
+
+	int *status = ptr;
+
+	stopthreads = 0;
+
+	struct world_genthread_s wginfo = { 0, 0, 0,
+		{0, 0, 0},
+		{WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE},
+		0
+	};
+	wginfo.initalized = SDL_CreateSemaphore(0);
+	wginfo.counter = status;
+
+	SDL_Thread *wgthreads[INIT_WORLDGEN_THREADS];
+	worldgen_t *wgcontexts[INIT_WORLDGEN_THREADS];
+
+	if(firstrun)
+	{
+		int i;
+		for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
+		{
+			wginfo.low.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*i;
+			wginfo.high.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*(i+1);
+
+			wginfo.context = worldgen_context_create();
+			wgcontexts[i] = wginfo.context;
+
+			wgthreads[i] = SDL_CreateThread(generationthreadfunc, "world_generation_init", &wginfo);
+			SDL_SemWait(wginfo.initalized);
+		}
+
+		for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
+		{
+			SDL_WaitThread(wgthreads[i], 0);
+			worldgen_context_destroy(wgcontexts[i]);
+		}
+	}
+
+	wginfo.continuous = 1;
+	wginfo.low.x = 0;
+	wginfo.high.x = WORLD_CHUNKS_PER_EDGE;
+	wginfo.context = 0;
+	wginfo.counter = 0;
+
+	generationthread = SDL_CreateThread(generationthreadfunc, "world_generation", &wginfo);
+	SDL_SemWait(wginfo.initalized);
+	SDL_DestroySemaphore(wginfo.initalized);
+
+	remeshthreadA = SDL_CreateThread(remeshthreadfuncA, "world_remeshA", 0);
+	remeshthreadB = SDL_CreateThread(remeshthreadfuncB, "world_remeshB", 0);
+	remeshthreadC = SDL_CreateThread(remeshthreadfuncC, "world_remeshC", 0);
+	remeshthreadD = SDL_CreateThread(remeshthreadfuncD, "world_remeshD", 0);
+
+	firstrun = 0;
+
+	*status = -1;
+
+	return 0;
+}
+
+int
+world_init(vec3_t pos, volatile int *status)
 {
 	if(world_is_initalized())
 	{
 		error("world_initalized() already initalized");
-		return;
+		return -1;
 	}
 
 	setworldcenter(pos);
@@ -459,57 +522,9 @@ world_init(vec3_t pos)
 		}
 	}
 
-	stopthreads = 0;
-	int wgcounter = 0;
-	struct world_genthread_s wginfo = { 0, 0, 0,
-		{0, 0, 0},
-		{WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE},
-		0
-	};
-	wginfo.initalized = SDL_CreateSemaphore(0);
-	wginfo.counter = &wgcounter;
+	SDL_CreateThread(generate_new_world_func, "world_init()", (void *)status);
 
-	SDL_Thread *wgthreads[INIT_WORLDGEN_THREADS];
-	worldgen_t *wgcontexts[INIT_WORLDGEN_THREADS];
-
-	if(firstrun)
-	{
-	int i;
-	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
-	{
-		wginfo.low.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*i;
-		wginfo.high.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*(i+1);
-
-		wginfo.context = worldgen_context_create();
-		wgcontexts[i] = wginfo.context;
-
-		wgthreads[i] = SDL_CreateThread(generationthreadfunc, "world_generation_init", &wginfo);
-		SDL_SemWait(wginfo.initalized);
-	}
-
-	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
-	{
-		SDL_WaitThread(wgthreads[i], 0);
-		worldgen_context_destroy(wgcontexts[i]);
-	}
-	}
-
-	wginfo.continuous = 1;
-	wginfo.low.x = 0;
-	wginfo.high.x = WORLD_CHUNKS_PER_EDGE;
-	wginfo.context = 0;
-	wginfo.counter = 0;
-
-	generationthread = SDL_CreateThread(generationthreadfunc, "world_generation", &wginfo);
-	SDL_SemWait(wginfo.initalized);
-	SDL_DestroySemaphore(wginfo.initalized);
-
-	remeshthreadA = SDL_CreateThread(remeshthreadfuncA, "world_remeshA", 0);
-	remeshthreadB = SDL_CreateThread(remeshthreadfuncB, "world_remeshB", 0);
-	remeshthreadC = SDL_CreateThread(remeshthreadfuncC, "world_remeshC", 0);
-	remeshthreadD = SDL_CreateThread(remeshthreadfuncD, "world_remeshD", 0);
-
-	firstrun = 0;
+	return 1;
 }
 
 void

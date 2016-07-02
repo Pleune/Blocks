@@ -11,7 +11,7 @@
 #include "chunk.h"
 #include "entity.h"
 
-void world_init(vec3_t pos);
+int world_init(vec3_t pos, volatile int *status);
 void world_cleanup();
 
 int world_is_initalized();

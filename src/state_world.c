@@ -1,5 +1,7 @@
 #include "state.h"
 
+#include <SDL.h>
+
 #include "world.h"
 #include "worldgen.h"
 #include "debug.h"
@@ -32,7 +34,12 @@ state_world_new(void *ptr)
 	if(spawn.y < 0)
 		spawn.y = 0.1;
 	info("h: %f\n", spawn.y);
-	world_init(spawn);
+
+	volatile int status = 0;
+	world_init(spawn, &status);
+
+	while(status != -1)
+		SDL_Delay(5);
 
 	state_queue_switch(GAME, 0);
 }
