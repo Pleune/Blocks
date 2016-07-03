@@ -19,6 +19,8 @@
 
 #include "debug.h"
 
+static int is_initalized = 0;
+
 static long3_t worldscope = {0, 0, 0};
 static vec3_t worldcenterpos = {0, 0, 0};
 static long3_t worldcenter = {0, 0, 0};
@@ -227,17 +229,7 @@ generationthreadfunc(void *ptr)
 						chunk_mesh_clear_current(data[chunkindex.x][chunkindex.y][chunkindex.z == 0 ? WORLD_CHUNKS_PER_EDGE-1 : chunkindex.z-1].chunk);
 
 						if(counter)
-						{
 							++(*counter);
-
-							char string[] = "                    ";
-							float percent = (float)(*counter)/(WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE);
-							memset(string, '#', (sizeof(string) - 1) * percent);
-							printf("LOADING... [%s] %f%%\r", string, percent * 100.0f);
-							if(*counter == (WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE*WORLD_CHUNKS_PER_EDGE))
-								putchar('\n');
-							fflush(stdout);
-						}
 					}
 				}
 			}
@@ -404,7 +396,7 @@ remeshthreadfuncD(void *ptr)
 int
 world_is_initalized()
 {
-	return player ? 1 : 0;
+	return is_initalized ? 1 : 0;
 }
 
 entity_t *
@@ -478,8 +470,8 @@ generate_new_world_func(void *ptr)
 	remeshthreadD = SDL_CreateThread(remeshthreadfuncD, "world_remeshD", 0);
 
 	firstrun = 0;
-
 	*status = -1;
+	is_initalized = 1;
 
 	return 0;
 }
@@ -530,7 +522,7 @@ world_init(vec3_t pos, volatile int *status)
 void
 world_cleanup()
 {
-	if(world_is_initalized())
+	if(!world_is_initalized())
 	{
 		error("world_cleanup() called twice");
 		return;
@@ -564,9 +556,10 @@ world_cleanup()
 		chunk_free(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk);
 
 	entity_destroy(player);
-	player = 0;
 
 	chunk_static_cleanup();
+
+	is_initalized = 0;
 }
 
 void

@@ -6,7 +6,7 @@ LFLAGS:=
 LIBS:=
 
 ifeq ($(OS),Windows_NT)
-	CFLAGS:= -Wall -O3 -g$(shell pkg-config --cflags sdl2 SDL2_ttf glew)
+	CFLAGS:= -Wall -O3 -g $(shell pkg-config --cflags sdl2 SDL2_ttf glew)
 	LFLAGS:= -g
 	LIBS:= $(shell pkg-config --libs sdl2 SDL2_ttf glew) -lopengl32 -lm -mconsole
 else

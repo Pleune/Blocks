@@ -123,7 +123,8 @@ static void init()
 		//SDL2 didn't create a window
 		fail("SDL_CreateWindow");
 
-	for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+	int i;
+	for (i = 0; i < SDL_NumJoysticks(); ++i) {
 		if(SDL_IsGameController(i))
 		{
 			controller = SDL_GameControllerOpen(i);
