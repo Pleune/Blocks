@@ -7,6 +7,7 @@
 #include "state.h"
 #include "textbox.h"
 #include "debug.h"
+#include "defines.h"
 
 static int isrunning = 1;
 
@@ -29,6 +30,7 @@ static SDL_Window *win;
 static SDL_GLContext glcontext;
 static int windoww, windowh;
 static char *basepath;
+static char *prefpath;
 
 static SDL_GameController *controller = NULL;
 
@@ -164,6 +166,7 @@ static void init()
 	SDL_GL_SwapWindow(win);
 
 	basepath = SDL_GetBasePath();
+	prefpath = SDL_GetPrefPath(PROGRAM_ORG, PROGRAM_NAME);
 
 	stack.instances[MENUMAIN] = 1;
 	stack.top = 0;
@@ -288,10 +291,16 @@ state_window_swap()
 	SDL_GL_SwapWindow(win);
 }
 
-char *
+const char *
 state_basepath_get()
 {
 	return basepath;
+}
+
+const char *
+state_prefpath_get()
+{
+	return prefpath;
 }
 
 void

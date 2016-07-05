@@ -49,7 +49,8 @@ void state_window_update(int w, int h);
 void state_window_get_size(int *w, int* h);
 void state_window_swap();
 
-char *state_basepath_get();
+const char *state_basepath_get();
+const char *state_prefpath_get();
 
 void state_mouse_center();
 int state_has_controller();

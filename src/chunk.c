@@ -958,7 +958,7 @@ chunk_dump(chunk_t *chunk, unsigned char **data)
 	stack_trim(&stack);
 
 	*data = stack.data;
-	return octree_size;
+	return stack.size;
 }
 
 chunk_t *

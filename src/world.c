@@ -16,8 +16,10 @@
 #include "worldgen.h"
 #include "blockpick.h"
 #include "entity.h"
-
 #include "debug.h"
+#include "minmax.h"
+#include "save.h"
+#include "stack.h"
 
 static int is_initalized = 0;
 
@@ -36,8 +38,6 @@ static SDL_Thread *remeshthreadC; //Only "raycasted" updates (fasterer)
 static SDL_Thread *remeshthreadD; //Only "instant" updates (fastest)
 
 static entity_t *player = 0;
-
-static int firstrun = 1;
 
 struct {
 	chunk_t *chunk;
@@ -156,7 +156,6 @@ remesh(int3_t *chunkindex)
 	{
 			north = data[tempchunkindex.x][tempchunkindex.y][tempchunkindex.z].chunk;
 	}
-
 
 	//re set up the buffers
 	chunk_remesh(chunk, up,down,north,south,east,west);
@@ -355,7 +354,6 @@ remeshthreadfuncC(void *ptr)
 	return 0;
 }
 
-
 //FAST REMESH
 static int
 remeshthreadfuncD(void *ptr)
@@ -416,7 +414,6 @@ world_seed_gen()
 int
 generate_new_world_func(void *ptr)
 {
-
 	int *status = ptr;
 
 	stopthreads = 0;
@@ -432,26 +429,23 @@ generate_new_world_func(void *ptr)
 	SDL_Thread *wgthreads[INIT_WORLDGEN_THREADS];
 	worldgen_t *wgcontexts[INIT_WORLDGEN_THREADS];
 
-	if(firstrun)
+	int i;
+	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
 	{
-		int i;
-		for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
-		{
-			wginfo.low.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*i;
-			wginfo.high.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*(i+1);
+		wginfo.low.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*i;
+		wginfo.high.x = (WORLD_CHUNKS_PER_EDGE / (double)INIT_WORLDGEN_THREADS)*(i+1);
 
-			wginfo.context = worldgen_context_create();
-			wgcontexts[i] = wginfo.context;
+		wginfo.context = worldgen_context_create();
+		wgcontexts[i] = wginfo.context;
 
-			wgthreads[i] = SDL_CreateThread(generationthreadfunc, "world_generation_init", &wginfo);
-			SDL_SemWait(wginfo.initalized);
-		}
+		wgthreads[i] = SDL_CreateThread(generationthreadfunc, "world_generation", &wginfo);
+		SDL_SemWait(wginfo.initalized);
+	}
 
-		for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
-		{
-			SDL_WaitThread(wgthreads[i], 0);
-			worldgen_context_destroy(wgcontexts[i]);
-		}
+	for(i=0; i<INIT_WORLDGEN_THREADS; ++i)
+	{
+		SDL_WaitThread(wgthreads[i], 0);
+		worldgen_context_destroy(wgcontexts[i]);
 	}
 
 	wginfo.continuous = 1;
@@ -469,15 +463,56 @@ generate_new_world_func(void *ptr)
 	remeshthreadC = SDL_CreateThread(remeshthreadfuncC, "world_remeshC", 0);
 	remeshthreadD = SDL_CreateThread(remeshthreadfuncD, "world_remeshD", 0);
 
-	firstrun = 0;
 	*status = -1;
 	is_initalized = 1;
 
 	return 0;
 }
 
+void
+world_generate(volatile int *status)
+{
+	//TODO: move do generate_new_world_func
+	int3_t cpos;
+	for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
+	for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
+	for(cpos.y = 0; cpos.y < WORLD_CHUNKS_PER_EDGE; ++cpos.y)
+	{
+		if(data[cpos.x][cpos.y][cpos.z].chunk == 0)
+		{
+			long3_t long3max = { LONG_MAX, LONG_MAX, LONG_MAX };
+			data[cpos.x][cpos.y][cpos.z].chunk = chunk_load_empty(long3max);
+		}
+	}
+
+	SDL_CreateThread(generate_new_world_func, "world_init()", (void *)status);
+}
+
+void
+save_open(const char *directory, const char *basename, FILE **file_chunks, FILE **file_table, const char *mode)
+{
+	if(strlen(directory) + strlen(basename) + MAX(SAVE_EXTENSION_CHUNKS_LEN, SAVE_EXTENSION_CHUNKTABLE_LEN) > SAVE_PATH_MAX_LEN)
+	{
+		error("savefile open aborted. pathlen greater than SAVE_PATH_MAX_LEN");
+		*file_chunks = 0;
+		*file_table = 0;
+		return;
+	}
+
+	char path_chunks[SAVE_PATH_MAX_LEN] = { 0 };
+	char path_table[SAVE_PATH_MAX_LEN] = { 0 };
+
+	strcat(strcat(strcat(path_chunks, directory), basename), SAVE_EXTENSION_CHUNKS);
+	strcat(strcat(strcat(path_table, directory), basename), SAVE_EXTENSION_CHUNKTABLE);
+
+	info("touching save %s", path_chunks);
+
+	*file_chunks = fopen(path_chunks, mode);
+	*file_table = fopen(path_table, mode);
+}
+
 int
-world_init(vec3_t pos, volatile int *status)
+world_init(vec3_t pos)
 {
 	if(world_is_initalized())
 	{
@@ -490,33 +525,114 @@ world_init(vec3_t pos, volatile int *status)
 
 	player = entity_create(pos.x, pos.y, pos.z, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MASS);
 
-	if(firstrun)
+	int3_t cpos;
+	for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
+	for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
+	for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
 	{
-		int3_t cpos;
-		for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
-		for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
-		for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
-		{
-			long3_t long3max = {LONG_MAX, LONG_MAX, LONG_MAX};
+		data[cpos.x][cpos.y][cpos.z].chunk = 0;
+		data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
+	}
 
-			data[cpos.x][cpos.y][cpos.z].chunk = chunk_load_empty(long3max);
-			data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
-		}
-	} else {
-		int3_t cpos;
-		for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
-		for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
-		for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
+	return 1;
+}
+
+int world_save(const char *directory, const char *basename)
+{
+	FILE *file_chunks;
+	FILE *file_table;
+	save_open(directory, basename, &file_chunks, &file_table, "wb");
+
+	//TODO: constants
+	struct stack stack_table;
+	stack_init(&stack_table, 1, 1000, 2.0);
+
+	size_t index = 0;
+	int x, y, z;
+	for(x = 0; x<WORLD_CHUNKS_PER_EDGE; ++x)
+	for(y = 0; y<WORLD_CHUNKS_PER_EDGE; ++y)
+	for(z = 0; z<WORLD_CHUNKS_PER_EDGE; ++z)
+	{
+		unsigned char *chunkdata;
+		long3_t pos;
+		size_t chunklen;
+
+		pos = chunk_pos_get(data[x][y][z].chunk);
+		chunklen = chunk_dump(data[x][y][z].chunk, &chunkdata);
+
+		fwrite(chunkdata, 1, chunklen, file_chunks);
+
+		free(chunkdata);
+
+		//TODO: constants
+		save_write_uint64(&stack_table, pos.x);
+		save_write_uint64(&stack_table, pos.y);
+		save_write_uint64(&stack_table, pos.z);
+		save_write_uint64(&stack_table, index);
+		save_write_uint64(&stack_table, chunklen);
+
+		index += chunklen;
+	}
+
+	stack_trim(&stack_table);
+	fwrite(stack_table.data, 1, stack_table.size, file_table);
+	stack_destroy(&stack_table);
+
+	fclose(file_chunks);
+	fclose(file_table);
+
+	return 0;
+}
+
+void
+world_load(const char *directory, const char *basename, volatile int *status)
+{
+	FILE *file_chunks;
+	FILE *file_table;
+	save_open(directory, basename, &file_chunks, &file_table, "rb");
+
+	struct lookup {
+		long3_t pos;
+		size_t index;
+		size_t len;
+	};
+
+	unsigned char buff[40];
+	while(fread(buff, 40, 1, file_table) == 1)
+	{
+		size_t index = 0;
+		struct lookup tmp;
+		index += save_read_uint64(buff + index, &tmp.pos.x, sizeof(tmp.pos.x));
+		index += save_read_uint64(buff + index, &tmp.pos.y, sizeof(tmp.pos.y));
+		index += save_read_uint64(buff + index, &tmp.pos.z, sizeof(tmp.pos.z));
+		index += save_read_uint64(buff + index, &tmp.index, sizeof(tmp.index));
+		index += save_read_uint64(buff + index, &tmp.len, sizeof(tmp.len));
+
+		if(tmp.len == 0)
 		{
-			data[cpos.x][cpos.y][cpos.z].chunk = chunk_read(data[cpos.x][cpos.y][cpos.z].save_data);
-			free(data[cpos.x][cpos.y][cpos.z].save_data);
-			data[cpos.x][cpos.y][cpos.z].instantremesh = 0;
+			error("error reading world table: len = 0");
+			continue;
+		}
+
+		if(shouldbequickloaded(tmp.pos))
+		{
+			int3_t chunkindex = getchunkindexofchunk(tmp.pos);
+
+			unsigned char *chunk_data = malloc(tmp.len);
+			fseek(file_chunks, tmp.index, SEEK_SET);
+			fread(chunk_data, tmp.len, 1, file_chunks);
+			data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_read(chunk_data);
+			if(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk == 0)
+				error("read chunk fail at 0x%08x", tmp.index);
+			else if(status)
+				++(*status);
 		}
 	}
 
-	SDL_CreateThread(generate_new_world_func, "world_init()", (void *)status);
+	world_generate(status);
 
-	return 1;
+	fclose(file_chunks);
+	fclose(file_table);
 }
 
 void
@@ -535,19 +651,6 @@ world_cleanup()
 	SDL_WaitThread(remeshthreadB, 0);
 	SDL_WaitThread(remeshthreadC, 0);
 	SDL_WaitThread(remeshthreadD, 0);
-
-	size_t sizetot = 0;
-
-	int3_t cpos;
-	for(cpos.x = 0; cpos.x<WORLD_CHUNKS_PER_EDGE; ++cpos.x)
-	for(cpos.z = 0; cpos.z<WORLD_CHUNKS_PER_EDGE; ++cpos.z)
-	for(cpos.y = 0; cpos.y<WORLD_CHUNKS_PER_EDGE; ++cpos.y)
-	{
-   		data[cpos.x][cpos.y][cpos.z].save_size = chunk_dump(data[cpos.x][cpos.y][cpos.z].chunk, &data[cpos.x][cpos.y][cpos.z].save_data);
-		sizetot += data[cpos.x][cpos.y][cpos.z].save_size;
-	}
-
-	info("total region size: %li", sizetot);
 
 	int3_t chunkindex;
 	for(chunkindex.x=0; chunkindex.x<WORLD_CHUNKS_PER_EDGE; ++chunkindex.x)

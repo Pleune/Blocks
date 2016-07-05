@@ -28,7 +28,7 @@ init_graphical()
 		0);
 
 	textbox_b = textbox_create(
-		10, 40, 300, 40,
+		10, 40, 500, 40,
 		"0 chunks generated",
 		TEXTBOX_COLOR_WHITE,
 		TEXTBOX_FONT_ROBOTO_BOLD,
@@ -103,11 +103,14 @@ state_world_new(void *ptr)
 	info("h: %f\n", spawn.y);
 
 	volatile int status = 0;
-	if (world_init(spawn, &status) == -1)
+	if (world_init(spawn) == -1)
 	{
 		state_queue_fail();
 		return;
 	}
+
+	world_load(state_prefpath_get(), "savefile", &status);
+	//world_generate(&status);
 
 	while (status != -1)
 		loop(status);

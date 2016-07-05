@@ -1,6 +1,9 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
+#define PROGRAM_ORG "Pleune"
+#define PROGRAM_NAME "Blocks"
+
 #define RENDER_WOBBLE 0.1
 
 #define INIT_WORLDGEN_THREADS 4
@@ -33,5 +36,11 @@
 #define MOUSE_SENSITIVITY (1.1/800.0)
 
 #define JOYSTICK_SENSITIVITY_LOOK 10
+
+#define SAVE_PATH_MAX_LEN 512
+#define SAVE_EXTENSION_CHUNKS ".cnks"
+#define SAVE_EXTENSION_CHUNKS_LEN 5
+#define SAVE_EXTENSION_CHUNKTABLE ".ctab"
+#define SAVE_EXTENSION_CHUNKTABLE_LEN 5
 
 #endif

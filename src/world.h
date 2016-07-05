@@ -11,7 +11,10 @@
 #include "chunk.h"
 #include "entity.h"
 
-int world_init(vec3_t pos, volatile int *status);
+int world_init(vec3_t pos);
+int world_save(const char *directory, const char *basename);
+void world_load(const char *directory, const char *basename, volatile int *status);
+void world_generate(volatile int *status);
 void world_cleanup();
 
 int world_is_initalized();
