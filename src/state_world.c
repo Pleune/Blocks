@@ -10,6 +10,7 @@
 
 static textbox_t *textbox_a;
 static textbox_t *textbox_b;
+static volatile int status;
 
 static void
 init_graphical()
@@ -41,8 +42,8 @@ init_graphical()
 	state_window_swap();
 }
 
-static void
-loop(int status)
+void
+state_world_loop(void *ptr)
 {
 	static uint32_t ticks;
 	uint32_t newticks = SDL_GetTicks();
@@ -62,6 +63,9 @@ loop(int status)
 	textbox_render(textbox_b);
 	state_window_swap();
 
+	if(status == -1)
+		state_queue_switch(GAME, 0);
+
 	//TODO: option
 	if(1)
 	{
@@ -75,6 +79,7 @@ void
 state_world_load(void *ptr)
 {
 	init_graphical();
+	status = 0;
 
 	world_set_seed(0);
 	vec3_t spawn = {0, 0, 0};
@@ -97,7 +102,6 @@ state_world_load(void *ptr)
 		spawn.y = 0.1;
 	info("h: %f\n", spawn.y);
 
-	volatile int status = 0;
 	if (world_init(spawn) == -1)
 	{
 		state_queue_fail();
@@ -105,17 +109,13 @@ state_world_load(void *ptr)
 	}
 
 	world_load(state_prefpath_get(), "savefile", &status);
-
-	while (status != -1)
-		loop(status);
-
-	state_queue_switch(GAME, 0);
 }
 
 void
 state_world_new(void *ptr)
 {
 	init_graphical();
+	status = 0;
 
 	world_set_seed(0);
 	vec3_t spawn = {0, 0, 0};
@@ -138,7 +138,6 @@ state_world_new(void *ptr)
 		spawn.y = 0.1;
 	info("h: %f\n", spawn.y);
 
-	volatile int status = 0;
 	if (world_init(spawn) == -1)
 	{
 		state_queue_fail();
@@ -146,9 +145,4 @@ state_world_new(void *ptr)
 	}
 
 	world_generate(&status);
-
-	while (status != -1)
-		loop(status);
-
-	state_queue_switch(GAME, 0);
 }

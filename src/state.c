@@ -10,6 +10,7 @@ void state_game_resume(void *ptr);
 
 void state_world_load(void *ptr);
 void state_world_new(void *ptr);
+void state_world_loop(void *ptr);
 
 void state_menu_init(void *ptr);
 void state_menu_run(void *ptr);
@@ -34,7 +35,7 @@ void (*const statetable[MAX_STATES][MAX_EVENTS]) (void *ptr) = {
 	},
 	[WORLD_LOAD] = {
 		[INITALIZE] = state_world_load,
-		[RUN] = 0,
+		[RUN] = state_world_loop,
 		[CLOSE] = 0,
 		[PAUSE] = 0,
 		[RESUME] = 0,
@@ -42,7 +43,7 @@ void (*const statetable[MAX_STATES][MAX_EVENTS]) (void *ptr) = {
 	},
 	[WORLD_NEW] = {
 		[INITALIZE] = state_world_new,
-		[RUN] = 0,
+		[RUN] = state_world_loop,
 		[CLOSE] = 0,
 		[PAUSE] = 0,
 		[RESUME] = 0,

@@ -198,6 +198,11 @@ main(int argc, char *argv[])
 		}
 		runevent(CURRENTSTATE, RUN, 0);
 
+		if(queueforpop)
+		{
+			queueforpop = 0;
+			pop();
+		}
 		if(queueforpush != MAX_STATES)
 		{
 			enum states state = queueforpush;
@@ -208,11 +213,6 @@ main(int argc, char *argv[])
 		{
 			queueforfail = 0;
 			failedinit();
-		}
-		if(queueforpop)
-		{
-			queueforpop = 0;
-			pop();
 		}
 	}
 
