@@ -12,8 +12,10 @@ static uint32_t fpsmax = 60;
 static int fpscap = 1;
 
 static textbox_t *textbox_play;
+static textbox_t *textbox_load;
 static textbox_t *textbox_quit;
 static interface_t *ui;
+static int32_t ui_load;
 static int32_t ui_play;
 static int32_t ui_quit;
 
@@ -38,8 +40,16 @@ state_menu_init(void *ptr)
 		TEXTBOX_FONT_SIZE_MEDIUM,
 		TEXTBOX_FLAG_CENTER_V);
 
-	textbox_quit = textbox_create(
+	textbox_load = textbox_create(
 		50, 130, 120, 32,
+		"Load",
+		TEXTBOX_COLOR_BLUE,
+		TEXTBOX_FONT_ROBOTO_REGULAR,
+		TEXTBOX_FONT_SIZE_MEDIUM,
+		TEXTBOX_FLAG_CENTER_V);
+
+	textbox_quit = textbox_create(
+		50, 190, 120, 32,
 		"Quit",
 		TEXTBOX_COLOR_BLUE,
 		TEXTBOX_FONT_ROBOTO_REGULAR,
@@ -49,6 +59,7 @@ state_menu_init(void *ptr)
 	ui = interface_create(0);
 	interface_attach_textbox(ui, textbox_title);
 	ui_play = interface_attach_textbox(ui, textbox_play);
+	ui_load = interface_attach_textbox(ui, textbox_load);
 	ui_quit = interface_attach_textbox(ui, textbox_quit);
 }
 
@@ -83,6 +94,8 @@ state_menu_event(void *ptr)
 	{
 		if(e->user.code == ui_play)
 			state_queue_push(WORLD_NEW, 0);
+		if(e->user.code == ui_load)
+			state_queue_push(WORLD_LOAD, 0);
 		if(e->user.code == ui_quit)
 			state_queue_pop();
 	}
@@ -90,6 +103,8 @@ state_menu_event(void *ptr)
 	{
 		if(e->user.code == ui_play)
 			textbox_set_color(textbox_play, TEXTBOX_COLOR_WHITE);
+		if(e->user.code == ui_load)
+			textbox_set_color(textbox_load, TEXTBOX_COLOR_WHITE);
 		if(e->user.code == ui_quit)
 			textbox_set_color(textbox_quit, TEXTBOX_COLOR_WHITE);
 	}
@@ -97,6 +112,8 @@ state_menu_event(void *ptr)
 	{
 		if(e->user.code == ui_play)
 			textbox_set_color(textbox_play, TEXTBOX_COLOR_BLUE);
+		if(e->user.code == ui_load)
+			textbox_set_color(textbox_load, TEXTBOX_COLOR_BLUE);
 		if(e->user.code == ui_quit)
 			textbox_set_color(textbox_quit, TEXTBOX_COLOR_BLUE);
 	}
