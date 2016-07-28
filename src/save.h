@@ -1,12 +1,15 @@
 #ifndef SAVE_H
 #define SAVE_H
 
-#include "stack.h"
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+
+#include "stack.h"
+#include "standard.h"
 
 inline static void
-save_write_uint16(struct stack *stack, uint16_t d)
+save_write_uint16(stack_t *stack, uint16_t d)
 {
 	unsigned char tmp;
 	int i;
@@ -19,7 +22,7 @@ save_write_uint16(struct stack *stack, uint16_t d)
 }
 
 inline static void
-save_write_uint32(struct stack *stack, uint32_t d)
+save_write_uint32(stack_t *stack, uint32_t d)
 {
 	unsigned char tmp;
 	int i;
@@ -32,7 +35,7 @@ save_write_uint32(struct stack *stack, uint32_t d)
 }
 
 inline static void
-save_write_uint64(struct stack *stack, uint64_t d)
+save_write_uint64(stack_t *stack, uint64_t d)
 {
 	unsigned char tmp;
 	int i;

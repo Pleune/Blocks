@@ -8,6 +8,7 @@
 #include <limits.h>
 
 #include <SDL_timer.h>
+#include <SDL_thread.h>
 
 #include "custommath.h"
 #include "defines.h"
@@ -20,6 +21,7 @@
 #include "minmax.h"
 #include "save.h"
 #include "stack.h"
+#include "state.h"
 
 static int is_initalized = 0;
 
@@ -469,8 +471,8 @@ generate_new_world_func(void *ptr)
 	return 0;
 }
 
-void
-world_generate(volatile int *status)
+static void
+generate(volatile int *status)
 {
 	//TODO: move do generate_new_world_func
 	int3_t cpos;
@@ -489,9 +491,11 @@ world_generate(volatile int *status)
 }
 
 void
-save_open(const char *directory, const char *basename, FILE **file_chunks, FILE **file_table, const char *mode)
+save_open(const char *savename, FILE **file_chunks, FILE **file_table, const char *mode)
 {
-	if(strlen(directory) + strlen(basename) + MAX(SAVE_EXTENSION_CHUNKS_LEN, SAVE_EXTENSION_CHUNKTABLE_LEN) > SAVE_PATH_MAX_LEN)
+	const char *directory = state_prefpath_get();
+
+	if(strlen(directory) + strlen(savename) + MAX(SAVE_EXTENSION_CHUNKS_LEN, SAVE_EXTENSION_CHUNKTABLE_LEN) > SAVE_PATH_MAX_LEN)
 	{
 		error("savefile open aborted. pathlen greater than SAVE_PATH_MAX_LEN");
 		*file_chunks = 0;
@@ -502,8 +506,8 @@ save_open(const char *directory, const char *basename, FILE **file_chunks, FILE 
 	char path_chunks[SAVE_PATH_MAX_LEN] = { 0 };
 	char path_table[SAVE_PATH_MAX_LEN] = { 0 };
 
-	strcat(strcat(strcat(path_chunks, directory), basename), SAVE_EXTENSION_CHUNKS);
-	strcat(strcat(strcat(path_table, directory), basename), SAVE_EXTENSION_CHUNKTABLE);
+	strcat(strcat(strcat(path_chunks, directory), savename), SAVE_EXTENSION_CHUNKS);
+	strcat(strcat(strcat(path_table, directory), savename), SAVE_EXTENSION_CHUNKTABLE);
 
 	info("touching save %s", path_chunks);
 
@@ -511,7 +515,7 @@ save_open(const char *directory, const char *basename, FILE **file_chunks, FILE 
 	*file_table = fopen(path_table, mode);
 }
 
-int
+static int
 world_init(vec3_t pos)
 {
 	if(world_is_initalized())
@@ -537,15 +541,14 @@ world_init(vec3_t pos)
 	return 1;
 }
 
-int world_save(const char *directory, const char *basename)
+int world_save(const char *savename)
 {
 	FILE *file_chunks;
 	FILE *file_table;
-	save_open(directory, basename, &file_chunks, &file_table, "wb");
+	save_open(savename, &file_chunks, &file_table, "wb");
 
 	//TODO: constants
-	struct stack stack_table;
-	stack_init(&stack_table, 1, 1000, 2.0);
+	stack_t *stack_table = stack_create(1, 1000, 2.0);
 
 	size_t index = 0;
 	int x, y, z;
@@ -565,18 +568,22 @@ int world_save(const char *directory, const char *basename)
 		free(chunkdata);
 
 		//TODO: constants
-		save_write_uint64(&stack_table, pos.x);
-		save_write_uint64(&stack_table, pos.y);
-		save_write_uint64(&stack_table, pos.z);
-		save_write_uint64(&stack_table, index);
-		save_write_uint64(&stack_table, chunklen);
+		save_write_uint64(stack_table, pos.x);
+		save_write_uint64(stack_table, pos.y);
+		save_write_uint64(stack_table, pos.z);
+		save_write_uint64(stack_table, index);
+		save_write_uint64(stack_table, chunklen);
 
 		index += chunklen;
 	}
 
-	stack_trim(&stack_table);
-	fwrite(stack_table.data, 1, stack_table.size, file_table);
-	stack_destroy(&stack_table);
+	stack_trim(stack_table);
+
+	size_t stack_size = stack_objects_get_num(stack_table);
+	unsigned char *stack_data = stack_transform_dataptr(stack_table);
+
+	fwrite(stack_data, 1, stack_size, file_table);
+	free(stack_data);
 
 	fclose(file_chunks);
 	fclose(file_table);
@@ -584,12 +591,22 @@ int world_save(const char *directory, const char *basename)
 	return 0;
 }
 
-void
-world_load(const char *directory, const char *basename, volatile int *status)
+int
+world_init_load(const char *savename, volatile int *status)
 {
 	FILE *file_chunks;
 	FILE *file_table;
-	save_open(directory, basename, &file_chunks, &file_table, "rb");
+	save_open(savename, &file_chunks, &file_table, "rb");
+
+	//TODO: read from file
+	vec3_t pos = {0,0,0};
+	uint32_t seed = 0;
+
+	world_set_seed(seed);
+	pos.y = worldgen_get_height_of_pos(0, 0, 0)+1.1;
+
+	if(world_init(pos) == -1)
+		return -1;
 
 	struct lookup {
 		long3_t pos;
@@ -611,6 +628,7 @@ world_load(const char *directory, const char *basename, volatile int *status)
 		if(tmp.len == 0)
 		{
 			error("error reading world table: len = 0");
+		info("index: %lu", tmp.index);
 			continue;
 		}
 
@@ -629,10 +647,49 @@ world_load(const char *directory, const char *basename, volatile int *status)
 		}
 	}
 
-	world_generate(status);
+	generate(status);
 
 	fclose(file_chunks);
 	fclose(file_table);
+
+	return 1;
+}
+
+int
+world_init_new(volatile int *status)
+{
+	//	world_seed_gen();
+	world_set_seed(0);
+
+	vec3_t spawn = {0, 0, 0};
+	spawn.y = worldgen_get_height_of_pos(0, 0, 0)+1.1;
+
+	/*
+	int spawntries = 0;
+	while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
+	{
+		spawntries++;
+		spawn.x = (double)(rand()%10000) - 5000;
+		spawn.z = (double)(rand()%10000) - 5000;
+		spawn.y = worldgen_get_height_of_pos(0, spawn.x, spawn.z)+1.1;
+		info("spawn retry %i x: %f z: %f h: %f", spawntries, spawn.x, spawn.z, spawn.y);
+	}
+	*/
+
+	spawn.x += .5;
+	spawn.z += .5;
+
+	if(spawn.y < 0)
+		spawn.y = 0.1;
+
+	info("h: %f\n", spawn.y);
+
+	if(world_init(spawn) == -1)
+		return -1;
+
+	generate(status);
+
+	return 1;
 }
 
 void

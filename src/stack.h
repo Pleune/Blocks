@@ -1,30 +1,24 @@
 #ifndef STACK_H
 #define STACK_H
 
-#include "stdlib.h"
+#include <stdlib.h>
 
-struct stack {
-	size_t object_size;
-	size_t size;
+typedef struct stack stack_t;
 
-	double resize_factor;
+stack_t *stack_create(size_t object_size, size_t object_count, double resize_factor);
+void stack_destroy(stack_t *stack);
 
-	unsigned char *data;
-	unsigned char *top; //non inclusive
-	unsigned char *end; //non inclusive
-};
+void stack_trim(stack_t *stack);
+void stack_resize(stack_t *stack, size_t size);
 
-void stack_init(struct stack *stack, size_t object_size, size_t object_count, double resize_factor);
-void stack_destroy(struct stack *stack);
+long stack_objects_get_num(stack_t *stack);
 
-void stack_trim(struct stack *stack);
-void stack_resize(struct stack *stack, size_t size);
+void stack_push(stack_t *stack, void *data);
+void *stack_pop(stack_t *stack, void *data);
+void *stack_element_ref(stack_t *stack, size_t index);
+void *stack_element_replace_from_end(stack_t *stack, size_t index);//returns ref to index
 
-long stack_objects_get_num(struct stack *stack);
-
-void stack_push(struct stack *stack, void *data);
-void stack_pop(struct stack *stack, void *data);
-
-void stack_push_mult(struct stack *stack, void *data, size_t count);
+void stack_push_mult(stack_t *stack, void *data, size_t count);
+void *stack_transform_dataptr(stack_t *stack);
 
 #endif

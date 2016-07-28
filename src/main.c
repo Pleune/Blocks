@@ -8,6 +8,7 @@
 #include "textbox.h"
 #include "debug.h"
 #include "defines.h"
+#include "hmap.h"
 
 static int isrunning = 1;
 

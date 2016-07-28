@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <SDL_thread.h>
 #include <GL/glew.h>
 
 #include "world.h"
@@ -14,10 +15,13 @@
 #include "save.h"
 #include "debug.h"
 
+typedef GLuint chunk_mesh_normal_index_t;
+#define CHUNK_MESH_NORMAL_INDEX_MAX ((CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1)*BLOCK_NUM_TYPES)
+
 struct mesh_s {
 	GLuint element_buffer;
 
-	struct stack elements;
+	chunk_mesh_normal_index_t *elements;
 
 	long points;
 
@@ -111,9 +115,6 @@ const static int faces[] = {
 0,1,1,
 0,0,0
 };
-
-typedef GLuint chunk_mesh_normal_index_t;
-#define CHUNK_MESH_NORMAL_INDEX_MAX ((CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1)*BLOCK_NUM_TYPES)
 
 static GLuint index_buffer_vertices = 0;
 static GLuint index_buffer_colors = 0;
@@ -372,8 +373,8 @@ chunk_render(chunk_t *chunk)
 		if(chunk->mesh.uploadnext)
 		{
 			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.element_buffer);
-			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.elements.size, chunk->mesh.elements.data, GL_STATIC_DRAW);
-			stack_destroy(&(chunk->mesh.elements));
+			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.points * sizeof(chunk_mesh_normal_index_t), chunk->mesh.elements, GL_STATIC_DRAW);
+			free(chunk->mesh.elements);
 
 			chunk->mesh.uploadnext = 0;
 		}
@@ -425,8 +426,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	if(chunkwest)
 		lock_read(chunkwest);
 
-	struct stack elements;
-	stack_init(&elements, sizeof(chunk_mesh_normal_index_t), 1000, 2.0); //TODO: better constants
+	stack_t *elements = stack_create(sizeof(chunk_mesh_normal_index_t), 1000, 2.0); //TODO: better constants
 
 	int x, y, z;
 	for(x=0; x<CHUNKSIZE; ++x)
@@ -571,7 +571,7 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 
 								//Add point to vbo
 								chunk_mesh_normal_index_t index = x_ + y_*(CHUNKSIZE+1) + z_*(CHUNKSIZE+1)*(CHUNKSIZE+1) + block.id * (CHUNKSIZE+1)*(CHUNKSIZE+1)*(CHUNKSIZE+1);
-								stack_push(&elements, &index);
+								stack_push(elements, &index);
 							}
 						} else {
 							q+=18;
@@ -597,15 +597,15 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 
 	unlock_read(chunk);
 
-	stack_trim(&elements);
+	stack_trim(elements);
 
 	lock_write(chunk);
 
 	if(chunk->mesh.uploadnext)
-		stack_destroy(&(chunk->mesh.elements));
+		free(chunk->mesh.elements);
 
-	chunk->mesh.elements = elements;
-	chunk->mesh.points = stack_objects_get_num(&elements);
+	chunk->mesh.points = stack_objects_get_num(elements);
+	chunk->mesh.elements = stack_transform_dataptr(elements);
 
 	chunk->iscurrent = 1;
 	chunk->mesh.uploadnext = 1;
@@ -844,7 +844,7 @@ chunk_recenter(chunk_t *chunk, long3_t *pos)
 
 	if(chunk->mesh.uploadnext)
 	{
-		stack_destroy(&chunk->mesh.elements);
+		free(chunk->mesh.elements);
 		chunk->mesh.uploadnext = 0;
 	}
 
@@ -869,25 +869,26 @@ size_t
 update_dump(struct update_queue *queue, unsigned char **data)
 {
 	//TODO: constants
-	struct stack stack;
-	stack_init(&stack, 1, 100, 2.0);
+	stack_t *stack = stack_create(1, 100, 2.0);
 
 	struct update_queue *this = queue;
 	while(this)
 	{
-		save_write_uint16(&stack, this->flags);
-		save_write_uint32(&stack, this->pos.x);
-		save_write_uint32(&stack, this->pos.y);
-		save_write_uint32(&stack, this->pos.z);
-		save_write_uint32(&stack, this->time);
+		save_write_uint16(stack, this->flags);
+		save_write_uint32(stack, this->pos.x);
+		save_write_uint32(stack, this->pos.y);
+		save_write_uint32(stack, this->pos.z);
+		save_write_uint32(stack, this->time);
 
 		this = this->next;
 	}
 
-	stack_trim(&stack);
-	*data = stack.data;
+	stack_trim(stack);
 
-	return stack.size;
+	size_t stack_size = stack_objects_get_num(stack);
+	*data = stack_transform_dataptr(stack);
+
+	return stack_size;
 }
 
 struct update_queue *
@@ -941,24 +942,24 @@ chunk_dump(chunk_t *chunk, unsigned char **data)
 	unlock_read(chunk);
 
 	//TODO: constants
-	struct stack stack;
-	stack_init(&stack, 1, 10000, 2.0);
-	stack_push_mult(&stack, "CHUNK.v000", 10);
+	stack_t *stack = stack_create(1, 10000, 2.0);
+	stack_push_mult(stack, "CHUNK.v000", 10);
 
-	save_write_uint64(&stack, octree_size);
-	save_write_uint64(&stack, updates_size);
-	save_write_uint64(&stack, chunk->pos.x);
-	save_write_uint64(&stack, chunk->pos.y);
-	save_write_uint64(&stack, chunk->pos.z);
-	stack_push_mult(&stack, octree_data, octree_size);
+	save_write_uint64(stack, octree_size);
+	save_write_uint64(stack, updates_size);
+	save_write_uint64(stack, chunk->pos.x);
+	save_write_uint64(stack, chunk->pos.y);
+	save_write_uint64(stack, chunk->pos.z);
+	stack_push_mult(stack, octree_data, octree_size);
 	free(octree_data);
-	stack_push_mult(&stack, updates_data, updates_size);
+	stack_push_mult(stack, updates_data, updates_size);
 	free(updates_data);
 
-	stack_trim(&stack);
+	stack_trim(stack);
 
-	*data = stack.data;
-	return stack.size;
+	size_t stack_size = stack_objects_get_num(stack);
+	*data = stack_transform_dataptr(stack);
+	return stack_size;
 }
 
 chunk_t *

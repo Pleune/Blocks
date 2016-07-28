@@ -548,7 +548,7 @@ state_game_run(void *ptr)
 void
 state_game_close(void *ptr)
 {
-	world_save(state_prefpath_get(), "savefile");
+	world_save("savefile");
 
 	glDeleteProgram(drawprogram);
 	glDeleteFramebuffers(1, &renderbuffer.framebuffer);

@@ -157,15 +157,16 @@ size_t
 octree_dump(octree_t *tree, unsigned char **data)
 {
 	//TODO: constants
-	struct stack stack;
-	stack_init(&stack, 1, 10000, 2.0);
+	stack_t *stack = stack_create(1, 10000, 2.0);
 
-	write_node(tree, &stack);
+	write_node(tree, stack);
 
-	stack_trim(&stack);
-	*data = stack.data;
+	stack_trim(stack);
 
-	return stack.size;
+	size_t stack_size = stack_objects_get_num(stack);
+	*data = stack_transform_dataptr(stack);
+
+	return stack_size;
 }
 
 size_t read_node(octree_t *tree, unsigned char *data);
