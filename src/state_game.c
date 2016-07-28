@@ -56,7 +56,6 @@ static uint32_t newticks = 0;
 static uint32_t dt = 0;
 
 const static vec3_t up = {0,1,0};
-const static vec3_t zero = {0,0,0};
 const static vec3_t height = {0,PLAYER_EYEHEIGHT,0};
 
 static int fpscap = 0;
@@ -75,7 +74,7 @@ static int usecontroller = 1;
 
 struct {
 	double x, y;
-} static leftstick = {0}, rightstick = {0};
+} static leftstick = {0,0}, rightstick = {0,0};
 
 static SDL_Thread *updatethread;
 static SDL_sem *updatesem;
@@ -287,11 +286,6 @@ input()
 	forwardcamera.y = sin(roty);
 	forwardcamera.z = -cos(rotx) * cos(roty);
 
-	//vec2_t forwardmovement;
-	//forwardmovement.x = sin(rotx);
-	//forwardmovement.y = -cos(rotx);
-
-
 	vec3_t rotatevec;
 	rotatevec.x = cos(rotx)*inputvec.x - sin(rotx)*inputvec.z;
 	rotatevec.z = sin(rotx)*inputvec.x + cos(rotx)*inputvec.z;
@@ -324,7 +318,7 @@ input()
 	{
 		world_ray_del(&headpos, &forwardcamera, 1, 1000);
 	}
-	if(keyboard[SDL_SCANCODE_C])
+	if(keyboard[SDL_SCANCODE_X])
 	{
 		vec3_t dir;
 		for(dir.x = -1; dir.x < 1; dir.x += .3)
