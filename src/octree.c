@@ -140,8 +140,11 @@ write_leaf(octree_t *tree, struct stack *stack)
 	static char static_B = 'L';
 	stack_push(stack, &static_B);
 
-	save_write_uint16(stack, tree->data.block.id);
-	save_write_uint32(stack, tree->data.block.metadata.number);
+	unsigned char tmp[4];
+	save_write_uint16(tmp, tree->data.block.id);
+	stack_push_mult(stack, tmp, 2);
+	save_write_uint32(tmp, tree->data.block.metadata.number);
+	stack_push_mult(stack, tmp, 4);
 }
 
 void
@@ -165,14 +168,16 @@ octree_dump(octree_t *tree, unsigned char **data)
 
 	size_t stack_size = stack_objects_get_num(stack);
 	*data = stack_transform_dataptr(stack);
+	if(!(*data))
+		fail("faied trans");
 
 	return stack_size;
 }
 
-size_t read_node(octree_t *tree, unsigned char *data);
+size_t read_node(octree_t *tree, const unsigned char *data);
 
 size_t
-read_nonleaf(octree_t *tree, unsigned char *data)
+read_nonleaf(octree_t *tree, const unsigned char *data)
 {
 	size_t size = 1;
 	tree->isleaf = 0;
@@ -186,18 +191,18 @@ read_nonleaf(octree_t *tree, unsigned char *data)
 }
 
 size_t
-read_leaf(octree_t *tree, unsigned char *data)
+read_leaf(octree_t *tree, const unsigned char *data)
 {
 	tree->isleaf = 1;
 	tree->data.block.id = 0;
-	save_read_uint16(data+1, &tree->data.block.id, sizeof(tree->data.block.id));
-	save_read_uint32(data+3, &tree->data.block.metadata.number, sizeof(tree->data.block.metadata.number));
+	tree->data.block.id = save_read_uint16(data+1);
+	tree->data.block.metadata.number = save_read_uint32(data+3);
 
 	return 7;
 }
 
 size_t
-read_node(octree_t *tree, unsigned char *data)
+read_node(octree_t *tree, const unsigned char *data)
 {
 	if(data[0] == 'L')
 		return read_leaf(tree, data);
@@ -210,7 +215,7 @@ read_node(octree_t *tree, unsigned char *data)
 }
 
 octree_t *
-octree_read(unsigned char *data)
+octree_read(const unsigned char *data)
 {
 	octree_t *octree = octree_create();
 	read_node(octree, data);

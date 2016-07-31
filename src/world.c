@@ -41,6 +41,8 @@ static SDL_Thread *remeshthreadD; //Only "instant" updates (fastest)
 
 static entity_t *player = 0;
 
+static save_t *save;
+
 struct {
 	chunk_t *chunk;
 	uint8_t instantremesh;
@@ -107,6 +109,29 @@ setworldcenter(vec3_t pos)
 	worldscope.x = worldcenter.x - WORLD_CHUNKS_PER_EDGE/2;
 	worldscope.y = worldcenter.y - WORLD_CHUNKS_PER_EDGE/2;
 	worldscope.z = worldcenter.z - WORLD_CHUNKS_PER_EDGE/2;
+}
+
+int
+load_chunk_from_save(long x, long y, long z)
+{
+	//TODO: deal with section name length
+	char section_name[512];
+	snprintf(section_name, sizeof(section_name), "chunk_%li.%li.%li", x, y, z);
+
+	const unsigned char *section_data = save_get_section(save, section_name);
+	if(section_data)
+	{
+		long3_t pos = {x, y, z};
+		int3_t index = getchunkindexofchunk(pos);
+		data[index.x][index.y][index.z].chunk = chunk_read(section_data);
+		if(data[index.x][index.y][index.z].chunk == 0)
+		{
+			return BLOCKS_ERROR;
+			error("failed to read chunk from section: %s", section_name);
+		}
+	}
+
+	return BLOCKS_SUCCESS;
 }
 
 static void
@@ -490,29 +515,24 @@ generate(volatile int *status)
 	SDL_CreateThread(generate_new_world_func, "world_init()", (void *)status);
 }
 
-void
-save_open(const char *savename, FILE **file_chunks, FILE **file_table, const char *mode)
+save_t *
+save_open(const char *savename)
 {
 	const char *directory = state_prefpath_get();
 
-	if(strlen(directory) + strlen(savename) + MAX(SAVE_EXTENSION_CHUNKS_LEN, SAVE_EXTENSION_CHUNKTABLE_LEN) > SAVE_PATH_MAX_LEN)
+	if(strlen(directory) + strlen(savename) + SAVE_EXTENSION_WORLD_LEN > SAVE_PATH_MAX_LEN)
 	{
 		error("savefile open aborted. pathlen greater than SAVE_PATH_MAX_LEN");
-		*file_chunks = 0;
-		*file_table = 0;
-		return;
+		return 0;
 	}
 
-	char path_chunks[SAVE_PATH_MAX_LEN] = { 0 };
-	char path_table[SAVE_PATH_MAX_LEN] = { 0 };
+	char path[SAVE_PATH_MAX_LEN] = { 0 };
 
-	strcat(strcat(strcat(path_chunks, directory), savename), SAVE_EXTENSION_CHUNKS);
-	strcat(strcat(strcat(path_table, directory), savename), SAVE_EXTENSION_CHUNKTABLE);
+	strcat(strcat(strcat(path, directory), savename), SAVE_EXTENSION_WORLD);
 
-	info("touching save %s", path_chunks);
+	save_t *save = save_open_file(path);
 
-	*file_chunks = fopen(path_chunks, mode);
-	*file_table = fopen(path_table, mode);
+	return save;
 }
 
 static int
@@ -541,16 +561,8 @@ world_init(vec3_t pos)
 	return 1;
 }
 
-int world_save(const char *savename)
+int world_save()
 {
-	FILE *file_chunks;
-	FILE *file_table;
-	save_open(savename, &file_chunks, &file_table, "wb");
-
-	//TODO: constants
-	stack_t *stack_table = stack_create(1, 1000, 2.0);
-
-	size_t index = 0;
 	int x, y, z;
 	for(x = 0; x<WORLD_CHUNKS_PER_EDGE; ++x)
 	for(y = 0; y<WORLD_CHUNKS_PER_EDGE; ++y)
@@ -563,30 +575,14 @@ int world_save(const char *savename)
 		pos = chunk_pos_get(data[x][y][z].chunk);
 		chunklen = chunk_dump(data[x][y][z].chunk, &chunkdata);
 
-		fwrite(chunkdata, 1, chunklen, file_chunks);
+		//TODO: deal with section name length
+		char section_name[512];
+		snprintf(section_name, sizeof(section_name), "chunk_%li.%li.%li", pos.x, pos.y, pos.z);
 
-		free(chunkdata);
-
-		//TODO: constants
-		save_write_uint64(stack_table, pos.x);
-		save_write_uint64(stack_table, pos.y);
-		save_write_uint64(stack_table, pos.z);
-		save_write_uint64(stack_table, index);
-		save_write_uint64(stack_table, chunklen);
-
-		index += chunklen;
+		save_write_section(save, section_name, chunkdata, chunklen);
 	}
 
-	stack_trim(stack_table);
-
-	size_t stack_size = stack_objects_get_num(stack_table);
-	unsigned char *stack_data = stack_transform_dataptr(stack_table);
-
-	fwrite(stack_data, 1, stack_size, file_table);
-	free(stack_data);
-
-	fclose(file_chunks);
-	fclose(file_table);
+	save_close(save);
 
 	return 0;
 }
@@ -594,9 +590,7 @@ int world_save(const char *savename)
 int
 world_init_load(const char *savename, volatile int *status)
 {
-	FILE *file_chunks;
-	FILE *file_table;
-	save_open(savename, &file_chunks, &file_table, "rb");
+	save = save_open(savename);
 
 	//TODO: read from file
 	vec3_t pos = {0,0,0};
@@ -608,56 +602,25 @@ world_init_load(const char *savename, volatile int *status)
 	if(world_init(pos) == -1)
 		return -1;
 
-	struct lookup {
-		long3_t pos;
-		size_t index;
-		size_t len;
-	};
 
-	unsigned char buff[40];
-	while(fread(buff, 40, 1, file_table) == 1)
-	{
-		size_t index = 0;
-		struct lookup tmp;
-		index += save_read_uint64(buff + index, &tmp.pos.x, sizeof(tmp.pos.x));
-		index += save_read_uint64(buff + index, &tmp.pos.y, sizeof(tmp.pos.y));
-		index += save_read_uint64(buff + index, &tmp.pos.z, sizeof(tmp.pos.z));
-		index += save_read_uint64(buff + index, &tmp.index, sizeof(tmp.index));
-		index += save_read_uint64(buff + index, &tmp.len, sizeof(tmp.len));
+	long x, y, z;
+	for(x = worldscope.x; x<worldscope.x+WORLD_CHUNKS_PER_EDGE; ++x)
+	for(y = worldscope.y; y<worldscope.y+WORLD_CHUNKS_PER_EDGE; ++y)
+	for(z = worldscope.z; z<worldscope.z+WORLD_CHUNKS_PER_EDGE; ++z)
+		load_chunk_from_save(x, y, z);
 
-		if(tmp.len == 0)
-		{
-			error("error reading world table: len = 0");
-		info("index: %lu", tmp.index);
-			continue;
-		}
-
-		if(shouldbequickloaded(tmp.pos))
-		{
-			int3_t chunkindex = getchunkindexofchunk(tmp.pos);
-
-			unsigned char *chunk_data = malloc(tmp.len);
-			fseek(file_chunks, tmp.index, SEEK_SET);
-			fread(chunk_data, tmp.len, 1, file_chunks);
-			data[chunkindex.x][chunkindex.y][chunkindex.z].chunk = chunk_read(chunk_data);
-			if(data[chunkindex.x][chunkindex.y][chunkindex.z].chunk == 0)
-				error("read chunk fail at 0x%08x", tmp.index);
-			else if(status)
-				++(*status);
-		}
-	}
+	save_close(save);
 
 	generate(status);
-
-	fclose(file_chunks);
-	fclose(file_table);
 
 	return 1;
 }
 
 int
-world_init_new(volatile int *status)
+world_init_new(volatile int *status, const char *savename)
 {
+	save = save_open(savename);
+
 	//	world_seed_gen();
 	world_set_seed(0);
 

@@ -42,6 +42,6 @@ void chunk_update_queue(chunk_t *chunk, int x, int y, int z, int time, update_fl
 long chunk_update_run(chunk_t *chunk);
 
 size_t chunk_dump(chunk_t *chunk, unsigned char **data);
-chunk_t *chunk_read(unsigned char *data);
+chunk_t *chunk_read(const unsigned char *data);
 
 #endif

@@ -614,13 +614,11 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 	chunk_unlock(chunk);
 }
 
-
 void
 chunk_lock(chunk_t *chunk)
 {
 	SDL_LockMutex(chunk->externallock);
 }
-
 
 void
 chunk_unlock(chunk_t *chunk)
@@ -871,14 +869,21 @@ update_dump(struct update_queue *queue, unsigned char **data)
 	//TODO: constants
 	stack_t *stack = stack_create(1, 100, 2.0);
 
+	unsigned char tmp[8];
+
 	struct update_queue *this = queue;
 	while(this)
 	{
-		save_write_uint16(stack, this->flags);
-		save_write_uint32(stack, this->pos.x);
-		save_write_uint32(stack, this->pos.y);
-		save_write_uint32(stack, this->pos.z);
-		save_write_uint32(stack, this->time);
+		save_write_uint16(tmp, this->flags);
+		stack_push_mult(stack, tmp, 2);
+		save_write_uint32(tmp, this->pos.x);
+		stack_push_mult(stack, tmp, 4);
+		save_write_uint32(tmp, this->pos.y);
+		stack_push_mult(stack, tmp, 4);
+		save_write_uint32(tmp, this->pos.z);
+		stack_push_mult(stack, tmp, 4);
+		save_write_uint32(tmp, this->time);
+		stack_push_mult(stack, tmp, 4);
 
 		this = this->next;
 	}
@@ -892,7 +897,7 @@ update_dump(struct update_queue *queue, unsigned char **data)
 }
 
 struct update_queue *
-update_read(unsigned char *data, size_t size)
+update_read(const unsigned char *data, size_t size)
 {
 	struct update_queue *begin = 0;
 	struct update_queue *prev = 0;
@@ -901,11 +906,16 @@ update_read(unsigned char *data, size_t size)
 	for(count=0; count<size; count+=18)
 	{
 		struct update_queue *update = malloc(sizeof(struct update_queue));
-		data += save_read_uint16(data, &update->flags, sizeof(update->flags));
-		data += save_read_uint32(data, &update->pos.x, sizeof(update->pos.x));
-		data += save_read_uint32(data, &update->pos.y, sizeof(update->pos.y));
-		data += save_read_uint32(data, &update->pos.z, sizeof(update->pos.z));
-		data += save_read_uint32(data, &update->time, sizeof(update->time));
+		update->flags = save_read_uint16(data);
+		data += 2;
+		update->pos.x = save_read_uint16(data);
+		data += 4;
+		update->pos.y = save_read_uint16(data);
+		data += 4;
+		update->pos.z = save_read_uint16(data);
+		data += 4;
+		update->time = save_read_uint16(data);
+		data += 4;
 
 		if(begin == 0)
 			begin = update;
@@ -945,11 +955,18 @@ chunk_dump(chunk_t *chunk, unsigned char **data)
 	stack_t *stack = stack_create(1, 10000, 2.0);
 	stack_push_mult(stack, "CHUNK.v000", 10);
 
-	save_write_uint64(stack, octree_size);
-	save_write_uint64(stack, updates_size);
-	save_write_uint64(stack, chunk->pos.x);
-	save_write_uint64(stack, chunk->pos.y);
-	save_write_uint64(stack, chunk->pos.z);
+	unsigned char tmp[8];
+
+	save_write_uint64(tmp, octree_size);
+	stack_push_mult(stack, tmp, 8);
+	save_write_uint64(tmp, updates_size);
+	stack_push_mult(stack, tmp, 8);
+	save_write_uint64(tmp, chunk->pos.x);
+	stack_push_mult(stack, tmp, 8);
+	save_write_uint64(tmp, chunk->pos.y);
+	stack_push_mult(stack, tmp, 8);
+	save_write_uint64(tmp, chunk->pos.z);
+	stack_push_mult(stack, tmp, 8);
 	stack_push_mult(stack, octree_data, octree_size);
 	free(octree_data);
 	stack_push_mult(stack, updates_data, updates_size);
@@ -963,7 +980,7 @@ chunk_dump(chunk_t *chunk, unsigned char **data)
 }
 
 chunk_t *
-chunk_read(unsigned char *data)
+chunk_read(const unsigned char *data)
 {
 	chunk_t *ret = malloc(sizeof(chunk_t));
 	init_chunk(ret);
@@ -978,11 +995,16 @@ chunk_read(unsigned char *data)
 	size_t updates_size;
 
 	data += 10;
-	data += save_read_uint64(data, &octree_size, sizeof(octree_size));
-	data += save_read_uint64(data, &updates_size, sizeof(updates_size));
-	data += save_read_uint64(data, &ret->pos.x, sizeof(ret->pos.x));
-	data += save_read_uint64(data, &ret->pos.y, sizeof(ret->pos.y));
-	data += save_read_uint64(data, &ret->pos.z, sizeof(ret->pos.z));
+	octree_size = save_read_uint64(data);
+	data += 8;
+	updates_size = save_read_uint64(data);
+	data += 8;
+	ret->pos.x = save_read_uint64(data);
+	data += 8;
+	ret->pos.y = save_read_uint64(data);
+	data += 8;
+	ret->pos.z = save_read_uint64(data);
+	data += 8;
 
 	ret->data = octree_read(data);
 	data += octree_size;

@@ -11,9 +11,9 @@
 #include "chunk.h"
 #include "entity.h"
 
-int world_init_new(volatile int *status);
+int world_init_new(volatile int *status, const char *savename);
 int world_init_load(const char *savename, volatile int *status);
-int world_save(const char *savename);
+int world_save();
 void world_cleanup();
 
 int world_is_initalized();

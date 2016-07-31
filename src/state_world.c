@@ -94,7 +94,7 @@ state_world_new(void *ptr)
 {
 	init();
 
-	if (world_init_new(&status) == -1)
+	if (world_init_new(&status, "savename") == -1)
 	{
 		state_queue_fail();
 		return;

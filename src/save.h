@@ -3,81 +3,43 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "stack.h"
 #include "standard.h"
 
-inline static void
-save_write_uint16(stack_t *stack, uint16_t d)
-{
-	unsigned char tmp;
-	int i;
-	for(i=0; i<2; i++)
-	{
-		tmp = d;
-		stack_push(stack, &tmp);
-		d >>= 8;
-	}
-}
+#define SAVE_SECTION_NAME_MAX_LEN 20
 
-inline static void
-save_write_uint32(stack_t *stack, uint32_t d)
-{
-	unsigned char tmp;
-	int i;
-	for(i=0; i<4; i++)
-	{
-		tmp = d;
-		stack_push(stack, &tmp);
-		d >>= 8;
-	}
-}
+typedef struct save save_t;
 
-inline static void
-save_write_uint64(stack_t *stack, uint64_t d)
-{
-	unsigned char tmp;
-	int i;
-	for(i=0; i<8; i++)
-	{
-		tmp = d;
-		stack_push(stack, &tmp);
-		d >>= 8;
-	}
-}
+save_t * save_open_file(const char *path);
+int save_flush(save_t *save);
+int save_close(save_t *save);
 
-inline static size_t
-save_read_uint16(unsigned char *data, void *ret, size_t ret_size)
-{
-	int i;
-	uint16_t *d = ret;
-	memset(ret, 0, ret_size);
-	for(i=0; i<2; i++)
-		*d |= (uint16_t)(data[i]) << (i*8);
-	return 2;
-}
+int save_section_new(save_t *save, const char *name, unsigned char *data, size_t data_len);
+size_t save_section_append(save_t *save, const char *name, unsigned char *data, size_t data_len);//Returns new new len
+int save_section_remove(save_t *save, const char *name);
 
-inline static size_t
-save_read_uint32(unsigned char *data, void *ret, size_t ret_size)
-{
-	int i;
-	uint32_t *d = ret;
-	memset(ret, 0, ret_size);
-	for(i=0; i<4; i++)
-		*d |= (uint32_t)(data[i]) << (i*8);
-	return 4;
-}
+uint8_t save_read_uint8(const unsigned char *data);
+uint16_t save_read_uint16(const unsigned char *data);
+uint32_t save_read_uint32(const unsigned char *data);
+uint64_t save_read_uint64(const unsigned char *data);
 
-inline static size_t
-save_read_uint64(unsigned char *data, void *ret, size_t ret_size)
-{
-	int i;
-	uint64_t *d = ret;
-	memset(ret, 0, ret_size);
-	for(i=0; i<8; i++)
-		*d |= (uint64_t)(data[i]) << (i*8);
-	return 8;
-}
+void save_write_uint8(unsigned char *data, uint8_t a);
+void save_write_uint16(unsigned char *data, uint16_t a);
+void save_write_uint32(unsigned char *data, uint32_t a);
+void save_write_uint64(unsigned char *data, uint64_t a);
+
+/*
+double save_read_double(save_t *save, size_t pos);
+void save_write_double(save_t *save, double d, size_t pos);
+*/
+
+/*
+long save_read_string(save_t *save, char *str, size_t max_len);
+long save_write_string(save_t *save, char *str, size_t max_len);
+*/
+
+int save_write_section(save_t *save, const char *section, unsigned char *data, size_t len);
+const unsigned char *save_get_section(save_t *save, const char *section);
 
 #endif
