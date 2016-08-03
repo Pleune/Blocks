@@ -184,6 +184,7 @@ textbox_destroy(textbox_t* textbox)
 {
 	glDeleteBuffers(1, &textbox->vertices_buff);
 	glDeleteTextures(1, &textbox->texture);
+	free(textbox->txt);
 	free(textbox);
 }
 
@@ -193,6 +194,8 @@ textbox_set_txt(textbox_t *textbox, const char *txt)
 	if(txt != textbox->txt)
 	{
 		size_t txt_size = strlen(txt) + 1;
+		if(textbox->txt)
+			free(textbox->txt);
 		textbox->txt = malloc(txt_size);
 		memcpy(textbox->txt, txt, txt_size);
 	}
@@ -202,6 +205,7 @@ textbox_set_txt(textbox_t *textbox, const char *txt)
 	strncat(file, ttf_info[textbox->textbox_font].path, 1024 - strlen(file));
 
 	TTF_Font *font_sdl = TTF_OpenFont(file, size_lookup[textbox->size]);
+	free(file);
 
 	if(!font_sdl)
 		fail("Unable to load textbox_font: %s", file);

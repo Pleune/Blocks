@@ -82,7 +82,7 @@ state_world_load(void *ptr)
 {
 	init();
 
-	if (world_init_load("savefile", &status) == -1)
+	if (world_init_load("savename", &status) == -1)
 	{
 		state_queue_fail();
 		return;

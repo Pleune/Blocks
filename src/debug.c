@@ -12,8 +12,8 @@ fail(const char *s, ... )
 	va_start(argptr, s);
 	vfprintf(stderr, s, argptr);
 	va_end(argptr);
-	exit(-1);
 	fputc('\n', stderr);
+	exit(-1);
 }
 
 void

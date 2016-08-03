@@ -53,6 +53,8 @@ element_free(struct interface_element *element)
 		textbox_destroy(element->ptr);
 		break;
 	}
+
+	free(element);
 }
 
 struct interface_element *
@@ -129,8 +131,9 @@ interface_destroy(interface_t *interface)
 
 	while(working_element)
 	{
-		element_free(working_element);
+		struct interface_element *this = working_element;
 		working_element = working_element->next;
+		element_free(this);
 	}
 	free(interface);
 }

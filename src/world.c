@@ -97,7 +97,7 @@ isquickloaded(long3_t pos, int3_t *chunkindex)
 		*chunkindex = ci;
 
 	long3_t cpos = chunk_pos_get(data[ci.x][ci.y][ci.z].chunk);
-	return shouldbequickloaded(cpos) && !memcmp(&cpos, &pos, sizeof(long3_t));
+	return memcmp(&cpos, &pos, sizeof(long3_t)) == 0;
 }
 
 static void
@@ -112,7 +112,7 @@ setworldcenter(vec3_t pos)
 }
 
 int
-load_chunk_from_save(long x, long y, long z)
+load_chunk_from_save(long x, long y, long z, volatile int *status)
 {
 	//TODO: deal with section name length
 	char section_name[512];
@@ -128,6 +128,8 @@ load_chunk_from_save(long x, long y, long z)
 		{
 			return BLOCKS_ERROR;
 			error("failed to read chunk from section: %s", section_name);
+		} else {
+			(*status)++;
 		}
 	}
 
@@ -594,7 +596,7 @@ world_init_load(const char *savename, volatile int *status)
 
 	//TODO: read from file
 	vec3_t pos = {0,0,0};
-	uint32_t seed = 0;
+	uint32_t seed = 3;
 
 	world_set_seed(seed);
 	pos.y = worldgen_get_height_of_pos(0, 0, 0)+1.1;
@@ -607,9 +609,7 @@ world_init_load(const char *savename, volatile int *status)
 	for(x = worldscope.x; x<worldscope.x+WORLD_CHUNKS_PER_EDGE; ++x)
 	for(y = worldscope.y; y<worldscope.y+WORLD_CHUNKS_PER_EDGE; ++y)
 	for(z = worldscope.z; z<worldscope.z+WORLD_CHUNKS_PER_EDGE; ++z)
-		load_chunk_from_save(x, y, z);
-
-	save_close(save);
+		load_chunk_from_save(x, y, z, status);
 
 	generate(status);
 
@@ -622,7 +622,7 @@ world_init_new(volatile int *status, const char *savename)
 	save = save_open(savename);
 
 	//	world_seed_gen();
-	world_set_seed(0);
+	world_set_seed(3);
 
 	vec3_t spawn = {0, 0, 0};
 	spawn.y = worldgen_get_height_of_pos(0, 0, 0)+1.1;
@@ -663,6 +663,8 @@ world_cleanup()
 		error("world_cleanup() called twice");
 		return;
 	}
+
+	world_save();
 
 	stopthreads=1;
 

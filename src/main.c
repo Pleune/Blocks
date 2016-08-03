@@ -9,6 +9,7 @@
 #include "debug.h"
 #include "defines.h"
 #include "hmap.h"
+#include "save.h"
 
 static int isrunning = 1;
 

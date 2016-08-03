@@ -19,6 +19,12 @@ struct stack {
 inline static void
 resize(struct stack *stack, size_t size)
 {
+	if(size == 0)
+	{
+		error("stack_resize(): size = 0");
+		return;
+	}
+
 	size_t offset = stack->top - stack->data;
 
 	stack->size = size;
@@ -86,18 +92,8 @@ stack_objects_get_num(struct stack *stack)
 void
 stack_trim(struct stack *stack)
 {
-	stack->size = stack->top - stack->data;
-
-	if(stack->size == 0)
-		return;
-
-	unsigned char *new_data = realloc(stack->data, stack->size);
-	if(!new_data)
-		error("stack_trim realloc failed");
-	else
-		stack->data = new_data;
-
-	stack->end = stack->data + stack->size;
+	size_t size = stack->top - stack->data;
+	resize(stack, size);
 }
 
 void

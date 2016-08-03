@@ -172,7 +172,7 @@ get_worldpos_from_internalpos(long3_t *cpos, int x, int y, int z)
 static void
 init_chunk(chunk_t *chunk)
 {
-	glGenBuffers(1, &(chunk->mesh.element_buffer));
+	chunk->mesh.element_buffer = 0;
 	chunk->updates = 0;
 	chunk->mesh.uploadnext = 0;
 	chunk->mesh.points = 0;
@@ -372,9 +372,18 @@ chunk_render(chunk_t *chunk)
 		lock_read(chunk);
 		if(chunk->mesh.uploadnext)
 		{
-			glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.element_buffer);
-			glBufferData(GL_ARRAY_BUFFER, chunk->mesh.points * sizeof(chunk_mesh_normal_index_t), chunk->mesh.elements, GL_STATIC_DRAW);
-			free(chunk->mesh.elements);
+			if(chunk->mesh.points > 0)
+			{
+				if(chunk->mesh.element_buffer == 0)
+					glCreateBuffers(1, &chunk->mesh.element_buffer);
+
+				glBindBuffer(GL_ARRAY_BUFFER, chunk->mesh.element_buffer);
+				glBufferData(GL_ARRAY_BUFFER, chunk->mesh.points * sizeof(chunk_mesh_normal_index_t), chunk->mesh.elements, GL_STATIC_DRAW);
+				free(chunk->mesh.elements);
+			} else if(chunk->mesh.element_buffer)
+			{
+				glDeleteBuffers(1, &chunk->mesh.element_buffer);
+			}
 
 			chunk->mesh.uploadnext = 0;
 		}
@@ -597,18 +606,27 @@ chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *
 
 	unlock_read(chunk);
 
-	stack_trim(elements);
 
 	lock_write(chunk);
 
 	if(chunk->mesh.uploadnext)
 		free(chunk->mesh.elements);
 
-	chunk->mesh.points = stack_objects_get_num(elements);
-	chunk->mesh.elements = stack_transform_dataptr(elements);
-
 	chunk->iscurrent = 1;
 	chunk->mesh.uploadnext = 1;
+
+	long points = stack_objects_get_num(elements);
+
+	chunk->mesh.points = points;
+
+	if(points > 0)
+	{
+		stack_trim(elements);
+		chunk->mesh.elements = stack_transform_dataptr(elements);
+	} else {
+		chunk->mesh.elements = 0;
+		stack_destroy(elements);
+	}
 
 	unlock_write(chunk);
 	chunk_unlock(chunk);
@@ -819,7 +837,8 @@ chunk_load_empty(long3_t pos)
 void
 chunk_free(chunk_t *chunk)
 {
-	glDeleteBuffers(1, &(chunk->mesh.element_buffer));
+	if(chunk->mesh.points)
+		glDeleteBuffers(1, &(chunk->mesh.element_buffer));
 	octree_destroy(chunk->data);
 	SDL_DestroyMutex(chunk->externallock);
 	SDL_DestroyMutex(chunk->mutex_read);
@@ -888,10 +907,14 @@ update_dump(struct update_queue *queue, unsigned char **data)
 		this = this->next;
 	}
 
-	stack_trim(stack);
-
 	size_t stack_size = stack_objects_get_num(stack);
-	*data = stack_transform_dataptr(stack);
+	if(stack_size)
+	{
+		stack_trim(stack);
+		*data = stack_transform_dataptr(stack);
+	} else {
+		stack_destroy(stack);
+	}
 
 	return stack_size;
 }
@@ -961,15 +984,16 @@ chunk_dump(chunk_t *chunk, unsigned char **data)
 	stack_push_mult(stack, tmp, 8);
 	save_write_uint64(tmp, updates_size);
 	stack_push_mult(stack, tmp, 8);
-	save_write_uint64(tmp, chunk->pos.x);
+	save_write_int64(tmp, chunk->pos.x);
 	stack_push_mult(stack, tmp, 8);
-	save_write_uint64(tmp, chunk->pos.y);
+	save_write_int64(tmp, chunk->pos.y);
 	stack_push_mult(stack, tmp, 8);
-	save_write_uint64(tmp, chunk->pos.z);
+	save_write_int64(tmp, chunk->pos.z);
 	stack_push_mult(stack, tmp, 8);
 	stack_push_mult(stack, octree_data, octree_size);
 	free(octree_data);
-	stack_push_mult(stack, updates_data, updates_size);
+	if(updates_size)
+		stack_push_mult(stack, updates_data, updates_size);
 	free(updates_data);
 
 	stack_trim(stack);
@@ -999,11 +1023,11 @@ chunk_read(const unsigned char *data)
 	data += 8;
 	updates_size = save_read_uint64(data);
 	data += 8;
-	ret->pos.x = save_read_uint64(data);
+	ret->pos.x = save_read_int64(data);
 	data += 8;
-	ret->pos.y = save_read_uint64(data);
+	ret->pos.y = save_read_int64(data);
 	data += 8;
-	ret->pos.z = save_read_uint64(data);
+	ret->pos.z = save_read_int64(data);
 	data += 8;
 
 	ret->data = octree_read(data);

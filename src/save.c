@@ -123,6 +123,50 @@ SAVE_WRITE_UINT(uint16)
 SAVE_WRITE_UINT(uint32)
 SAVE_WRITE_UINT(uint64)
 
+#define SAVE_READ_INT(type)												\
+	type##_t save_read_##type(const unsigned char *data)				\
+	{																	\
+		size_t size = sizeof(type##_t);									\
+		size_t i;														\
+		unsigned char tmp[size];										\
+		memcpy(tmp, data, size);										\
+		int sign = (tmp[size-1] & 0b10000000) ? 1 : 0;					\
+		tmp[size-1] &= 0b01111111;										\
+		type##_t ret = 0;												\
+		for(i=0; i<size; ++i)											\
+		    ret |= tmp[i] << i*8;										\
+		if(sign==0)														\
+			ret *= -1;													\
+		return ret;														\
+	}
+
+#define SAVE_WRITE_INT(type)											\
+	void save_write_##type(unsigned char *data, type##_t a)				\
+	{																	\
+		size_t size = sizeof(type##_t);									\
+		size_t i;														\
+		type##_t tmp;													\
+		if(a < 0)														\
+			tmp = a *-1;												\
+		else															\
+			tmp = a;													\
+		for(i=0; i<size; ++i)											\
+			data[i] = tmp >> (i*8);										\
+		data[size-1] &= 0b01111111;										\
+		if(a > 0)														\
+			data[size-1] |= 0b10000000;									\
+	}
+
+SAVE_READ_INT(int8)
+SAVE_READ_INT(int16)
+SAVE_READ_INT(int32)
+SAVE_READ_INT(int64)
+
+SAVE_WRITE_INT(int8)
+SAVE_WRITE_INT(int16)
+SAVE_WRITE_INT(int32)
+SAVE_WRITE_INT(int64)
+
 void
 free_section_malloc(struct section_malloc *ptr)
 {
@@ -260,7 +304,9 @@ sections_write(FILE *f, save_t *save)
 		write_uint64(f, *ptr_data);
 	}
 
-	free(keypairs);
+	if(num_keypairs > 0)
+		free(keypairs);
+
 	stack_destroy(sections_ptrs);
 	stack_destroy(sections_ptrs_positions);
 }

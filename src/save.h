@@ -29,6 +29,16 @@ void save_write_uint16(unsigned char *data, uint16_t a);
 void save_write_uint32(unsigned char *data, uint32_t a);
 void save_write_uint64(unsigned char *data, uint64_t a);
 
+int8_t save_read_int8(const unsigned char *data);
+int16_t save_read_int16(const unsigned char *data);
+int32_t save_read_int32(const unsigned char *data);
+int64_t save_read_int64(const unsigned char *data);
+
+void save_write_int8(unsigned char *data, int8_t a);
+void save_write_int16(unsigned char *data, int16_t a);
+void save_write_int32(unsigned char *data, int32_t a);
+void save_write_int64(unsigned char *data, int64_t a);
+
 /*
 double save_read_double(save_t *save, size_t pos);
 void save_write_double(save_t *save, double d, size_t pos);

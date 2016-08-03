@@ -169,9 +169,14 @@ hmap_dump_array(hmap_t *hmap, struct hmap_keypair** array, size_t* len)
 		}
 	}
 
-	stack_trim(tmp_array);
 	*len = stack_objects_get_num(tmp_array);
-	*array = stack_transform_dataptr(tmp_array);
+	if(*len > 0)
+	{
+		stack_trim(tmp_array);
+		*array = stack_transform_dataptr(tmp_array);
+	} else {
+		stack_destroy(tmp_array);
+	}
 }
 
 //Default hash functions
