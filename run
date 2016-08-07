@@ -4,8 +4,8 @@ if command -v nix-shell; then
 else
   make &&
   if command -v gdb; then
-    gdb -ex run -ex quit bin/blocks
+    gdb -ex 'break gdb_break' -ex run -ex quit bin/blocks
   else
-    ./run
+    ./bin/blocks
   fi
 fi

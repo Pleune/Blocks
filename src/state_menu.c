@@ -22,6 +22,7 @@ static int32_t ui_quit;
 void
 state_menu_init(void *ptr)
 {
+
 	glClearColor(0, 0, 0, 1);
 
 	textbox_t *textbox_title = textbox_create(

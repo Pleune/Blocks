@@ -48,3 +48,9 @@ info(const char *s, ... )
 	va_end(argptr);
 	fputc('\n', stderr);
 }
+
+void
+gdb_break()
+{
+	info("GDB BREAK!");
+}

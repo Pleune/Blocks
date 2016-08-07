@@ -1,6 +1,6 @@
 with import <nixpkgs> {}; {
   sdlEnv = stdenv.mkDerivation {
     name = "sdl";
-    buildInputs = [ glew SDL2 SDL2_ttf gdb pkgconfig ];
+    buildInputs = [ glew SDL2 SDL2_ttf zlib gdb pkgconfig llvm ];
   };
 }

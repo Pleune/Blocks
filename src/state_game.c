@@ -70,7 +70,7 @@ static int pp = 1;
 static int takeinput = 1;
 static int flying = 0;
 static int updating = 1;
-static int usecontroller = 1;
+static int usecontroller = 0;
 
 struct {
 	double x, y;
@@ -223,8 +223,8 @@ state_game_init(void *ptr)
 	posptr = entity_pos_get_ptr(pos);
 	vec3_t friction = {PLAYER_FRICTION,PLAYER_FRICTION,PLAYER_FRICTION};
 	entity_friction_set(pos, friction);
+	SDL_SetRelativeMouseMode(SDL_TRUE);
 	state_mouse_center();
-	SDL_ShowCursor(0);
 
 	ticks = SDL_GetTicks();
 
@@ -264,21 +264,6 @@ input()
 				inputvec.y -= 1;
 			if(keyboard[SDL_SCANCODE_SPACE])
 				inputvec.y += 1;
-
-			int mousex, mousey;
-			SDL_GetMouseState(&mousex, &mousey);
-			state_mouse_center();
-			double deltamousex = mousex - windoww/2;
-			double deltamousey = mousey - windowh/2;
-
-			rotx += MOUSE_SENSITIVITY*deltamousex;
-			roty -= MOUSE_SENSITIVITY*deltamousey;
-
-			roty = roty > M_PI/2-.005 ? M_PI/2-.005 : roty;
-			roty = roty < -M_PI/2+.005 ? -M_PI/2+.005 : roty;
-
-			rotx = rotx > M_PI*2 ? rotx - M_PI*2: rotx;
-			rotx = rotx < -M_PI*2 ? rotx + M_PI*2: rotx;
 		}
 	}
 
@@ -358,6 +343,9 @@ state_game_event(void *ptr)
 			case SDLK_c:
 				info("Coords x: %f y: %f z: %f \n", posptr->x, posptr->y, posptr->z);
 			break;
+			case SDLK_g:
+				gdb_break();
+			break;
 			case SDLK_t:
 			{
 				vec3_t top = *posptr;
@@ -381,6 +369,24 @@ state_game_event(void *ptr)
 					glUseProgram(drawprogram);
 				}
 			break;
+		}
+	}
+
+	else if(e.type == SDL_MOUSEMOTION)
+	{
+		if(takeinput)
+		{
+			double deltamousex = e.motion.xrel;
+			double deltamousey = e.motion.yrel;
+
+			rotx += MOUSE_SENSITIVITY*deltamousex;
+			roty -= MOUSE_SENSITIVITY*deltamousey;
+
+			roty = roty > M_PI/2-.005 ? M_PI/2-.005 : roty;
+			roty = roty < -M_PI/2+.005 ? -M_PI/2+.005 : roty;
+
+			rotx = rotx > M_PI*2 ? rotx - M_PI*2: rotx;
+			rotx = rotx < -M_PI*2 ? rotx + M_PI*2: rotx;
 		}
 	}
 
@@ -426,6 +432,7 @@ state_game_event(void *ptr)
 			world_ray_del(&headpos, &forwardcamera, 1, 1000);
 		}
 	}
+
 	else if(e.type == SDL_WINDOWEVENT)
 	{
 		if(e.window.event == SDL_WINDOWEVENT_RESIZED)
@@ -552,13 +559,13 @@ state_game_close(void *ptr)
 	SDL_DestroySemaphore(updatesem);
 	world_cleanup();
 	textbox_destroy(textbox_fps);
-	SDL_ShowCursor(1);
+	SDL_SetRelativeMouseMode(SDL_FALSE);
 }
 
 void
 state_game_pause(void *ptr)
 {
-	SDL_ShowCursor(1);
+	SDL_SetRelativeMouseMode(SDL_FALSE);
 }
 
 void
@@ -571,6 +578,6 @@ state_game_resume(void *ptr)
 	if(windoww != old_windoww || windowh != old_windowh)
 		state_game_window_resize();
 
+	SDL_SetRelativeMouseMode(SDL_TRUE);
 	state_mouse_center();
-	SDL_ShowCursor(0);
 }

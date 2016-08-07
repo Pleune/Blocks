@@ -27,6 +27,7 @@ long chunk_render(chunk_t *chunk);
 void chunk_remesh(chunk_t *chunk, chunk_t *chunkabove, chunk_t *chunkbelow, chunk_t *chunknorth, chunk_t *chunksouth, chunk_t *chunkeast, chunk_t *chunkwest);
 
 void chunk_lock(chunk_t *chunk);
+int chunk_trylock(chunk_t *chunk);
 void chunk_unlock(chunk_t *chunk);
 
 int chunk_mesh_is_current(chunk_t *chunk);
@@ -42,6 +43,6 @@ void chunk_update_queue(chunk_t *chunk, int x, int y, int z, int time, update_fl
 long chunk_update_run(chunk_t *chunk);
 
 size_t chunk_dump(chunk_t *chunk, unsigned char **data);
-chunk_t *chunk_read(const unsigned char *data);
+int chunk_read(chunk_t *chunk, const unsigned char *data);
 
 #endif

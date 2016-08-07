@@ -12,7 +12,6 @@ typedef enum block_id blockid_t;
 typedef struct {
 	blockid_t id;
 	union {
-		void *pointer;
 		uint32_t number;
 	} metadata;
 } block_t;

@@ -18,6 +18,8 @@ struct hmap {
 	int size;
 	hmap_hash hash_func;
 	hmap_compare compare_func;
+	hmap_free free_key;
+	hmap_free free_data;
 };
 
 static int
@@ -28,7 +30,7 @@ get_bucket_no(struct hmap *hmap, const void *key, uint32_t *hash)
 }
 
 hmap_t *
-hmap_create(hmap_hash hash_func, hmap_compare compare_func)
+hmap_create(hmap_hash hash_func, hmap_compare compare_func, hmap_free free_key, hmap_free free_data)
 {
 	size_t size = 60000;
 
@@ -36,6 +38,8 @@ hmap_create(hmap_hash hash_func, hmap_compare compare_func)
 	ret->hash_func = hash_func;
 	ret->compare_func = compare_func;
 	ret->size = size;
+	ret->free_key = free_key;
+	ret->free_data = free_data;
 
 	ret->buckets = calloc(size, sizeof(stack_t *));
 
@@ -43,7 +47,7 @@ hmap_create(hmap_hash hash_func, hmap_compare compare_func)
 }
 
 void
-hmap_destroy(hmap_t *hmap, hmap_free free_key, hmap_free free_data)
+hmap_destroy(hmap_t *hmap)
 {
 	int i;
 	for(i=0; i<hmap->size; ++i)
@@ -51,15 +55,15 @@ hmap_destroy(hmap_t *hmap, hmap_free free_key, hmap_free free_data)
 		stack_t *bucket = hmap->buckets[i];
 		if(bucket != 0)
 		{
-			if(free_key || free_data)
+			if(hmap->free_key || hmap->free_data)
 			{
 				struct keypair keypair;
 				while(stack_pop(bucket, &keypair))
 				{
-					if(free_key)
-						free_key(keypair.key);
-					if(free_data)
-						free_data(keypair.data);
+					if(hmap->free_key)
+						hmap->free_key(keypair.key);
+					if(hmap->free_data)
+						hmap->free_data(keypair.data);
 				}
 			}
 			stack_destroy(bucket);
@@ -137,6 +141,10 @@ hmap_remove(hmap_t *hmap, const void *key)
 		if(keypair->hash == hash)
 		if(hmap->compare_func(keypair->key, key))
 		{
+			if(hmap->free_key)
+				hmap->free_key(keypair->key);
+			if(hmap->free_data)
+				hmap->free_data(keypair->data);
 			stack_element_replace_from_end(hmap->buckets[bucket_no], i);
 			return BLOCKS_SUCCESS;
 		}

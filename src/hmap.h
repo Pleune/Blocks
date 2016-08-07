@@ -15,8 +15,8 @@ struct hmap_keypair {
 	void *data;
 };
 
-hmap_t *hmap_create(hmap_hash hash_func, hmap_compare compare_func);
-void hmap_destroy(hmap_t *hmap, hmap_free free_key, hmap_free free_data);
+hmap_t *hmap_create(hmap_hash hash_func, hmap_compare compare_func, hmap_free free_key, hmap_free free_data);
+void hmap_destroy(hmap_t *hmap);
 
 int hmap_insert(hmap_t *hmap, void *key, void *data);
 void *hmap_lookup(hmap_t *hmap, const void *key);

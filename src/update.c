@@ -1,10 +1,144 @@
 #include "update.h"
 
 #include "world.h"
+#include "stack.h"
+#include "save.h"
+
+update_stack_t *
+update_stack_create()
+{
+	struct update_stack *ret = malloc(sizeof(struct update_stack));
+	ret->mutex = SDL_CreateMutex();
+	ret->queue = 0;
+	ret->misses = 0;
+
+	return ret;
+}
 
 void
-update_run(block_t b, long3_t pos, update_flags_t flags)
+update_stack_destroy(update_stack_t *stack)
 {
+	update_stack_clear(stack);
+
+	SDL_DestroyMutex(stack->mutex);
+	free(stack);
+}
+
+void
+update_stack_clear(update_stack_t *stack)
+{
+	SDL_LockMutex(stack->mutex);
+
+	struct update_node *updates = stack->queue;
+	while(updates)
+	{
+		struct update_node *next = updates->next;
+		free(updates);
+		updates = next;
+	}
+
+	stack->queue = 0;
+
+	SDL_UnlockMutex(stack->mutex);
+}
+
+void
+update_queue(update_stack_t *stack, long x, long y, long z, int time, update_flags_t flags)
+{
+	struct update_node *new = malloc(sizeof(struct update_node));
+	new->next = 0;
+
+	new->pos.x = x;
+	new->pos.y = y;
+	new->pos.z = z;
+
+	new->time = time;
+	new->flags = flags;
+
+	SDL_LockMutex(stack->mutex);
+
+	if(stack->queue)
+	{
+		struct update_node *top = stack->queue;
+		while(top->next)
+		{
+			if(new->pos.x == top->pos.x && new->pos.y == top->pos.y && new->pos.z == top->pos.z)
+			{
+				if(top->time > time)
+					top->time = time;
+				top->flags |= flags;
+				free(new);
+
+				SDL_UnlockMutex(stack->mutex);
+				return;
+			}
+			top = top->next;
+		}
+		top->next = new;
+	} else {
+		stack->queue = new;
+	}
+
+	SDL_UnlockMutex(stack->mutex);
+}
+
+int
+update_run(update_stack_t *stack)
+{
+	stack->misses++;
+
+	if(SDL_TryLockMutex(stack->mutex) != 0)
+	{
+		stack->misses++;
+		return BLOCKS_ERROR;
+	}
+
+	int num = 0;
+
+	while(stack->misses > 0)
+	{
+		if(stack->queue)
+		{
+			struct update_node *node = stack->queue;
+			struct update_node *prev = 0;
+
+			while(node)
+			{
+				struct update_node *next = node->next;
+				if(node->time == 0)
+				{
+					if(stack->queue == node)
+						stack->queue = node->next;
+
+					if(prev != 0)
+						prev->next = node->next;
+
+					update_run_single(node);
+					num++;
+
+					free(node);
+				} else {
+					node->time--;
+					prev = node;
+				}
+				node = next;
+			}
+		}
+
+		stack->misses--;
+	}
+	SDL_UnlockMutex(stack->mutex);
+
+	return num;
+}
+
+void
+update_run_single(const struct update_node *update)
+{
+	long3_t pos = update->pos;
+	update_flags_t flags = update->flags;
+
+	block_t b = world_block_get(pos.x, pos.y, pos.z, 0);
 	switch(b.id)
 	{
 		case WATER:
@@ -172,7 +306,10 @@ update_run(block_t b, long3_t pos, update_flags_t flags)
 				}
 
 				if(waterinme < 1)
+				{
 					b.id = AIR;
+					b.metadata.number = 0;
+				}
 
 				if(waterinme != b.metadata.number || b.id != WATER)
 				{
@@ -222,5 +359,78 @@ update_run(block_t b, long3_t pos, update_flags_t flags)
 		}
 		default:
 			break;
+	}
+}
+
+void
+update_fail_once(update_stack_t *stack)
+{
+	stack->misses++;
+}
+
+size_t
+update_dump(update_stack_t *stack, unsigned char **data)
+{
+	SDL_LockMutex(stack->mutex);
+
+	//TODO: constants
+	stack_t *data_stack = stack_create(1, 100, 2.0);
+
+	unsigned char tmp[8];
+
+	struct update_node *this = stack->queue;
+	while(this)
+	{
+		int3_t pos = world_get_internalpos_of_worldpos(this->pos.x, this->pos.y, this->pos.z);
+
+		save_write_uint16(tmp, this->flags);
+		stack_push_mult(data_stack, tmp, 2);
+		save_write_uint16(tmp, pos.x);
+		stack_push_mult(data_stack, tmp, 2);
+		save_write_uint16(tmp, pos.y);
+		stack_push_mult(data_stack, tmp, 2);
+		save_write_uint16(tmp, pos.z);
+		stack_push_mult(data_stack, tmp, 2);
+		save_write_uint16(tmp, this->time);
+		stack_push_mult(data_stack, tmp, 2);
+
+		this = this->next;
+	}
+
+	SDL_UnlockMutex(stack->mutex);
+
+	size_t stack_size = stack_objects_get_num(data_stack);
+	if(stack_size)
+	{
+		stack_trim(data_stack);
+		*data = stack_transform_dataptr(data_stack);
+	} else {
+		stack_destroy(data_stack);
+	}
+
+	return stack_size;
+}
+
+void
+update_read(update_stack_t *stack, const long3_t *cpos, const unsigned char *data, size_t size)
+{
+	size_t count = 0;
+	for(count=0; count<size; count+=10)
+	{
+		struct update_node update;
+		update.flags = save_read_uint16(data);
+		data += 2;
+		update.pos.x = save_read_uint16(data);
+		data += 2;
+		update.pos.y = save_read_uint16(data);
+		data += 2;
+		update.pos.z = save_read_uint16(data);
+		data += 2;
+		update.time = save_read_uint16(data);
+		data += 2;
+
+		update.pos = world_get_worldpos_of_internalpos(cpos, update.pos.x, update.pos.y, update.pos.z);
+
+		update_queue(stack, update.pos.x, update.pos.y, update.pos.z, update.time, update.flags);
 	}
 }

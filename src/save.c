@@ -6,6 +6,8 @@
 //TODO: windows compat!
 #include <sys/stat.h>
 
+#include <SDL.h>
+
 #include "debug.h"
 #include "hmap.h"
 #include "stack.h"
@@ -57,6 +59,7 @@ struct save {
 	char *path;
 	hmap_t *sections; //map: NAME > struct section_malloc
 	uint32_t num_sections;
+	SDL_mutex *mutex;
 };
 
 #define READ_UINT(type)							\
@@ -351,7 +354,6 @@ sections_read(FILE *f, save_t *save)
 		struct section_info *section = stack_element_ref(sections, i);
 		struct section_malloc *section_data = malloc(sizeof(struct section_malloc));
 		section_data->data = malloc(section->len_section);
-		section_data->len = section->len_section;
 		void *section_data_ptr = section_data->data;
 		if(fseek(f, section->ptr, SEEK_SET) != 0)
 		{
@@ -359,6 +361,7 @@ sections_read(FILE *f, save_t *save)
 				"save_open_file(): could not feek() to section pointer (section %s index: %i). invalid pointer?",
 				section->name_ptr, i);
 			stack_destroy(sections);
+			free_section_malloc(section_data);
 			return BLOCKS_FAIL;
 		}
 
@@ -367,10 +370,15 @@ sections_read(FILE *f, save_t *save)
 			error(
 				"save_open_file(): could not fread() to section (section %s index: %i). invalid section len?",
 				section->name_ptr, i);
+			free_section_malloc(section_data);
 			return BLOCKS_FAIL;
 		}
 
-		hmap_insert(save->sections, section->name_ptr, section_data);
+		if(hmap_insert(save->sections, section->name_ptr, section_data) != BLOCKS_SUCCESS)
+		{
+			error("save_open_file(): failed to add section to map");
+			free_section_malloc(section_data);
+		}
 	}
 
 	stack_destroy(sections);
@@ -389,7 +397,9 @@ open_new(const char *path)
 	strcpy(save->path, path);
 
 	save->num_sections = 0;
-	save->sections = hmap_create(hmap_hash_nullterminated, hmap_compare_nullterminated);
+	save->sections = hmap_create(hmap_hash_nullterminated, hmap_compare_nullterminated, (hmap_free)free, (hmap_free)free_section_malloc);
+
+	save->mutex = SDL_CreateMutex();
 
 	return save;
 }
@@ -404,8 +414,7 @@ save_open_file(const char *path)
 
 	struct save *save = malloc(sizeof(struct save));
 
-	save->path = malloc(strlen(path)+1);
-	strcpy(save->path, path);
+	save->path = string_dupe(path);
 
 	if(header_read(file) != BLOCKS_SUCCESS)
 	{
@@ -416,18 +425,20 @@ save_open_file(const char *path)
 	}
 
 	save->num_sections = 0;
-	save->sections = hmap_create(hmap_hash_nullterminated, hmap_compare_nullterminated);
+	save->sections = hmap_create(hmap_hash_nullterminated, hmap_compare_nullterminated, (hmap_free)free, (hmap_free)free_section_malloc);
 
 	if(sections_read(file, save) != BLOCKS_SUCCESS)
 	{
 		free(save->path);
-		hmap_destroy(save->sections, (hmap_free)free, (hmap_free)free_section_malloc);
+		hmap_destroy(save->sections);
 		free(save);
 		fclose(file);
 		return 0; //error printed in sections_read()
 	}
 
 	fclose(file);
+
+	save->mutex = SDL_CreateMutex();
 
 	return save;
 }
@@ -484,6 +495,7 @@ int backup_restore(save_t *save)
 int
 save_flush(save_t *save)
 {
+	SDL_LockMutex(save->mutex);
 	backup_make(save);
 	FILE *file = fopen(save->path, "w+b");
 	fseek(file, 0, SEEK_SET);
@@ -495,6 +507,8 @@ save_flush(save_t *save)
 
 	fclose(file);
 
+	SDL_UnlockMutex(save->mutex);
+
 	return BLOCKS_SUCCESS;
 }
 
@@ -504,8 +518,9 @@ save_close(save_t *save)
 	if(save_flush(save) != BLOCKS_SUCCESS)
 		return BLOCKS_FAIL;
 
-	hmap_destroy(save->sections, (hmap_free)free, (hmap_free)free_section_malloc);
+	hmap_destroy(save->sections);
 	free(save->path);
+	SDL_DestroyMutex(save->mutex);
 	free(save);
 
 	return BLOCKS_SUCCESS;
@@ -514,22 +529,25 @@ save_close(save_t *save)
 int
 save_section_new(save_t *save, const char *name, unsigned char *data, size_t data_len)
 {
+	SDL_LockMutex(save->mutex);
+
 	char *name_ptr = string_dupe(name);
 
 	struct section_malloc *section_data = malloc(sizeof(struct section_malloc));
 	section_data->len = data_len;
-	section_data->data = malloc(data_len);
+	section_data->data = data;
 	if(hmap_insert(save->sections, name_ptr, section_data) != BLOCKS_SUCCESS)
 	{
-		free_section_malloc(section_data);
+		free(section_data);
 		free(name_ptr);
+		SDL_UnlockMutex(save->mutex);
 		error("save_section_new(): could not add section. duplicate key?");
 		return BLOCKS_FAIL;
 	}
 
-	memcpy(section_data->data, data, data_len);
-
 	save->num_sections++;
+
+	SDL_UnlockMutex(save->mutex);
 
 	return BLOCKS_SUCCESS;
 }
@@ -540,10 +558,11 @@ int save_section_remove(save_t *save, const char *name);
 int
 save_write_section(save_t *save, const char *section, unsigned char *data, size_t len)
 {
+	SDL_LockMutex(save->mutex);
+
 	struct section_malloc *section_data = hmap_lookup(save->sections, section);
 	if(section_data)
 	{
-
 		//TODO: change to save_section_remove()
 		hmap_remove(save->sections, section);
 		save->num_sections--;
@@ -551,13 +570,17 @@ save_write_section(save_t *save, const char *section, unsigned char *data, size_
 
 	save_section_new(save, section, data, len);
 
+	SDL_UnlockMutex(save->mutex);
+
 	return BLOCKS_SUCCESS;
 }
 
 const unsigned char *
 save_get_section(save_t *save, const char *section)
 {
+	SDL_LockMutex(save->mutex);
 	struct section_malloc *section_data = hmap_lookup(save->sections, section);
+	SDL_UnlockMutex(save->mutex);
 	if(section_data)
 		return section_data->data;
 	return 0;

@@ -6,4 +6,6 @@ void error(const char *s, ... );
 void warn(const char *s, ... );
 void info(const char *s, ... );
 
+void gdb_break();
+
 #endif

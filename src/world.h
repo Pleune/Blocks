@@ -54,4 +54,15 @@ world_get_internalpos_of_worldpos(long x, long y, long z)
 	blockpos.z = MODULO(z, CHUNKSIZE);
 	return blockpos;
 }
+
+inline static long3_t
+world_get_worldpos_of_internalpos(const long3_t *cpos, int x, int y, int z)
+{
+	long3_t ret;
+	ret.x = cpos->x * CHUNKSIZE + x;
+	ret.y = cpos->y * CHUNKSIZE + y;
+	ret.z = cpos->z * CHUNKSIZE + z;
+	return ret;
+}
+
 #endif

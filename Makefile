@@ -6,15 +6,15 @@ LFLAGS:=
 LIBS:=
 
 ifeq ($(OS),Windows_NT)
-	CFLAGS:= -Wall -O3 -g $(shell pkg-config --cflags sdl2 SDL2_ttf glew)
+	CFLAGS:= -Wall -O3 -g $(shell pkg-config --cflags sdl2 SDL2_ttf glew zlib)
 	LFLAGS:= -g
-	LIBS:= $(shell pkg-config --libs sdl2 SDL2_ttf glew) -lopengl32 -lm -mconsole
+	LIBS:= $(shell pkg-config --libs sdl2 SDL2_ttf glew zlib) -lopengl32 -lm -mconsole
 else
 #	UNAME_S := $(shell uname -s)
 #	ifeq ($(UNAME_S),Linux)
-		CFLAGS:= -g -O3 -Wall $(shell pkg-config --cflags sdl2 SDL2_ttf gl glew)
-		LFLAGS:= -g
-		LIBS:= -lm $(shell pkg-config --libs sdl2 SDL2_ttf gl glew)
+		CFLAGS:= -g -fsanitize=address --no-omit-frame-pointer -O3 -Wall $(shell pkg-config --cflags sdl2 SDL2_ttf gl glew zlib)
+		LFLAGS:= -g -fsanitize=address
+		LIBS:= -lm $(shell pkg-config --libs sdl2 SDL2_ttf gl glew zlib)
 #	endif
 #	ifeq ($(UNAME_S),Darwin)
 #	endif

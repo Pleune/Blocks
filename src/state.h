@@ -1,6 +1,8 @@
 #ifndef STATE_H
 #define STATE_H
 
+#include <stdint.h>
+
 enum states {MENUMAIN, WORLD_LOAD, WORLD_NEW, GAME, INVENTORY, MAX_STATES};
 enum events {INITALIZE, RUN, CLOSE, PAUSE, RESUME, SDLEVENT, MAX_EVENTS};
 
@@ -48,6 +50,7 @@ void state_exit();
 void state_window_update(int w, int h);
 void state_window_get_size(int *w, int* h);
 void state_window_swap();
+uint32_t state_window_get_id();
 
 const char *state_basepath_get();
 const char *state_prefpath_get();

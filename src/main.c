@@ -93,9 +93,12 @@ pop()
 
 	stack.top--;
 	if(stack.top >= 0)
+	{
 		stack.states[stack.top + 1] = 0;
-	else
+	} else {
 		isrunning = 0;
+		return;
+	}
 
 	runevent(CURRENTSTATE, RESUME, 0);
 }
@@ -114,7 +117,8 @@ cleanup()
 	free(basepath);
 }
 
-static void init()
+static void
+init()
 {
 	info("state engine: initalizing the program");
 
@@ -291,6 +295,12 @@ void
 state_window_swap()
 {
 	SDL_GL_SwapWindow(win);
+}
+
+uint32_t
+state_window_get_id()
+{
+	return SDL_GetWindowID(win);
 }
 
 const char *
