@@ -39,6 +39,7 @@ init()
 	glClear(GL_COLOR_BUFFER_BIT);
 	textbox_render(textbox_a);
 	textbox_render(textbox_b);
+	info("init");
 	state_window_swap();
 
 	status = 0;
@@ -84,7 +85,7 @@ state_world_load(void *ptr)
 
 	if (world_init_load("savename", &status) == -1)
 	{
-		state_queue_fail();
+		state_queue_pop();
 		return;
 	}
 }
@@ -96,7 +97,15 @@ state_world_new(void *ptr)
 
 	if (world_init_new(&status, "savename") == -1)
 	{
-		state_queue_fail();
+		state_queue_pop();
 		return;
 	}
+}
+
+void
+state_world_cleanup(void* ptr)
+{
+	textbox_destroy(textbox_a);
+	textbox_destroy(textbox_b);
+	info("clear");
 }

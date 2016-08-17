@@ -18,6 +18,7 @@ void state_game_resume(void *ptr);
 
 void state_world_load(void *ptr);
 void state_world_new(void *ptr);
+void state_world_loop(void *ptr);
 void state_world_cleanup(void *ptr);
 
 void state_menu_init(void *ptr);

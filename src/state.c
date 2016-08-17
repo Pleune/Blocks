@@ -1,29 +1,5 @@
 #include "state.h"
 
-//STATE FUNCTIONS
-void state_game_init(void *ptr);
-void state_game_run(void *ptr);
-void state_game_close(void *ptr);
-void state_game_event(void *ptr);
-void state_game_pause(void *ptr);
-void state_game_resume(void *ptr);
-
-void state_world_load(void *ptr);
-void state_world_new(void *ptr);
-void state_world_loop(void *ptr);
-
-void state_menu_init(void *ptr);
-void state_menu_run(void *ptr);
-void state_menu_close(void *ptr);
-void state_menu_event(void *ptr);
-
-void state_inventory_init(void *ptr);
-void state_inventory_run(void *ptr);
-void state_inventory_close(void *ptr);
-void state_inventory_event(void *ptr);
-
-
-
 void (*const statetable[MAX_STATES][MAX_EVENTS]) (void *ptr) = {
 	[MENUMAIN] = {
 		[INITALIZE] = state_menu_init,
@@ -36,7 +12,7 @@ void (*const statetable[MAX_STATES][MAX_EVENTS]) (void *ptr) = {
 	[WORLD_LOAD] = {
 		[INITALIZE] = state_world_load,
 		[RUN] = state_world_loop,
-		[CLOSE] = 0,
+		[CLOSE] = state_world_cleanup,
 		[PAUSE] = 0,
 		[RESUME] = 0,
 		[SDLEVENT] = 0
@@ -44,7 +20,7 @@ void (*const statetable[MAX_STATES][MAX_EVENTS]) (void *ptr) = {
 	[WORLD_NEW] = {
 		[INITALIZE] = state_world_new,
 		[RUN] = state_world_loop,
-		[CLOSE] = 0,
+		[CLOSE] = state_world_cleanup,
 		[PAUSE] = 0,
 		[RESUME] = 0,
 		[SDLEVENT] = 0
