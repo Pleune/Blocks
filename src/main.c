@@ -151,7 +151,7 @@ init()
 		//SDL2 didint create the required link with opengl
 		fail("SDL_GL_CreateContext()");
 
-	if(glewInit())
+	if(glewInit() != GLEW_OK)
 		//glew couldn't do to wrangling
 		fail("glewInit()");
 

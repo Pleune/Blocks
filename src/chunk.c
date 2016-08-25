@@ -155,7 +155,7 @@ static void
 init_chunk(chunk_t *chunk)
 {
 	chunk->mesh.element_buffer = 0;
-	glCreateBuffers(1, &chunk->mesh.element_buffer);
+	glGenBuffers(1, &chunk->mesh.element_buffer);
 	chunk->updates = update_stack_create();
 	chunk->mesh.uploadnext = 0;
 	chunk->mesh.points = 0;
