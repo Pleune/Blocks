@@ -50,5 +50,4 @@ check-syntax:
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILDDIR)* $(OUTPUTDIR)blocks
-
+	rm -rf $(BUILDDIR)* $(OUTPUTDIR)$(NAME)
