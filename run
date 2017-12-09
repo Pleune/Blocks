@@ -1,11 +1,6 @@
-if command -v nix-shell; then
-  nix-shell --run make &&
-  nix-shell --run 'gdb -ex run -ex quit bin/blocks'
-else
-  make &&
-  if command -v gdb; then
-    gdb -ex 'break gdb_break' -ex run -ex quit bin/blocks
-  else
-    ./bin/blocks
-  fi
-fi
+#!/bin/sh
+
+ROOT="$(dirname $0)"
+sh -c "cd '${ROOT}/build' && \
+       cmake .. && make"
+exec "${ROOT}/bin/blocks"
