@@ -2,5 +2,5 @@
 
 ROOT="$(dirname $0)"
 sh -c "cd '${ROOT}/build' && \
-       cmake .. && make"
+       cmake -G Ninja .. && ninja"
 exec "${ROOT}/bin/blocks"
