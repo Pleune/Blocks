@@ -103,16 +103,19 @@ setworldcenter(vec3_t pos)
 int
 load_chunk(long x, long y, long z)
 {
-	//TODO: deal with section name length
-	char section_name[512];
-	snprintf(section_name, sizeof(section_name), "chunk_%li.%li.%li", x, y, z);
-
-	const unsigned char *section_data = save_get_section(save, section_name);
-	if(section_data)
+	if(SAVE_ENABLE)
 	{
-		long3_t pos = {x, y, z};
-		int3_t index = getchunkindexofchunk(pos);
-		return chunk_read(data[index.x][index.y][index.z].chunk, section_data);
+		//TODO: deal with section name length
+		char section_name[512];
+		snprintf(section_name, sizeof(section_name), "chunk_%li.%li.%li", x, y, z);
+
+		const unsigned char *section_data = save_get_section(save, section_name);
+		if(section_data)
+		{
+			long3_t pos = {x, y, z};
+			int3_t index = getchunkindexofchunk(pos);
+			return chunk_read(data[index.x][index.y][index.z].chunk, section_data);
+		}
 	}
 
 	return BLOCKS_FAIL;
@@ -121,18 +124,21 @@ load_chunk(long x, long y, long z)
 int
 save_chunk(int x, int y, int z)
 {
-	unsigned char *chunkdata;
-	long3_t pos;
-	size_t chunklen;
+	if(SAVE_ENABLE)
+	{
+		unsigned char *chunkdata;
+		long3_t pos;
+		size_t chunklen;
 
-	pos = chunk_pos_get(data[x][y][z].chunk);
-	chunklen = chunk_dump(data[x][y][z].chunk, &chunkdata);
+		pos = chunk_pos_get(data[x][y][z].chunk);
+		chunklen = chunk_dump(data[x][y][z].chunk, &chunkdata);
 
-	//TODO: deal with section name length
-	char section_name[512];
-	snprintf(section_name, sizeof(section_name), "chunk_%li.%li.%li", pos.x, pos.y, pos.z);
+		//TODO: deal with section name length
+		char section_name[512];
+		snprintf(section_name, sizeof(section_name), "chunk_%li.%li.%li", pos.x, pos.y, pos.z);
 
-	save_write_section(save, section_name, chunkdata, chunklen);
+		save_write_section(save, section_name, chunkdata, chunklen);
+	}
 
 	return BLOCKS_SUCCESS;
 }
@@ -249,7 +255,7 @@ generationthreadfunc(void *ptr)
 						chunk_lock(chunk);
 						chunk_unlock(chunk);
 
-						if(data[chunkindex.x][chunkindex.y][chunkindex.z].generated)
+						if(SAVE_ENABLE && data[chunkindex.x][chunkindex.y][chunkindex.z].generated)
 							save_chunk(chunkindex.x, chunkindex.y, chunkindex.z);
 						else
 							data[chunkindex.x][chunkindex.y][chunkindex.z].generated = 1;
@@ -530,6 +536,8 @@ generate(volatile int *status)
 save_t *
 save_open(const char *savename)
 {
+	if(!SAVE_ENABLE) return 0;
+
 	const char *directory = state_prefpath_get();
 
 	if(strlen(directory) + strlen(savename) + SAVE_EXTENSION_WORLD_LEN > SAVE_PATH_MAX_LEN)
@@ -575,23 +583,26 @@ world_init(vec3_t pos)
 
 int world_save()
 {
-	int x, y, z;
-	for(x = 0; x<WORLD_CHUNKS_PER_EDGE; ++x)
-	for(y = 0; y<WORLD_CHUNKS_PER_EDGE; ++y)
-	for(z = 0; z<WORLD_CHUNKS_PER_EDGE; ++z)
-		save_chunk(x, y, z);
+	if(SAVE_ENABLE)
+	{
+		int x, y, z;
+		for(x = 0; x<WORLD_CHUNKS_PER_EDGE; ++x)
+			for(y = 0; y<WORLD_CHUNKS_PER_EDGE; ++y)
+				for(z = 0; z<WORLD_CHUNKS_PER_EDGE; ++z)
+					save_chunk(x, y, z);
 
-	vec3_t pos = entity_pos_get(player);
-	long3_t posint = {floor(pos.x), floor(pos.y), floor(pos.z)};
+		vec3_t pos = entity_pos_get(player);
+		long3_t posint = {floor(pos.x), floor(pos.y), floor(pos.z)};
 
-	unsigned char *position = malloc(24);
-	save_write_int64(&position[0], posint.x);
-	save_write_int64(&position[8], posint.y);
-	save_write_int64(&position[16], posint.z);
+		unsigned char *position = malloc(24);
+		save_write_int64(&position[0], posint.x);
+		save_write_int64(&position[8], posint.y);
+		save_write_int64(&position[16], posint.z);
 
-	save_write_section(save, "world_player_pos", position, 24);
+		save_write_section(save, "world_player_pos", position, 24);
 
-	save_close(save);
+		save_close(save);
+	}
 
 	return 0;
 }
@@ -599,47 +610,53 @@ int world_save()
 int
 world_init_load(const char *savename, volatile int *status)
 {
-	save = save_open(savename);
-
-	const unsigned char *position = save_get_section(save, "world_player_pos");
-	vec3_t pos;
-
-	if(!position)
+	if(SAVE_ENABLE)
 	{
-		error("world_init_load(): player position not found");
-		pos.x = 0;
-		pos.y = 0;
-		pos.z = 0;
+		save = save_open(savename);
+
+		const unsigned char *position = save_get_section(save, "world_player_pos");
+		vec3_t pos;
+
+		if(!position)
+		{
+			error("world_init_load(): player position not found");
+			pos.x = 0;
+			pos.y = 0;
+			pos.z = 0;
+		} else {
+			pos.x = save_read_int64(position) + 0.5;
+			pos.y = save_read_int64(position+8) + 0.5;
+			pos.z = save_read_int64(position+16) + 0.5;
+		}
+
+		//TODO: read from file
+		uint32_t seed = 3;
+
+		world_set_seed(seed);
+
+		if(world_init(pos) == -1)
+			return -1;
+
+
+		//long x, y, z;
+		//for(x = worldscope.x; x<worldscope.x+WORLD_CHUNKS_PER_EDGE; ++x)
+		//for(y = worldscope.y; y<worldscope.y+WORLD_CHUNKS_PER_EDGE; ++y)
+		//for(z = worldscope.z; z<worldscope.z+WORLD_CHUNKS_PER_EDGE; ++z)
+		//	load_chunk(x, y, z);
+
+		generate(status);
+
+		return 1;
 	} else {
-		pos.x = save_read_int64(position) + 0.5;
-		pos.y = save_read_int64(position+8) + 0.5;
-		pos.z = save_read_int64(position+16) + 0.5;
+		world_init_new(status, savename);
 	}
-
-	//TODO: read from file
-	uint32_t seed = 3;
-
-	world_set_seed(seed);
-
-	if(world_init(pos) == -1)
-		return -1;
-
-
-	//long x, y, z;
-	//for(x = worldscope.x; x<worldscope.x+WORLD_CHUNKS_PER_EDGE; ++x)
-	//for(y = worldscope.y; y<worldscope.y+WORLD_CHUNKS_PER_EDGE; ++y)
-	//for(z = worldscope.z; z<worldscope.z+WORLD_CHUNKS_PER_EDGE; ++z)
-	//	load_chunk(x, y, z);
-
-	generate(status);
-
-	return 1;
 }
 
 int
 world_init_new(volatile int *status, const char *savename)
 {
-	save = save_open(savename);
+	if(SAVE_ENABLE)
+		save = save_open(savename);
 
 	//	world_seed_gen();
 	world_set_seed(3);
@@ -692,7 +709,7 @@ world_cleanup()
 	SDL_WaitThread(remeshthreadC, 0);
 	SDL_WaitThread(remeshthreadD, 0);
 
-	world_save();
+	if(SAVE_ENABLE) world_save();
 
 	int3_t chunkindex;
 	for(chunkindex.x=0; chunkindex.x<WORLD_CHUNKS_PER_EDGE; ++chunkindex.x)

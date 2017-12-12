@@ -42,5 +42,6 @@
 #define SAVE_PATH_MAX_LEN 512
 #define SAVE_EXTENSION_WORLD ".wrld"
 #define SAVE_EXTENSION_WORLD_LEN 5
+#define SAVE_ENABLE 0
 
 #endif
