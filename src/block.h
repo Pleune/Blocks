@@ -5,8 +5,8 @@
 #include "custommath.h"
 #include "directions.h"
 
-#define BLOCK_NUM_TYPES 9
-enum block_id {AIR = 0, STONE, DIRT, GRASS, SAND, BEDROCK, WATER, WATER_GEN, ERR};
+#define BLOCK_NUM_TYPES 12
+enum block_id {AIR = 0, STONE, DIRT, GRASS, SAND, BEDROCK, WATER, WATER_GEN, ROAD, LINE_YELLOW, LINE_WHITE, ERR};
 typedef enum block_id blockid_t;
 
 typedef struct {

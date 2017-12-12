@@ -9,5 +9,8 @@ const struct block_properties block_properties[BLOCK_NUM_TYPES] = {
 	[BEDROCK] = {1, {0.1,0.1,0.1}, "Hard Stone"},
 	[WATER] = {1, {0.08,0.08,0.3}, "Water"},
 	[WATER_GEN] = {1, {.8,.8,.8}, "Water Generator"},
+	[ROAD] = {1, {.1,.1,.1}, "Road"},
+	[LINE_YELLOW] = {1, {.85,.8,.4}, "Line Yellow"},
+	[LINE_WHITE] = {1, {.7, .7,.7}, "Line White"},
 	[ERR] = {0, {1,0,0}, "Error"}
 };

@@ -28,17 +28,29 @@ worldgen_t defaultcontext = {
  * flattens the world out around y = 0
  */
 static void
-bias(double *data)
+bias(double *data, long3_t wpos)
 {
 	int x, z;
 	for(x=0; x<CHUNKSIZE+1; ++x)
-	for(z=0; z<CHUNKSIZE+1; z++)
-	{
-		int index = x + z*(CHUNKSIZE+1);
-		double h = data[index];
+    {
+        long x_ = x + wpos.x;
+        if(x_ < 0) x_ = -x_;
+        x_ -= 8;
+        if(x_ < 0) x_ = 0;
+        if(x_ > 100) x_ = 100;
 
-		data[index] = (h*h*h*h*h)/(h*h*h*h+300*h*h);
-	}
+        float xbias = x_ / 100.0f;
+
+        xbias *= xbias;
+
+        for(z=0; z<CHUNKSIZE+1; z++)
+        {
+            int index = x + z*(CHUNKSIZE+1);
+            double h = data[index];
+
+            data[index] = (h*h*h*h*h)/(h*h*h*h+300*h*h) * xbias;
+        }
+    }
 }
 
 static double
@@ -183,7 +195,7 @@ setheightmapfromcpos(worldgen_t *context, long3_t cpos)
 		heightmap[CHUNKSIZE + 	CHUNKSIZE*(CHUNKSIZE+1)	] = metaheightmap[(inewdiasquareblockpos.x+1) + 	(inewdiasquareblockpos.z+1)*(DIAMONDSQUARESIZE+1)];
 
 		pound(heightmap, CHUNKSIZE+1, newchunkblockpos, seed, 1, CHUNK_LEVELS);
-		bias(heightmap);
+		bias(heightmap, newchunkblockpos);
 	}
 	return newchunkblockpos;
 }
@@ -255,7 +267,15 @@ worldgen_genchunk(worldgen_t *context, chunk_t *chunk, long3_t *cpos)
 			chunk_block_set_id(chunk, x, y, z, DIRT);
 		else if(blockheight < height)
 			if(height < .55)
-				chunk_block_set_id(chunk, x, y, z, SAND);
+                if(newchunkblockpos.x+x <= 6 && newchunkblockpos.x+x >= -6)
+                    if(newchunkblockpos.x+x == 5 || newchunkblockpos.x+x == -5)
+                        chunk_block_set_id(chunk, x, y, z, LINE_WHITE);
+                    else if (newchunkblockpos.x+x == 0)
+                        chunk_block_set_id(chunk, x, y, z, LINE_YELLOW);
+                    else
+                        chunk_block_set_id(chunk, x, y, z, ROAD);
+                else
+                    chunk_block_set_id(chunk, x, y, z, SAND);
 			else
 				chunk_block_set_id(chunk, x, y, z, GRASS);
 		else if(blockheight < 0)
