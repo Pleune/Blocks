@@ -18,7 +18,7 @@ uint32_t
 hash_nullterminated(const char* a)
 {
 	uint32_t sum = 0;
-	while(a != 0)
+	while(*a != 0)
 	{
 		sum += *a;
 		++a;
