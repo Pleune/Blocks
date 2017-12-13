@@ -67,6 +67,8 @@ state_menu_init(void *ptr)
 void
 state_menu_run(void *ptr)
 {
+	state_queue_push(WORLD_LOAD, 0);
+
 	uint32_t newticks = SDL_GetTicks();
 	//	uint32_t dt = ticks ? newticks - ticks : 0;
 	ticks = newticks;
