@@ -232,6 +232,8 @@ state_game_init(void *ptr)
 	updatethread = SDL_CreateThread(updatethreadfunc, "updatethread", 0);
 
 	textbox_fps = textbox_create(10, 10, 200, 100, "0fps", 0, TEXTBOX_FONT_ROBOTO_REGULAR, TEXTBOX_FONT_SIZE_MEDIUM, 0);
+
+	glClearColor(0.08, 0.4, 0.5, 1);
 }
 
 static void
