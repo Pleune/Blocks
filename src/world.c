@@ -630,20 +630,12 @@ world_init_load(const char *savename, volatile int *status)
 			pos.z = save_read_int64(position+16) + 0.5;
 		}
 
-		//TODO: read from file
 		uint32_t seed = 3;
 
 		world_set_seed(seed);
 
 		if(world_init(pos) == -1)
 			return -1;
-
-
-		//long x, y, z;
-		//for(x = worldscope.x; x<worldscope.x+WORLD_CHUNKS_PER_EDGE; ++x)
-		//for(y = worldscope.y; y<worldscope.y+WORLD_CHUNKS_PER_EDGE; ++y)
-		//for(z = worldscope.z; z<worldscope.z+WORLD_CHUNKS_PER_EDGE; ++z)
-		//	load_chunk(x, y, z);
 
 		generate(status);
 
