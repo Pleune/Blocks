@@ -270,7 +270,7 @@ worldgen_genchunk(worldgen_t *context, chunk_t *chunk, long3_t *cpos)
                 if(newchunkblockpos.x+x <= 6 && newchunkblockpos.x+x >= -6)
                     if(newchunkblockpos.x+x == 5 || newchunkblockpos.x+x == -5)
                         chunk_block_set_id(chunk, x, y, z, LINE_WHITE);
-                    else if (newchunkblockpos.x+x == 0)
+                    else if (newchunkblockpos.x+x == 0 && ((newchunkblockpos.z+z)/4)%2 == 0)
                         chunk_block_set_id(chunk, x, y, z, LINE_YELLOW);
                     else
                         chunk_block_set_id(chunk, x, y, z, ROAD);
