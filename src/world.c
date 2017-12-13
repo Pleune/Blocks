@@ -463,10 +463,11 @@ generate_new_world_func(void *ptr)
 	stopthreads = 0;
 
 	struct world_genthread_s wginfo = { 0, 0, 0,
-		{0, 0, 0},
-		{WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE},
-		0
+                                        {0, WORLD_CHUNKS_PER_EDGE/2-1, 0},
+                                        {WORLD_CHUNKS_PER_EDGE, WORLD_CHUNKS_PER_EDGE*(2.0/3), WORLD_CHUNKS_PER_EDGE},
+                                        0
 	};
+
 	wginfo.initalized = SDL_CreateSemaphore(0);
 	wginfo.counter = status;
 
