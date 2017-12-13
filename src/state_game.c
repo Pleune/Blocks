@@ -18,6 +18,7 @@
 #include "entity.h"
 #include "worldgen.h"
 #include "textbox.h"
+#include "interface.h"
 
 #define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
 #define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049
@@ -71,6 +72,14 @@ static int takeinput = 1;
 static int flying = 0;
 static int updating = 1;
 static int usecontroller = 0;
+
+static interface_t *hud;
+static textbox_t *hud_speed;
+static textbox_t *hud_distance;
+static textbox_t *hud_eyes_on_road;
+static uint32_t hud_ui_speed;
+static uint32_t hud_ui_distance;
+static uint32_t hud_ui_eyes_on_road;
 
 struct {
 	double x, y;
@@ -234,6 +243,37 @@ state_game_init(void *ptr)
 	textbox_fps = textbox_create(10, 10, 200, 100, "0fps", 0, TEXTBOX_FONT_ROBOTO_REGULAR, TEXTBOX_FONT_SIZE_MEDIUM, 0);
 
 	glClearColor(0.08, 0.4, 0.5, 1);
+
+
+
+    hud_distance = textbox_create(
+		windoww/2-100, windowh/2, 120, 32,
+		" ",
+		TEXTBOX_COLOR_BLUE,
+		TEXTBOX_FONT_ROBOTO_REGULAR,
+		TEXTBOX_FONT_SIZE_MEDIUM,
+		TEXTBOX_FLAG_CENTER_V);
+
+    hud_speed = textbox_create(
+		windoww/2, windowh/2+30, 120, 32,
+		" ",
+		TEXTBOX_COLOR_BLUE,
+		TEXTBOX_FONT_ROBOTO_REGULAR,
+		TEXTBOX_FONT_SIZE_MEDIUM,
+		TEXTBOX_FLAG_CENTER_V);
+
+    hud_eyes_on_road = textbox_create(
+		windoww/2-100, windowh/2, 120, 32,
+		" ",
+		TEXTBOX_COLOR_BLUE,
+		TEXTBOX_FONT_ROBOTO_REGULAR,
+		TEXTBOX_FONT_SIZE_MEDIUM,
+		TEXTBOX_FLAG_CENTER_V);
+
+    hud = interface_create(0);
+    hud_ui_speed = interface_attach_textbox(hud, hud_speed);
+    hud_ui_distance = interface_attach_textbox(hud, hud_distance);
+    hud_ui_eyes_on_road = interface_attach_textbox(hud, hud_eyes_on_road);
 }
 
 static void
@@ -278,21 +318,18 @@ input()
 	rotatevec.z = sin(rotx)*inputvec.x + cos(rotx)*inputvec.z;
 	rotatevec.y = inputvec.y;
 
+    float speed = PLAYER_FLY_SPEED;
 	if(dt < 500)
 	{
-		if(flying)
-		{
-			rotatevec.x *= PLAYER_FLY_SPEED * dt / 1000.0;
-			rotatevec.y *= PLAYER_FLY_SPEED * dt / 1000.0;
-			rotatevec.z *= PLAYER_FLY_SPEED * dt / 1000.0;
-			entity_move(pos, &rotatevec);
-		} else {
-			rotatevec.x *= PLAYER_WALK_MAX_FORCE;
+			rotatevec.z = PLAYER_FLY_SPEED * dt / -1000.0;
 			rotatevec.y = 0;
-			rotatevec.z *= PLAYER_WALK_MAX_FORCE;
-			entity_update(pos, &rotatevec, dt/1000.0);
-		}
+			rotatevec.x = 0;
+			entity_move(pos, &rotatevec);
 	}
+
+    static char speed_buf[256];
+    snprintf(speed_buf, 256, "%f mph", speed);
+    textbox_set_txt(hud_speed, speed_buf);
 
 	if(keyboard[SDL_SCANCODE_R])
 	{
@@ -530,6 +567,7 @@ state_game_render()
 	}
 
 	textbox_render(textbox_fps);
+    interface_render(hud);
 }
 
 void

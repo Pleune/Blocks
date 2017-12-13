@@ -662,21 +662,8 @@ world_init_new(volatile int *status, const char *savename)
 	//	world_seed_gen();
 	world_set_seed(3);
 
-	vec3_t spawn = {0, 0, 0};
-	spawn.y = worldgen_get_height_of_pos(0, 0, 0)+1.1;
-
-	/*
-	int spawntries = 0;
-	while((spawn.y < 0 || spawn.y > 70) && spawntries < 500)
-	{
-		spawntries++;
-		spawn.x = (double)(rand()%10000) - 5000;
-		spawn.z = (double)(rand()%10000) - 5000;
-		spawn.y = worldgen_get_height_of_pos(0, spawn.x, spawn.z)+1.1;
-		info("spawn retry %i x: %f z: %f h: %f", spawntries, spawn.x, spawn.z, spawn.y);
-	}
-	*/
-
+	vec3_t spawn = {2, 0, 0};
+	spawn.y = worldgen_get_height_of_pos(0, 0, 0);
 	spawn.x += .5;
 	spawn.z += .5;
 
